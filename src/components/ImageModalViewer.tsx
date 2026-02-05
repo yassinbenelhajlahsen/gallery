@@ -1,0 +1,663 @@
+import React from "react";
+import type { ImageMeta } from "../services/storageService";
+
+export type ImageModalViewerProps = {
+  images: ImageMeta[];
+  initialIndex?: number;
+  isOpen: boolean;
+  onClose: () => void;
+  onChangeIndex?: (nextIndex: number) => void;
+  /** Resolves a cached thumbnail blob URL for an image (used as placeholder) */
+  resolveThumbUrl?: (image: ImageMeta) => string;
+  /** When true, preload full-res for ALL images instead of only the ±N window */
+  preloadAll?: boolean;
+};
+
+const clampIndex = (index: number, length: number) => {
+  if (length === 0) return 0;
+  if (index < 0) return length - 1;
+  if (index >= length) return 0;
+  return index;
+};
+
+const toLocalDate = (dateString: string) => {
+  if (!dateString) return new Date(0);
+
+  const trimmed = dateString.trim();
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch.map(Number);
+    return new Date(year, (month ?? 1) - 1, day ?? 1);
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [month, day, year] = trimmed.split("/").map(Number);
+    return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  }
+
+  return new Date(trimmed);
+};
+
+const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
+  images,
+  initialIndex = 0,
+  isOpen,
+  onClose,
+  onChangeIndex,
+  resolveThumbUrl,
+  preloadAll = false,
+}) => {
+  const [activeIndex, setActiveIndex] = React.useState(initialIndex);
+  const [isAnimating, setIsAnimating] = React.useState(false);
+  const [slideDirection, setSlideDirection] = React.useState<
+    "left" | "right" | null
+  >(null);
+  const [isClosing, setIsClosing] = React.useState(false);
+  const [hasInitialized, setHasInitialized] = React.useState(false);
+  const touchStartX = React.useRef<number | null>(null);
+  const animationTimeoutRef = React.useRef<number | null>(null);
+
+  // ── Full-res URL management ──
+  // Map of image id → full-res blob URL (only for the windowed preload area)
+  const [fullResUrls, setFullResUrls] = React.useState<Map<string, string>>(
+    new Map(),
+  );
+  const loadingIdsRef = React.useRef<Set<string>>(new Set());
+
+  const SLIDE_DURATION = 300;
+  const PRELOAD_AHEAD = 10;
+  const PRELOAD_BEHIND = 5;
+  const totalImages = images.length;
+
+  const clearAnimationTimeout = () => {
+    if (animationTimeoutRef.current != null) {
+      window.clearTimeout(animationTimeoutRef.current);
+      animationTimeoutRef.current = null;
+    }
+  };
+
+  // Reset state when modal closes completely
+  React.useEffect(() => {
+    if (!isOpen) {
+      const timer = setTimeout(() => {
+        setActiveIndex(0);
+        setSlideDirection(null);
+        setIsAnimating(false);
+        setIsClosing(false);
+        setHasInitialized(false);
+        // Release all full-res blob URLs
+        setFullResUrls((prev) => {
+          prev.forEach((url) => {
+            if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+          });
+          return new Map();
+        });
+        loadingIdsRef.current.clear();
+        clearAnimationTimeout();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // Initialize index when opening
+  React.useEffect(() => {
+    if (isOpen) {
+      const safeIndex = clampIndex(initialIndex, images.length);
+      setActiveIndex(safeIndex);
+      setIsClosing(false);
+      // Set initialized flag after a brief delay to allow DOM to settle
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setHasInitialized(true);
+        });
+      });
+    }
+  }, [initialIndex, images.length, isOpen]);
+
+  // ── Full-res windowed preloading ──
+  // Load full-res for the active image + window, or ALL if preloadAll is set.
+  // Evict any blob URLs outside the window (only when not preloadAll).
+  React.useEffect(() => {
+    if (!isOpen || !images.length) return;
+
+    // Compute the set of indices we want loaded
+    const wantedIndices = new Set<number>();
+    if (preloadAll) {
+      for (let i = 0; i < images.length; i++) wantedIndices.add(i);
+    } else {
+      for (let offset = -PRELOAD_BEHIND; offset <= PRELOAD_AHEAD; offset++) {
+        const idx = activeIndex + offset;
+        if (idx >= 0 && idx < images.length) {
+          wantedIndices.add(idx);
+        }
+      }
+    }
+
+    const wantedIds = new Set<string>();
+    wantedIndices.forEach((idx) => {
+      const img = images[idx];
+      if (img) wantedIds.add(img.id);
+    });
+
+    // Evict entries outside the window
+    setFullResUrls((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, url] of prev) {
+        if (!wantedIds.has(id)) {
+          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    // Clean loadingIdsRef for evicted images so they can be re-fetched
+    for (const id of loadingIdsRef.current) {
+      if (!wantedIds.has(id)) {
+        loadingIdsRef.current.delete(id);
+      }
+    }
+
+    // Start loading wanted images that aren't already loaded or in-flight
+    wantedIndices.forEach((idx) => {
+      const img = images[idx];
+      if (!img) return;
+      if (loadingIdsRef.current.has(img.id)) return;
+
+      loadingIdsRef.current.add(img.id);
+
+      fetch(img.downloadUrl, { mode: "cors" })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          setFullResUrls((prev) => {
+            // Don't overwrite if already present (race)
+            if (prev.has(img.id)) {
+              URL.revokeObjectURL(objectUrl);
+              return prev;
+            }
+            const next = new Map(prev);
+            next.set(img.id, objectUrl);
+            return next;
+          });
+        })
+        .catch((err) => {
+          console.warn(`[Modal] Failed to load full-res for ${img.id}:`, err);
+          loadingIdsRef.current.delete(img.id);
+        });
+    });
+  }, [activeIndex, images, isOpen, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
+
+  const goToIndex = React.useCallback(
+    (next: number, direction: "left" | "right", immediate = false) => {
+      if (!images.length) return;
+
+      const safeIndex = clampIndex(next, images.length);
+      if (safeIndex === activeIndex && !immediate) return;
+
+      if (immediate) {
+        setActiveIndex(safeIndex);
+        onChangeIndex?.(safeIndex);
+        return;
+      }
+
+      setIsAnimating(true);
+      setSlideDirection(direction);
+      setActiveIndex(safeIndex);
+      onChangeIndex?.(safeIndex);
+
+      clearAnimationTimeout();
+      animationTimeoutRef.current = window.setTimeout(() => {
+        setIsAnimating(false);
+        setSlideDirection(null);
+        animationTimeoutRef.current = null;
+      }, SLIDE_DURATION);
+    },
+    [SLIDE_DURATION, activeIndex, images.length, onChangeIndex],
+  );
+
+  React.useEffect(() => {
+    return () => {
+      clearAnimationTimeout();
+    };
+  }, []);
+
+  const goToNext = React.useCallback(() => {
+    goToIndex(activeIndex + 1, "left");
+  }, [activeIndex, goToIndex]);
+
+  const goToPrev = React.useCallback(() => {
+    goToIndex(activeIndex - 1, "right");
+  }, [activeIndex, goToIndex]);
+
+  const handleClose = React.useCallback(() => {
+    setIsClosing(true);
+    // Let the layout effect handle background reset when isOpen changes
+    setTimeout(() => {
+      onClose();
+    }, 200);
+  }, [onClose]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleClose();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goToNext();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goToPrev();
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [goToNext, goToPrev, handleClose, isOpen]);
+
+  // Use layout effect to set background BEFORE paint, ensuring consistent timing
+  React.useLayoutEffect(() => {
+    if (isOpen) {
+      // Set dark background synchronously before browser paints
+      document.documentElement.style.backgroundColor = "#000";
+      document.body.style.backgroundColor = "#000";
+      document.body.style.overflow = "hidden";
+    } else {
+      // Reset immediately when closing
+      document.documentElement.style.backgroundColor = "";
+      document.body.style.backgroundColor = "";
+      document.body.style.overflow = "";
+    }
+  }, [isOpen]);
+  const handleBackdropClick = (event: React.MouseEvent) => {
+    if (event.target === event.currentTarget) {
+      handleClose();
+    }
+  };
+
+  const handleTouchStart = (event: React.TouchEvent) => {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent) => {
+    if (touchStartX.current == null) return;
+    const deltaX =
+      (event.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+    const threshold = 50;
+    if (deltaX > threshold) {
+      goToPrev();
+    } else if (deltaX < -threshold) {
+      goToNext();
+    }
+    touchStartX.current = null;
+  };
+
+  if (!isOpen || !images.length) {
+    return null;
+  }
+
+  const currentImage = images[activeIndex];
+  const hasMultipleImages = images.length > 1;
+  const imageUrl = currentImage
+    ? (fullResUrls.get(currentImage.id) ??
+      resolveThumbUrl?.(currentImage) ??
+      currentImage.thumbUrl)
+    : undefined;
+  const hasImageData = Boolean(currentImage && imageUrl);
+  const eventLabel = currentImage?.event ?? "Memory";
+  const captionLabel = currentImage?.caption;
+  const dateLabel = currentImage
+    ? toLocalDate(currentImage.date).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "";
+  const progressPercent = totalImages
+    ? Math.min(100, ((activeIndex + 1) / totalImages) * 100)
+    : 0;
+  const accentPalette = ["#F7DEE2", "#D8ECFF", "#FFE89D", "#E8D4F8", "#B9E4FF"];
+  const accentColor = accentPalette[activeIndex % accentPalette.length];
+  const slideAnimationClass =
+    slideDirection === "left"
+      ? "slide-in-left"
+      : slideDirection === "right"
+        ? "slide-in-right"
+        : "";
+  const metadataKey = currentImage?.id ?? `meta-${activeIndex}`;
+
+  return (
+    <div
+      className={`modal-backdrop-reveal modal-safe-area-mask fixed z-50 bg-black/80 px-3 py-6 text-white sm:px-8 sm:py-10 transition-opacity duration-300 ${
+        isClosing ? "opacity-0" : "opacity-100"
+      }`}
+      style={{
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingTop: "max(1.5rem, env(safe-area-inset-top))",
+        paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      role="dialog"
+      aria-modal="true"
+      onClick={handleBackdropClick}
+    >
+      <div
+        className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
+          isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100"
+        }`}
+        style={{
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.5rem)",
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="pointer-events-none absolute inset-0">
+          <div className="modal-glow absolute -top-16 left-8 h-56 w-56 rounded-full bg-[#F7DEE2]/35 blur-[120px]" />
+          <div className="modal-glow absolute -bottom-10 right-0 h-64 w-64 rounded-full bg-[#D8ECFF]/30 blur-[140px]" />
+        </div>
+        <button
+          type="button"
+          className="absolute right-4 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-[#1a1a1a]/80 text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10 backdrop-blur-lg transition-all duration-200 hover:bg-[#2a2a2a] hover:text-white hover:ring-white/20 active:scale-95 sm:h-12 sm:w-12"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
+          onClick={handleClose}
+          aria-label="Close modal"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="transition-transform duration-200"
+          >
+            <line x1="2" y1="2" x2="14" y2="14" />
+            <line x1="14" y1="2" x2="2" y2="14" />
+          </svg>
+        </button>
+
+        <div className="flex flex-col gap-4 sm:gap-6">
+          <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-black/20 p-4 sm:min-h-105 overflow-hidden">
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
+
+            {hasImageData ? (
+              <div
+                className={`flex w-full items-center gap-6 ${
+                  isAnimating ? "cursor-grabbing" : "cursor-pointer"
+                }`}
+                style={{
+                  transform: `translateX(calc(${activeIndex} * (-100% - 1.5rem)))`,
+                  transitionDuration: hasInitialized
+                    ? `${SLIDE_DURATION}ms`
+                    : "0ms",
+                  transitionTimingFunction: "cubic-bezier(0.22,0.61,0.36,1)",
+                  transitionProperty: "transform",
+                }}
+              >
+                {images.map((image, index) => {
+                  // Prefer full-res blob if loaded, otherwise use thumbnail
+                  const thumbUrl = resolveThumbUrl?.(image) ?? image.thumbUrl;
+                  const fullUrl = fullResUrls.get(image.id);
+                  const imgUrl = fullUrl ?? thumbUrl;
+                  const isActiveSlide = index === activeIndex;
+                  const isFullRes = fullResUrls.has(image.id);
+
+                  return (
+                    <div
+                      key={`${image.id}-${index}`}
+                      className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-black/10 p-3 shadow-2xl transition-all duration-500 ${
+                        isActiveSlide
+                          ? `scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)] ${
+                              slideAnimationClass || ""
+                            }`
+                          : slideDirection === "left"
+                            ? index < activeIndex
+                              ? "scale-95 opacity-60"
+                              : "scale-90 opacity-45"
+                            : slideDirection === "right"
+                              ? index > activeIndex
+                                ? "scale-95 opacity-60"
+                                : "scale-90 opacity-45"
+                              : "scale-95 opacity-55"
+                      }`}
+                    >
+                      {imgUrl ? (
+                        <ModalImage
+                          src={imgUrl}
+                          thumbSrc={thumbUrl}
+                          alt={image.caption ?? image.event ?? "Gallery image"}
+                          isActive={isActiveSlide}
+                          isFullRes={isFullRes}
+                        />
+                      ) : (
+                        <p className="text-center text-sm text-white/80">
+                          Unable to load image.
+                        </p>
+                      )}
+                      <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center text-sm text-white/80">
+                Unable to load image.
+              </p>
+            )}
+
+            {hasMultipleImages && (
+              <div className="pointer-events-none absolute inset-0 hidden items-center justify-between px-2 sm:flex">
+                <button
+                  type="button"
+                  onClick={goToPrev}
+                  className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
+                  aria-label="Previous image"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={goToNext}
+                  className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
+                  aria-label="Next image"
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
+
+          <footer
+            className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-white/80 sm:flex-row sm:items-center sm:justify-between transition-all duration-300"
+            aria-live="polite"
+          >
+            <div
+              key={metadataKey}
+              className="metadata-fade-up transition-opacity duration-200"
+            >
+              <p className="text-base font-semibold text-white">{eventLabel}</p>
+              {captionLabel && (
+                <p className="leading-relaxed text-white/80">{captionLabel}</p>
+              )}
+              {dateLabel && (
+                <p className="text-xs text-white/60">{dateLabel}</p>
+              )}
+            </div>
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white/90">
+                  {activeIndex + 1}
+                </span>
+                <span className="text-xs text-white/40">/</span>
+                <span className="text-xs text-white/60">{images.length}</span>
+              </div>
+              {images.length <= 10 ? (
+                <div className="flex items-center gap-1.5" role="presentation">
+                  {Array.from({ length: images.length }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() =>
+                        goToIndex(i, i > activeIndex ? "left" : "right")
+                      }
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        i === activeIndex
+                          ? "w-8 opacity-100"
+                          : "w-1.5 opacity-40 hover:opacity-70"
+                      }`}
+                      style={{
+                        backgroundColor:
+                          i === activeIndex
+                            ? accentColor
+                            : "rgba(255, 255, 255, 0.6)",
+                      }}
+                      aria-label={`Go to image ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="relative h-1 w-full overflow-hidden rounded-full bg-white/10 sm:w-32"
+                  role="presentation"
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${progressPercent}%`,
+                      backgroundColor: accentColor,
+                      boxShadow: `0 0 12px ${accentColor}80`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** Image with loading spinner for the modal — layers thumb + full-res */
+const ModalImage: React.FC<{
+  src: string;
+  alt: string;
+  isActive: boolean;
+  isFullRes: boolean;
+  thumbSrc?: string;
+}> = ({ src, alt, isActive, isFullRes, thumbSrc }) => {
+  const [thumbLoaded, setThumbLoaded] = React.useState(false);
+  const [fullLoaded, setFullLoaded] = React.useState(false);
+
+  // Track the thumb src so we know when it changes (new image entirely)
+  const prevThumbSrcRef = React.useRef(thumbSrc);
+  if (prevThumbSrcRef.current !== thumbSrc) {
+    prevThumbSrcRef.current = thumbSrc;
+    setThumbLoaded(false);
+    setFullLoaded(false);
+  }
+
+  // Reset full-res loaded when the full-res src changes
+  const prevFullSrcRef = React.useRef(isFullRes ? src : null);
+  const currentFullSrc = isFullRes ? src : null;
+  if (prevFullSrcRef.current !== currentFullSrc) {
+    prevFullSrcRef.current = currentFullSrc;
+    setFullLoaded(false);
+  }
+
+  // Instantly mark loaded if the browser already decoded the image
+  const thumbImgRef = React.useCallback(
+    (img: HTMLImageElement | null) => {
+      if (img && img.complete && img.naturalWidth > 0) {
+        setThumbLoaded(true);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [thumbSrc],
+  );
+
+  const fullImgRef = React.useCallback(
+    (img: HTMLImageElement | null) => {
+      if (img && img.complete && img.naturalWidth > 0) {
+        setFullLoaded(true);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentFullSrc],
+  );
+
+  const showSpinner =
+    !thumbLoaded ||
+    (isActive && !isFullRes) ||
+    (isActive && isFullRes && !fullLoaded);
+  const actualThumbSrc = thumbSrc ?? (isFullRes ? undefined : src);
+
+  return (
+    <div className="relative flex w-full items-center justify-center">
+      {showSpinner && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <svg
+            className="h-8 w-8 animate-spin text-white/40"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+        </div>
+      )}
+      {/* Thumbnail layer — always visible as base */}
+      {actualThumbSrc && (
+        <img
+          ref={thumbImgRef}
+          src={actualThumbSrc}
+          alt={alt}
+          className={`max-h-[60vh] w-full rounded-[28px] object-contain ${
+            isActive ? "kenburns-active" : ""
+          } ${thumbLoaded ? "opacity-100" : "opacity-0"}`}
+          loading={isActive ? "eager" : "lazy"}
+          onLoad={() => setThumbLoaded(true)}
+        />
+      )}
+      {/* Full-res layer — overlays once loaded */}
+      {isFullRes && currentFullSrc && (
+        <img
+          ref={fullImgRef}
+          src={currentFullSrc}
+          alt={alt}
+          className={`absolute inset-0 max-h-[60vh] w-full rounded-[28px] object-contain ${
+            isActive ? "kenburns-active" : ""
+          } ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
+          loading="eager"
+          onLoad={() => setFullLoaded(true)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default ImageModalViewer;

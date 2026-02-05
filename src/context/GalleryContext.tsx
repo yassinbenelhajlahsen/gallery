@@ -1,0 +1,289 @@
+/* eslint-disable react-refresh/only-export-components */
+import type { PropsWithChildren } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type { ImageMeta, PreloadedImage } from "../services/storageService";
+import { fetchAllImageMetadata } from "../services/storageService";
+import {
+  loadFromCache,
+  syncCache,
+  clearCache,
+} from "../services/imageCacheService";
+import { useAuth } from "./AuthContext";
+
+type OpenModalOptions = {
+  initialIndex?: number;
+  imageId?: string;
+  /** When true, the modal will preload full-res for ALL images (not just ±N window) */
+  preloadAll?: boolean;
+};
+
+type GalleryContextValue = {
+  imageMetas: ImageMeta[];
+  preloadedImages: PreloadedImage[];
+  isGalleryLoading: boolean;
+  hasGalleryLoadedOnce: boolean;
+  loadError: string | null;
+  loadingProgress: number;
+  /** Resolves a thumbnail blob URL if cached, otherwise falls back to thumbUrl */
+  resolveThumbUrl: (meta: ImageMeta) => string;
+  isModalOpen: boolean;
+  modalImages: ImageMeta[];
+  modalInitialIndex: number;
+  /** Whether the modal should preload ALL images (vs windowed ±N) */
+  modalPreloadAll: boolean;
+  openModalWithImages: (
+    images: ImageMeta[],
+    options?: OpenModalOptions,
+  ) => void;
+  openModalForImageId: (imageId: string, collection?: ImageMeta[]) => void;
+  closeModal: () => void;
+  updateModalIndex: (index: number) => void;
+};
+
+const GalleryContext = createContext<GalleryContextValue | undefined>(
+  undefined,
+);
+
+const releasePreloadedUrls = (items: PreloadedImage[]) => {
+  if (typeof URL === "undefined" || typeof URL.revokeObjectURL !== "function") {
+    return;
+  }
+  items.forEach((item) => {
+    if (item.objectUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(item.objectUrl);
+    }
+  });
+};
+
+export const GalleryProvider = ({ children }: PropsWithChildren) => {
+  const { user, initializing } = useAuth();
+  const [imageMetas, setImageMetas] = useState<ImageMeta[]>([]);
+  const [preloadedImages, setPreloadedImages] = useState<PreloadedImage[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
+  const [hasGalleryLoadedOnce, setHasGalleryLoadedOnce] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [modalImages, setModalImages] = useState<ImageMeta[]>([]);
+  const [modalInitialIndex, setModalInitialIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalPreloadAll, setModalPreloadAll] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      releasePreloadedUrls(preloadedImages);
+    };
+  }, [preloadedImages]);
+
+  const resetState = useCallback(() => {
+    setImageMetas([]);
+    setPreloadedImages([]);
+    setHasGalleryLoadedOnce(false);
+    setIsGalleryLoading(false);
+    setLoadError(null);
+    setLoadingProgress(0);
+    setModalImages([]);
+    setModalInitialIndex(0);
+    setIsModalOpen(false);
+    setModalPreloadAll(false);
+    // Clear the IndexedDB cache on logout
+    clearCache();
+  }, []);
+
+  useEffect(() => {
+    if (initializing) {
+      return;
+    }
+
+    if (!user) {
+      resetState();
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
+      setIsGalleryLoading(true);
+      setLoadError(null);
+      setLoadingProgress(0);
+
+      try {
+        // ── Phase 1: Instant restore from IndexedDB cache ──
+        const cached = await loadFromCache();
+
+        if (cached && cached.metas.length && !cancelled) {
+          setImageMetas(cached.metas);
+          setPreloadedImages(cached.preloaded);
+          setHasGalleryLoadedOnce(true);
+          setLoadingProgress(100);
+        }
+
+        // ── Phase 2: Fetch fresh metadata from Firebase ──
+        const freshMetas = await fetchAllImageMetadata();
+        if (cancelled) return;
+
+        if (!freshMetas.length) {
+          setImageMetas([]);
+          setPreloadedImages([]);
+          setHasGalleryLoadedOnce(true);
+          setLoadingProgress(100);
+          return;
+        }
+
+        // Update metas immediately so any new/removed images are reflected
+        setImageMetas(freshMetas);
+
+        // If we had no cache, show the initial 20% progress
+        if (!cached || !cached.metas.length) {
+          setLoadingProgress(20);
+        }
+
+        // ── Phase 3: Diff-sync — download only NEW images ──
+        const synced = await syncCache(freshMetas, (loaded, total) => {
+          if (cancelled) return;
+          // If we already showed the gallery from cache, keep progress at 100
+          if (cached && cached.metas.length) return;
+          const progress = 20 + (loaded / total) * 80;
+          setLoadingProgress(progress);
+        });
+
+        if (cancelled) {
+          // Release any object URLs we just created
+          releasePreloadedUrls(synced);
+          return;
+        }
+
+        // Release old preloaded URLs before replacing
+        setPreloadedImages((prev) => {
+          releasePreloadedUrls(prev);
+          return synced;
+        });
+        setHasGalleryLoadedOnce(true);
+        setLoadingProgress(100);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load gallery", error);
+          setLoadError(
+            error instanceof Error ? error.message : "Failed to load gallery",
+          );
+          setHasGalleryLoadedOnce(true);
+          setLoadingProgress(100);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsGalleryLoading(false);
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, resetState, user]);
+
+  const resolveThumbUrl = useCallback(
+    (meta: ImageMeta) =>
+      preloadedImages.find((item) => item.meta.id === meta.id)?.objectUrl ??
+      meta.thumbUrl,
+    [preloadedImages],
+  );
+
+  const openModalWithImages = useCallback(
+    (images: ImageMeta[], options?: OpenModalOptions) => {
+      if (!images.length) return;
+      const safeImages = [...images];
+      const providedIndex = options?.initialIndex ?? 0;
+      let index = providedIndex;
+      if (options?.imageId) {
+        const found = safeImages.findIndex((img) => img.id === options.imageId);
+        if (found >= 0) {
+          index = found;
+        }
+      }
+      const clampedIndex = Math.min(Math.max(index, 0), safeImages.length - 1);
+      setModalImages(safeImages);
+      setModalInitialIndex(clampedIndex);
+      setModalPreloadAll(options?.preloadAll ?? false);
+      setIsModalOpen(true);
+    },
+    [],
+  );
+
+  const openModalForImageId = useCallback(
+    (imageId: string, collection?: ImageMeta[]) => {
+      if (!imageId) return;
+      const source = collection && collection.length ? collection : imageMetas;
+      if (!source.length) return;
+      const index = source.findIndex((meta) => meta.id === imageId);
+      openModalWithImages(source, {
+        initialIndex: index >= 0 ? index : 0,
+      });
+    },
+    [imageMetas, openModalWithImages],
+  );
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  const updateModalIndex = useCallback((index: number) => {
+    setModalInitialIndex(index);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      imageMetas,
+      preloadedImages,
+      isGalleryLoading,
+      hasGalleryLoadedOnce,
+      loadError,
+      loadingProgress,
+      resolveThumbUrl,
+      isModalOpen,
+      modalImages,
+      modalInitialIndex,
+      modalPreloadAll,
+      openModalWithImages,
+      openModalForImageId,
+      closeModal,
+      updateModalIndex,
+    }),
+    [
+      imageMetas,
+      preloadedImages,
+      isGalleryLoading,
+      hasGalleryLoadedOnce,
+      loadError,
+      loadingProgress,
+      resolveThumbUrl,
+      isModalOpen,
+      modalImages,
+      modalInitialIndex,
+      modalPreloadAll,
+      openModalWithImages,
+      openModalForImageId,
+      closeModal,
+      updateModalIndex,
+    ],
+  );
+
+  return (
+    <GalleryContext.Provider value={value}>{children}</GalleryContext.Provider>
+  );
+};
+
+export const useGallery = () => {
+  const context = useContext(GalleryContext);
+  if (!context) {
+    throw new Error("useGallery must be used within a GalleryProvider");
+  }
+  return context;
+};

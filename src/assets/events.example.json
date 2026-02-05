@@ -1,0 +1,21 @@
+[
+  {
+    "id": "evt-001",
+    "date": "2022-01-01",
+    "title": "First Event",
+    "emojiOrDot": "📅"
+  },
+  {
+    "id": "evt-002",
+    "date": "2023-06-15",
+    "title": "Birthday Celebration",
+    "emojiOrDot": "🎂",
+    "imageIds": ["birthday-01.jpg", "birthday-02.jpg"]
+  },
+  {
+    "id": "evt-003",
+    "date": "2024-02-14",
+    "title": "Special Day",
+    "emojiOrDot": "❤️"
+  }
+]
