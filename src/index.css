@@ -1,0 +1,313 @@
+@import "tailwindcss";
+
+/* ── Accessible focus ring (pastel-themed) ── */
+*:focus-visible {
+  outline: 2px solid #f7dee2;
+  outline-offset: 2px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px rgba(247, 222, 226, 0.35);
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #facad5;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(250, 202, 213, 0.4);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #d8ecff;
+  outline-offset: 0px;
+  box-shadow: 0 0 0 4px rgba(216, 236, 255, 0.4);
+}
+
+/* Performance optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+@keyframes heartFloat {
+  0% {
+    transform: translateY(0) scale(0.95);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(0.95);
+    opacity: 0.7;
+  }
+}
+
+/* Skeleton loader shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.skeleton-loader {
+  background: linear-gradient(90deg, #f0f0f0 0px, #f8f8f8 40px, #f0f0f0 80px);
+  background-size: 468px;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+/* Fast spring animation for interactive elements */
+@keyframes springPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.spring-pop {
+  animation: springPop 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.modal-backdrop-reveal {
+  animation: modalBackdropReveal 0.25s ease-out forwards;
+  /* Extend to cover safe areas on mobile */
+  min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport height */
+}
+
+/* Dark overlay for safe areas on mobile */
+.modal-backdrop-reveal::before {
+  content: "";
+  position: fixed;
+  top: calc(-1 * env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  background: #000;
+  z-index: -1;
+  opacity: 0.85;
+}
+
+@media (min-width: 640px) {
+  .modal-backdrop-reveal::before {
+    display: none;
+  }
+}
+
+.modal-card-reveal {
+  animation: modalCardReveal 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.modal-glow {
+  animation: modalGlowPulse 9s ease-in-out infinite;
+}
+
+.metadata-fade-up {
+  animation: metadataFadeUp 0.3s ease-out;
+}
+
+.slide-in-left {
+  animation: slideInFromLeft 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.slide-in-right {
+  animation: slideInFromRight 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.kenburns-active {
+  animation: kenBurnsSoft 18s ease-in-out infinite alternate;
+}
+
+.modal-safe-area-mask::before,
+.modal-safe-area-mask::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.95;
+}
+
+.modal-safe-area-mask::before {
+  top: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 32px);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
+}
+
+.modal-safe-area-mask::after {
+  bottom: 0;
+  height: calc(env(safe-area-inset-bottom, 0px) + 40px);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
+}
+
+@media (min-width: 640px) {
+  .modal-safe-area-mask::before,
+  .modal-safe-area-mask::after {
+    opacity: 0.6;
+  }
+}
+
+@keyframes modalBackdropReveal {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modalCardReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalGlowPulse {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.85) translateY(8px);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1) translateY(-8px);
+  }
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85) translateY(8px);
+  }
+}
+
+@keyframes slideInFromRight {
+  0% {
+    opacity: 0;
+    transform: translateX(45px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes slideInFromLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-45px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes kenBurnsSoft {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    transform: scale(1.06) translateY(-4%);
+  }
+}
+
+@keyframes heartDrift {
+  0% {
+    transform: translateX(-20%) scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(40%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%) scale(1.05);
+    opacity: 0.7;
+  }
+}
+
+@keyframes shimmerBar {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 125% 50%;
+  }
+}
+
+.heart-floating {
+  animation: heartFloat 8s ease-in-out infinite;
+}
+
+.heart-floating.delay-1 {
+  animation-delay: -2s;
+}
+
+.heart-floating.delay-2 {
+  animation-delay: -3.5s;
+}
+
+.heart-floating.delay-3 {
+  animation-delay: -5s;
+}
+
+.loader-heart {
+  animation: heartDrift 3s ease-in-out infinite;
+}
+
+.loader-heart.delay-1 {
+  animation-delay: -1s;
+}
+
+.loader-heart.delay-2 {
+  animation-delay: -2s;
+}
+
+.progress-shimmer {
+  background-image: linear-gradient(90deg, #f7dee2, #d8ecff, #f9e1e8);
+  background-size: 200% 100%;
+  animation: shimmerBar 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart-floating,
+  .loader-heart,
+  .progress-shimmer,
+  .modal-backdrop-reveal,
+  .modal-card-reveal,
+  .modal-glow,
+  .metadata-fade-up,
+  .slide-in-left,
+  .slide-in-right,
+  .kenburns-active {
+    animation: none;
+  }
+}
+
+/* Toast slide-up entrance */
+@keyframes toastSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
