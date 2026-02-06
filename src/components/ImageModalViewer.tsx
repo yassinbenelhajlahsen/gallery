@@ -50,9 +50,6 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 }) => {
   const [activeIndex, setActiveIndex] = React.useState(initialIndex);
   const [isAnimating, setIsAnimating] = React.useState(false);
-  const [slideDirection, setSlideDirection] = React.useState<
-    "left" | "right" | null
-  >(null);
   const [isClosing, setIsClosing] = React.useState(false);
   const [hasInitialized, setHasInitialized] = React.useState(false);
   const touchStartX = React.useRef<number | null>(null);
@@ -82,7 +79,6 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
     if (!isOpen) {
       const timer = setTimeout(() => {
         setActiveIndex(0);
-        setSlideDirection(null);
         setIsAnimating(false);
         setIsClosing(false);
         setHasInitialized(false);
@@ -193,7 +189,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   }, [activeIndex, images, isOpen, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
 
   const goToIndex = React.useCallback(
-    (next: number, direction: "left" | "right", immediate = false) => {
+    (next: number, _direction?: "left" | "right", immediate = false) => {
       if (!images.length) return;
 
       const safeIndex = clampIndex(next, images.length);
@@ -206,14 +202,12 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       }
 
       setIsAnimating(true);
-      setSlideDirection(direction);
       setActiveIndex(safeIndex);
       onChangeIndex?.(safeIndex);
 
       clearAnimationTimeout();
       animationTimeoutRef.current = window.setTimeout(() => {
         setIsAnimating(false);
-        setSlideDirection(null);
         animationTimeoutRef.current = null;
       }, SLIDE_DURATION);
     },
@@ -324,12 +318,6 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
     : 0;
   const accentPalette = ["#F7DEE2", "#D8ECFF", "#FFE89D", "#E8D4F8", "#B9E4FF"];
   const accentColor = accentPalette[activeIndex % accentPalette.length];
-  const slideAnimationClass =
-    slideDirection === "left"
-      ? "slide-in-left"
-      : slideDirection === "right"
-        ? "slide-in-right"
-        : "";
   const metadataKey = currentImage?.id ?? `meta-${activeIndex}`;
 
   return (
@@ -418,20 +406,10 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                   return (
                     <div
                       key={`${image.id}-${index}`}
-                      className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-black/10 p-3 shadow-2xl transition-all duration-500 ${
+                      className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-black/10 p-3 shadow-2xl transition-transform duration-500 ${
                         isActiveSlide
-                          ? `scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)] ${
-                              slideAnimationClass || ""
-                            }`
-                          : slideDirection === "left"
-                            ? index < activeIndex
-                              ? "scale-95 opacity-60"
-                              : "scale-90 opacity-45"
-                            : slideDirection === "right"
-                              ? index > activeIndex
-                                ? "scale-95 opacity-60"
-                                : "scale-90 opacity-45"
-                              : "scale-95 opacity-55"
+                          ? "scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)]"
+                          : "scale-95 opacity-100"
                       }`}
                     >
                       {imgUrl ? (
