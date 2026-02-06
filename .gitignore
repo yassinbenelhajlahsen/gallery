@@ -14,7 +14,8 @@ dist-ssr
 
 .env
 
-# Events data (contains personal info — see events.example.json)
+cors.json
+.firebase
 src/assets/events.json
 
 # Editor directories and files
