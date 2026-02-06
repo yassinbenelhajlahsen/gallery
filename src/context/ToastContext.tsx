@@ -14,6 +14,7 @@ type Toast = {
   id: number;
   message: string;
   variant: ToastVariant;
+  leaving: boolean;
 };
 
 type ToastContextValue = {
@@ -24,7 +25,8 @@ const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
 let nextId = 0;
 
-const TOAST_DURATION = 3500;
+const TOAST_DURATION = 1500;
+const EXIT_DURATION = 350;
 
 export const ToastProvider = ({ children }: PropsWithChildren) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -32,10 +34,17 @@ export const ToastProvider = ({ children }: PropsWithChildren) => {
   const addToast = useCallback(
     (message: string, variant: ToastVariant = "logout") => {
       const id = nextId++;
-      setToasts((prev) => [...prev, { id, message, variant }]);
+      setToasts((prev) => [...prev, { id, message, variant, leaving: false }]);
 
       setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
+        // Mark toast as leaving to trigger exit animation
+        setToasts((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)),
+        );
+        // Remove from DOM after exit animation completes
+        setTimeout(() => {
+          setToasts((prev) => prev.filter((t) => t.id !== id));
+        }, EXIT_DURATION);
       }, TOAST_DURATION);
     },
     [],
@@ -87,7 +96,12 @@ const ToastContainer: React.FC<{ toasts: Toast[] }> = ({ toasts }) => {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`pointer-events-auto animate-[toastSlideUp_0.35s_ease-out] rounded-2xl border px-5 py-3 text-sm font-semibold backdrop-blur-lg transition-all ${variantStyles[t.variant]}`}
+          className={`pointer-events-auto rounded-2xl border px-5 py-3 text-sm font-semibold backdrop-blur-lg transition-all ${variantStyles[t.variant]}`}
+          style={{
+            animation: t.leaving
+              ? `toastSlideDown 0.35s ease-in forwards`
+              : `toastSlideUp 0.35s ease-out`,
+          }}
           role="status"
         >
           <span className="mr-2" aria-hidden="true">
