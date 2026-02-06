@@ -189,7 +189,10 @@ toast(message: string, variant?: "success" | "error" | "logout")
 
 ### `useFullResLoader`
 
-Used by `HomePage` and `SeeAllGalleryPage` to **progressively upgrade** grid tiles from thumbnails to full-resolution.
+Used by `HomePage` and `SeeAllGalleryPage` to load full-resolution images as blob URLs.
+
+- **`HomePage`** fetches full-res for its 6/9 chosen tiles and **gates all rendering** behind `allFullResReady` — no thumbnails are ever shown. A loading spinner is displayed until every chosen image has its full-res blob loaded.
+- **`SeeAllGalleryPage`** uses it for **progressive upgrade** — thumbnails display immediately, and full-res blobs overlay them as they load.
 
 ```typescript
 const { resolveUrl, requestFullRes, evict, hasFullRes } = useFullResLoader();
@@ -197,6 +200,7 @@ const { resolveUrl, requestFullRes, evict, hasFullRes } = useFullResLoader();
 requestFullRes(metas); // Start fetching full-res blobs
 const url = resolveUrl(meta, thumbUrl); // Returns full-res blob URL or fallback
 evict(keepIds); // Release blob URLs not in the keep-set
+const ready = hasFullRes(id); // Check if a specific image has full-res loaded
 ```
 
 - Fetches via `fetch(meta.downloadUrl)` → blob → `URL.createObjectURL`
@@ -231,7 +235,9 @@ Upload flow:
 Display flow:
   1. IndexedDB cache → thumbnail blob URL (instant, ~50ms)
   2. Firebase thumb URL → fallback if no cache
-  3. useFullResLoader → full-res blob URL (progressive upgrade on grids)
+  3. useFullResLoader → full-res blob URL
+     • HomePage: full-res only, gated behind loading spinner (no thumbnails shown)
+     • SeeAllGalleryPage: progressive upgrade (thumbnail shown first, full-res overlaid)
   4. ImageModalViewer → full-res blob URL (windowed ±10/5 preload)
 ```
 

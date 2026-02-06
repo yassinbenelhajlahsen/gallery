@@ -128,7 +128,7 @@ openModalWithImages(eventImages, { preloadAll: true });
 
 ### Displaying Images in a Grid
 
-Use `GalleryGrid` for any image grid. For progressive full-res loading:
+Use `GalleryGrid` for any image grid. For progressive full-res loading (used by `SeeAllGalleryPage`):
 
 ```tsx
 import { useFullResLoader } from "../hooks/useFullResLoader";
@@ -155,6 +155,18 @@ const tiles = metas.map((meta) => {
 });
 
 <GalleryGrid tiles={tiles} columns={{ base: 2, sm: 3, md: 4 }} />;
+```
+
+For **full-res-only rendering** (used by `HomePage`), gate the UI behind `hasFullRes`:
+
+```tsx
+const { resolveUrl, requestFullRes, hasFullRes } = useFullResLoader();
+
+// Check all images are loaded before showing any content
+const allReady =
+  chosenIds.length > 0 && chosenIds.every((id) => hasFullRes(id));
+
+// Show spinner until ready, then render images with full-res blob URLs only
 ```
 
 ### Adding a Timeline Event

@@ -2,12 +2,12 @@
 
 > Before making changes, consult the detailed docs in `docs/` — they are the source of truth.
 >
-> | Doc | Covers |
-> |---|---|
-> | [ARCHITECTURE.md](../docs/ARCHITECTURE.md) | Provider hierarchy, routing, guards, directory map, env config |
-> | [DATA-FLOW.md](../docs/DATA-FLOW.md) | Firebase → cache → context pipeline, loading sequence, memory management |
-> | [COMPONENTS.md](../docs/COMPONENTS.md) | Every component and page — props, behavior, usage examples |
-> | [CONVENTIONS.md](../docs/CONVENTIONS.md) | Code patterns, styling rules, how-to guides, common pitfalls |
+> | Doc                                        | Covers                                                                   |
+> | ------------------------------------------ | ------------------------------------------------------------------------ |
+> | [ARCHITECTURE.md](../docs/ARCHITECTURE.md) | Provider hierarchy, routing, guards, directory map, env config           |
+> | [DATA-FLOW.md](../docs/DATA-FLOW.md)       | Firebase → cache → context pipeline, loading sequence, memory management |
+> | [COMPONENTS.md](../docs/COMPONENTS.md)     | Every component and page — props, behavior, usage examples               |
+> | [CONVENTIONS.md](../docs/CONVENTIONS.md)   | Code patterns, styling rules, how-to guides, common pitfalls             |
 
 ## Build & Dev
 
@@ -39,7 +39,7 @@
 ## Image Resolution Pipeline
 
 - **Upload:** Client-side JPEG conversion (quality 0.9) + thumbnail generation (480px, quality 0.7) → dual-write to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` with `customMetadata: { date, event }`.
-- **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for progressive full-res upgrade on grids → `ImageModalViewer` for windowed full-res in the lightbox.
+- **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for full-res blob URLs. `HomePage` gates all rendering behind full-res readiness (no thumbnails shown). `SeeAllGalleryPage` uses progressive upgrade (thumb first, full-res overlaid). `ImageModalViewer` uses windowed full-res in the lightbox.
 - **Memory:** Every `URL.createObjectURL` must have a matching `revokeObjectURL`. Follow existing cleanup patterns in effects, `evict()`, and `resetState()`.
 
 ## UI Conventions
