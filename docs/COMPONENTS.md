@@ -235,7 +235,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 
 - Picks a random subset of images (6 mobile / 9 desktop) and renders them in a grid
 - Stable selection: re-picks only when the set of available IDs changes
-- Uses `useFullResLoader` to progressively upgrade thumbnails to full-res
+- Uses `useFullResLoader` to fetch **full-resolution only** — no thumbnails are shown
+- Shows a loading spinner until all chosen full-res images are ready (`allFullResReady`)
+- The grid, "See All" button, and empty state are hidden behind the full-res loading gate
 - Clicking a tile opens the modal with the displayed subset
 - "See All" button navigates to `/gallery`
 
