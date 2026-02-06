@@ -1,40 +1,70 @@
-# rasso-gallery — Copilot Instructions
+# Gallery — Copilot Instructions
 
-## Build & Local Workflows
+> Before making changes, consult the detailed docs in `docs/` — they are the source of truth.
+>
+> | Doc | Covers |
+> |---|---|
+> | [ARCHITECTURE.md](../docs/ARCHITECTURE.md) | Provider hierarchy, routing, guards, directory map, env config |
+> | [DATA-FLOW.md](../docs/DATA-FLOW.md) | Firebase → cache → context pipeline, loading sequence, memory management |
+> | [COMPONENTS.md](../docs/COMPONENTS.md) | Every component and page — props, behavior, usage examples |
+> | [CONVENTIONS.md](../docs/CONVENTIONS.md) | Code patterns, styling rules, how-to guides, common pitfalls |
 
-- Use Node 18+; install deps once with `npm install`, develop with `npm run dev`, ship using `npm run build` (runs `tsc -b` before Vite) and lint via `npm run lint`.
-- Environment lives in `.env`; provide Firebase creds as `VITE_FIREBASE_*` (see `src/services/firebaseConfig.ts`). Without them, Firebase Auth/Storage calls fail at runtime.
+## Build & Dev
 
-## High-Level Architecture
+- Node 18+. `npm install` → `npm run dev` → `npm run build` (runs `tsc -b` then Vite) → `npm run lint`.
+- Environment lives in `.env` (git-ignored). Firebase creds as `VITE_FIREBASE_*`, display strings as `VITE_*` — see `src/config.ts` for all keys with defaults. Without Firebase creds, Auth/Storage calls fail at runtime.
 
-- `src/App.tsx` wires the route graph through `createBrowserRouter`, wraps everything in `AuthProvider` + `GalleryProvider`, and renders the ambient `RomanticBackdrop` + `GalleryModalRenderer` so every page can trigger the modal.
-- Auth gating happens via `ProtectedRoute`/`GuestRoute`; the loading screen (`/loading`) is only shown until `GalleryContext.hasGalleryLoadedOnce` flips true. Respect these guards when adding routes.
-- Pages live in `src/pages/*` and assume the providers are already mounted; stick to that folder unless you’re building smaller presentational pieces for `src/components/*`.
+## Architecture (quick ref)
 
-## Data, Firebase & Preloading
+- **Provider order matters:** `AuthProvider` → `GalleryProvider` → `ToastProvider` → `RomanticBackdrop` → `RouterProvider` + `GalleryModalRenderer`. Inner providers consume outer ones. Never mount providers inside a page.
+- **Routing:** `createBrowserRouter` in `App.tsx`. Auth gating via `ProtectedRoute` / `GuestRoute`. The loading screen (`/loading`) redirects to `/home` once `hasGalleryLoadedOnce` flips true.
+- **MainLayout** wraps all authenticated pages and provides `ScrollToTop`, `Navbar`, max-width `<main>`, and `Footer`.
+- Pages live in `src/pages/*`, components in `src/components/*`, UI primitives in `src/components/ui/*`.
 
-- `src/services/authService.ts` hardcodes the login email and exposes `signInWithPassword`, `signOut`, and `subscribeToAuthChanges`; always go through `useAuth()` instead of calling Firebase directly.
-- `src/services/storageService.ts` is the only place that should touch Firebase Storage. It sorts metadata newest-first, normalizes custom metadata (`date`, `event`, `caption`), and can `preloadImages` to Blob URLs; reuse `resolveImageUrl` from `useGallery()` to benefit from caching.
-- `GalleryContext` owns `imageMetas`, `preloadedImages`, modal state, and exposes helpers like `openModalWithImages`, `openModalForImageId`, and `resolveImageUrl`. Do not duplicate modal or preload logic elsewhere; call the context instead.
-- Logging out or losing auth automatically resets gallery state (see `resetState()` in the provider). Avoid storing gallery data outside the context, otherwise you’ll fight that reset behavior.
+## Data & State
 
-## UI & Interaction Patterns
+- **`storageService.ts`** is the only file that touches Firebase Storage. It fetches metadata from `images/full/`, resolves thumbnail URLs from `images/thumb/`, normalizes custom metadata (`date`/`Date`, `event`/`Event`, `caption`/`Caption`), and sorts newest-first.
+- **`imageCacheService.ts`** manages an IndexedDB cache with two stores: `image-blobs` (thumbnail blobs keyed by image ID) and `meta` (manifest). `syncCache` diffs fresh metadata against cached keys, downloads only new thumbnails in batches of 60, and evicts removed ones.
+- **`GalleryContext`** owns `imageMetas`, `preloadedImages`, loading state, and modal state. It runs a three-phase load on auth: (1) instant restore from IndexedDB cache, (2) fetch fresh metadata from Firebase, (3) diff-sync cache. On logout, `resetState()` clears all state and wipes IndexedDB. Never store gallery data outside this context.
+- **`authService.ts`** wraps Firebase Auth with a hardcoded email from `config.authEmail`. Always go through `useAuth()` — never call Firebase Auth directly.
+- **`useToast()`** exposes `toast(message, variant?)` with three variants: `"success"`, `"error"`, `"logout"` (default). Auto-dismisses after 1.5s.
 
-- Styling is Tailwind-first with a pastel theme; keep class-heavy components declarative and reference `spec/design.md` for color, motion, and spacing rules.
-- Page-level entrances use `usePageReveal(delay?)` for smooth fade/slide transitions; new pages should follow the pattern from `HomePage.tsx` or `SeeAllGalleryPage.tsx`.
-- The global modal is implemented in `ImageModalViewer.tsx` and expects images + optional `resolveImageUrl`. When you need a lightbox, feed it via the gallery context instead of mounting another modal.
+## Modal
 
-## Timeline, Gallery & Content Sources
+- One global `ImageModalViewer` is mounted via `GalleryModalRenderer` outside the router. **Never mount a second instance.**
+- Open it via context: `openModalWithImages(images, opts?)` or `openModalForImageId(id, collection?)`.
+- `OpenModalOptions`: `{ initialIndex?, imageId?, preloadAll? }`. Use `preloadAll: true` for small sets (e.g., timeline events).
+- The modal manages its own full-res blob URLs with windowed preloading (±10 ahead / ±5 behind). It evicts outside the window.
 
-- Timeline events are defined in `src/assets/events.json`, sorted newest-first in `TimelinePage.tsx`, and linked to images by either explicit `imageIds` or matching `event` labels. Keep IDs unique and update the JSON when you add events.
-- The "See All" view groups photos by year using `getLocalDate` helpers inside `SeeAllGalleryPage.tsx`. Ensure new metadata includes valid ISO dates so grouping stays correct.
-- `GalleryGrid.tsx` expects square-ish tiles. Supply `columns` overrides instead of changing the grid utility classes in-place.
+## Image Resolution Pipeline
 
-## Uploading & Metadata Hygiene
+- **Upload:** Client-side JPEG conversion (quality 0.9) + thumbnail generation (480px, quality 0.7) → dual-write to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` with `customMetadata: { date, event }`.
+- **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for progressive full-res upgrade on grids → `ImageModalViewer` for windowed full-res in the lightbox.
+- **Memory:** Every `URL.createObjectURL` must have a matching `revokeObjectURL`. Follow existing cleanup patterns in effects, `evict()`, and `resetState()`.
 
-- `UploaderPage.tsx` converts every selected file to JPEG client-side, enforces a YYYY-MM-DD `date`, and writes metadata as Firebase Storage `customMetadata`. If you change storage structure, update both the uploader and `storageService` so metadata stays in sync.
-- Storage paths are normalized to `images/<filename>.jpg`; avoid embedding folders elsewhere unless you teach `IMAGES_ROOT` how to discover them.
+## UI Conventions
 
-## Reference Docs
+- **Tailwind-first**, pastel palette. Core colors: `#FAFAF7` (bg), `#333` (text), `#F7DEE2` (pink), `#D8ECFF` (blue), `#FFE39F` (gold), `#F7889D` (heart).
+- **Card pattern:** `rounded-[36px] bg-white/80 p-10 shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl`.
+- **Page entrances:** Every page must use `usePageReveal(delay?)` and apply `isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"`.
+- **Interactive elements:** `hover:scale-[1.03] active:scale-[0.98] touch-manipulation`.
+- All user-facing strings come from `src/config.ts` (env-driven) — never hardcode personal text.
 
-- The `spec/` folder (design, product, pages, technical) documents intent behind transitions, grouping rules, and non-functional goals—consult it before adjusting UX or data flows.
+## Timeline & Events
+
+- Events defined in `src/assets/events.json` with `{ id, date, title, emojiOrDot?, imageIds? }`.
+- Images link to events two ways: explicit `imageIds` array OR matching `event` metadata (normalized, case-insensitive). Both are unioned.
+- Keep `id` unique, `date` as `YYYY-MM-DD`. Events auto-sort newest-first in `TimelinePage`.
+
+## Gallery Grouping
+
+- `SeeAllGalleryPage` groups photos by year using local-date parsing (`getLocalDate`). Always use `YYYY-MM-DD` dates to avoid timezone-induced off-by-one grouping errors.
+- Uses `IntersectionObserver` for visibility detection and preloads full-res for visible year-groups ± 3.
+- `GalleryGrid` expects square tiles — configure via `columns` prop, don't modify the grid classes directly.
+
+## Code Patterns
+
+- Strict TypeScript, `type` imports, `satisfies` over `as`, no `any`.
+- Functional components only. `useCallback`/`useMemo` for derived values. `useRef` for mutable non-reactive state.
+- Async effects use cancellation flags: `let cancelled = false; return () => { cancelled = true; }`.
+- Every effect that creates blob URLs, timers, or subscriptions must clean up.

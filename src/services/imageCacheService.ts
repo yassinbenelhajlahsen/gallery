@@ -21,7 +21,7 @@
 
 import type { ImageMeta, PreloadedImage } from "./storageService";
 
-const DB_NAME = "rasso-gallery-cache";
+const DB_NAME = "gallery-cache";
 const DB_VERSION = 1;
 const BLOB_STORE = "image-blobs";
 const META_STORE = "meta";
