@@ -9,12 +9,17 @@ import {
   useState,
 } from "react";
 import type { ImageMeta, PreloadedImage } from "../services/storageService";
-import { fetchAllImageMetadata } from "../services/storageService";
+import type { MediaMeta, VideoMeta } from "../services/mediaTypes";
+import {
+  fetchAllImageMetadata,
+  fetchAllVideoMetadata,
+} from "../services/storageService";
 import {
   loadFromCache,
   syncCache,
   clearCache,
-} from "../services/imageCacheService";
+  syncVideoThumbCache,
+} from "../services/mediaCacheService";
 import { useAuth } from "./AuthContext";
 
 type OpenModalOptions = {
@@ -26,6 +31,7 @@ type OpenModalOptions = {
 
 type GalleryContextValue = {
   imageMetas: ImageMeta[];
+  videoMetas: VideoMeta[];
   preloadedImages: PreloadedImage[];
   isGalleryLoading: boolean;
   hasGalleryLoadedOnce: boolean;
@@ -33,8 +39,11 @@ type GalleryContextValue = {
   loadingProgress: number;
   /** Resolves a thumbnail blob URL if cached, otherwise falls back to thumbUrl */
   resolveThumbUrl: (meta: ImageMeta) => string;
+  /** Resolves a cached video thumbnail blob URL if present, otherwise falls back to thumbUrl */
+  resolveVideoThumbUrl: (meta: VideoMeta) => string;
   isModalOpen: boolean;
-  modalImages: ImageMeta[];
+  /** Modal media (images only for most callers; timeline may mix images + videos) */
+  modalMedia: MediaMeta[];
   modalInitialIndex: number;
   /** Whether the modal should preload ALL images (vs windowed ±N) */
   modalPreloadAll: boolean;
@@ -42,6 +51,7 @@ type GalleryContextValue = {
     images: ImageMeta[],
     options?: OpenModalOptions,
   ) => void;
+  openModalWithMedia: (media: MediaMeta[], options?: OpenModalOptions) => void;
   openModalForImageId: (imageId: string, collection?: ImageMeta[]) => void;
   closeModal: () => void;
   updateModalIndex: (index: number) => void;
@@ -65,12 +75,13 @@ const releasePreloadedUrls = (items: PreloadedImage[]) => {
 export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const { user, initializing } = useAuth();
   const [imageMetas, setImageMetas] = useState<ImageMeta[]>([]);
+  const [videoMetas, setVideoMetas] = useState<VideoMeta[]>([]);
   const [preloadedImages, setPreloadedImages] = useState<PreloadedImage[]>([]);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
   const [hasGalleryLoadedOnce, setHasGalleryLoadedOnce] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [modalImages, setModalImages] = useState<ImageMeta[]>([]);
+  const [modalMedia, setModalMedia] = useState<MediaMeta[]>([]);
   const [modalInitialIndex, setModalInitialIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPreloadAll, setModalPreloadAll] = useState(false);
@@ -83,12 +94,13 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
 
   const resetState = useCallback(() => {
     setImageMetas([]);
+    setVideoMetas([]);
     setPreloadedImages([]);
     setHasGalleryLoadedOnce(false);
     setIsGalleryLoading(false);
     setLoadError(null);
     setLoadingProgress(0);
-    setModalImages([]);
+    setModalMedia([]);
     setModalInitialIndex(0);
     setIsModalOpen(false);
     setModalPreloadAll(false);
@@ -166,6 +178,18 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         });
         setHasGalleryLoadedOnce(true);
         setLoadingProgress(100);
+
+        // ── Phase 4: Fetch video metadata (metadata only; no video bytes) ──
+        try {
+          const freshVideoMetas = await fetchAllVideoMetadata();
+          if (cancelled) return;
+          setVideoMetas(freshVideoMetas);
+          // Cache ONLY video thumbnail JPEGs
+          await syncVideoThumbCache(freshVideoMetas);
+        } catch (videoErr) {
+          console.warn("[Gallery] Failed to load video metadata", videoErr);
+          if (!cancelled) setVideoMetas([]);
+        }
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load gallery", error);
@@ -196,10 +220,19 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     [preloadedImages],
   );
 
+  const resolveVideoThumbUrl = useCallback((meta: VideoMeta) => {
+    // For now, we intentionally don't restore cached video thumbs into React state.
+    // We still return the network URL which browser may cache, but we avoid any
+    // explicit in-memory retention in app-owned state.
+    return meta.thumbUrl;
+  }, []);
+
   const openModalWithImages = useCallback(
     (images: ImageMeta[], options?: OpenModalOptions) => {
       if (!images.length) return;
-      const safeImages = [...images];
+      const safeImages = images.map(
+        (img) => ({ ...img, type: "image" }) as const,
+      );
       const providedIndex = options?.initialIndex ?? 0;
       let index = providedIndex;
       if (options?.imageId) {
@@ -209,8 +242,28 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         }
       }
       const clampedIndex = Math.min(Math.max(index, 0), safeImages.length - 1);
-      setModalImages(safeImages);
+      setModalMedia(safeImages);
       setModalInitialIndex(clampedIndex);
+      setModalPreloadAll(options?.preloadAll ?? false);
+      setIsModalOpen(true);
+    },
+    [],
+  );
+
+  const openModalWithMedia = useCallback(
+    (media: MediaMeta[], options?: OpenModalOptions) => {
+      if (!media.length) return;
+      const safeMedia = [...media];
+      const providedIndex = options?.initialIndex ?? 0;
+      let index = providedIndex;
+      if (options?.imageId) {
+        const found = safeMedia.findIndex((m) => m.id === options.imageId);
+        if (found >= 0) index = found;
+      }
+      const clampedIndex = Math.min(Math.max(index, 0), safeMedia.length - 1);
+      setModalMedia(safeMedia);
+      setModalInitialIndex(clampedIndex);
+      // Preload flag applies to images only; modal will ignore for videos.
       setModalPreloadAll(options?.preloadAll ?? false);
       setIsModalOpen(true);
     },
@@ -241,34 +294,40 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const value = useMemo(
     () => ({
       imageMetas,
+      videoMetas,
       preloadedImages,
       isGalleryLoading,
       hasGalleryLoadedOnce,
       loadError,
       loadingProgress,
       resolveThumbUrl,
+      resolveVideoThumbUrl,
       isModalOpen,
-      modalImages,
+      modalMedia,
       modalInitialIndex,
       modalPreloadAll,
       openModalWithImages,
+      openModalWithMedia,
       openModalForImageId,
       closeModal,
       updateModalIndex,
     }),
     [
       imageMetas,
+      videoMetas,
       preloadedImages,
       isGalleryLoading,
       hasGalleryLoadedOnce,
       loadError,
       loadingProgress,
       resolveThumbUrl,
+      resolveVideoThumbUrl,
       isModalOpen,
-      modalImages,
+      modalMedia,
       modalInitialIndex,
       modalPreloadAll,
       openModalWithImages,
+      openModalWithMedia,
       openModalForImageId,
       closeModal,
       updateModalIndex,

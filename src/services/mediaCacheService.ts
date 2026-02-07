@@ -20,12 +20,15 @@
  */
 
 import type { ImageMeta, PreloadedImage } from "./storageService";
+import type { VideoMeta } from "./mediaTypes";
 
 const DB_NAME = "gallery-cache";
 const DB_VERSION = 1;
 const BLOB_STORE = "image-blobs";
 const META_STORE = "meta";
 const MANIFEST_KEY = "manifest";
+
+const videoKey = (id: string) => `video:${id}`;
 
 /* ─── helpers ──────────────────────────────────────────── */
 
@@ -256,4 +259,54 @@ export async function clearCache(): Promise<void> {
   } catch (err) {
     console.warn("[ImageCache] Failed to clear cache:", err);
   }
+}
+
+/**
+ * Cache ONLY video thumbnail JPEGs.
+ *
+ * Rules:
+ * - Keys are namespaced: video:<id>
+ * - Never fetch or store any .mp4/.mov bytes
+ */
+export async function syncVideoThumbCache(
+  videoMetas: VideoMeta[],
+): Promise<void> {
+  if (!videoMetas.length) return;
+
+  const db = await openDB();
+  const cachedKeys = new Set(await idbGetAllKeys(db, BLOB_STORE));
+
+  const wanted = new Set(videoMetas.map((m) => videoKey(m.id)));
+  const existingVideoKeys = [...cachedKeys].filter((k) =>
+    k.startsWith("video:"),
+  );
+
+  // Evict removed video thumbnails
+  const toRemove = existingVideoKeys.filter((k) => !wanted.has(k));
+  await Promise.all(toRemove.map((key) => idbDelete(db, BLOB_STORE, key)));
+
+  // Download missing thumbs
+  const toDownload = videoMetas.filter((m) => !cachedKeys.has(videoKey(m.id)));
+  const BATCH_SIZE = 60;
+  for (let i = 0; i < toDownload.length; i += BATCH_SIZE) {
+    const batch = toDownload.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (meta) => {
+        try {
+          const response = await fetch(meta.thumbUrl, { mode: "cors" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+
+          await idbPut(db, BLOB_STORE, videoKey(meta.id), blob);
+        } catch (err) {
+          console.warn(
+            `[ImageCache] Failed to cache video thumb ${meta.id}:`,
+            err,
+          );
+        }
+      }),
+    );
+  }
+
+  db.close();
 }
