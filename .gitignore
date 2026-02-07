@@ -13,10 +13,9 @@ dist-ssr
 *.local
 
 .env
-
+serviceAccountKey.json
 cors.json
 .firebase
-src/assets/events.json
 
 # Editor directories and files
 .vscode/*
