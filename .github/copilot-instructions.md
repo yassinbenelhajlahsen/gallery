@@ -24,22 +24,26 @@
 ## Data & State
 
 - **`storageService.ts`** is the only file that touches Firebase Storage. It fetches metadata from `images/full/`, resolves thumbnail URLs from `images/thumb/`, normalizes custom metadata (`date`/`Date`, `event`/`Event`, `caption`/`Caption`), and sorts newest-first.
-- **`imageCacheService.ts`** manages an IndexedDB cache with two stores: `image-blobs` (thumbnail blobs keyed by image ID) and `meta` (manifest). `syncCache` diffs fresh metadata against cached keys, downloads only new thumbnails in batches of 60, and evicts removed ones.
+- **`mediaCacheService.ts`** manages an IndexedDB cache with two stores: `image-blobs` (thumbnail blobs keyed by image ID) and `meta` (manifest). `syncCache` diffs fresh metadata against cached keys, downloads only new thumbnails in batches of 60, and evicts removed ones.
+- **Videos & media:** The app now supports videos alongside images. `storageService.ts` exposes `fetchAllVideoMetadata()` and `getVideoDownloadUrl()` for videos stored under `videos/full/` (originals) and `videos/thumb/` (poster thumbnails). `mediaCacheService` also manages video poster caching (thumb JPEGs) via a separate sync path.
 - **`GalleryContext`** owns `imageMetas`, `preloadedImages`, loading state, and modal state. It runs a three-phase load on auth: (1) instant restore from IndexedDB cache, (2) fetch fresh metadata from Firebase, (3) diff-sync cache. On logout, `resetState()` clears all state and wipes IndexedDB. Never store gallery data outside this context.
+  The `GalleryContext` now also exposes `videoMetas`, `resolveVideoThumbUrl`, `openModalWithMedia`, and a unified `modalMedia` state (media can be images or videos).
 - **`authService.ts`** wraps Firebase Auth with a hardcoded email from `config.authEmail`. Always go through `useAuth()` — never call Firebase Auth directly.
 - **`useToast()`** exposes `toast(message, variant?)` with three variants: `"success"`, `"error"`, `"logout"` (default). Auto-dismisses after 1.5s.
 
 ## Modal
 
-- One global `ImageModalViewer` is mounted via `GalleryModalRenderer` outside the router. **Never mount a second instance.**
-- Open it via context: `openModalWithImages(images, opts?)` or `openModalForImageId(id, collection?)`.
-- `OpenModalOptions`: `{ initialIndex?, imageId?, preloadAll? }`. Use `preloadAll: true` for small sets (e.g., timeline events).
-- The modal manages its own full-res blob URLs with windowed preloading (±10 ahead / ±5 behind). It evicts outside the window.
+- One global `mediaModalViewer` is mounted via `GalleryModalRenderer` outside the router. **Never mount a second instance.**
+- Open it via context: `openModalWithImages(images, opts?)`, `openModalWithMedia(media, opts?)` or `openModalForImageId(id, collection?)`.
+- `OpenModalOptions`: `{ initialIndex?, imageId?, preloadAll? }`. Use `preloadAll: true` for small sets (e.g., timeline events). Note: `preloadAll` applies to image full-res preloading; videos are streamed on demand.
+- The modal manages its own full-res blob URLs with windowed preloading (±10 ahead / ±5 behind) for images. It evicts outside the window.
 
 ## Image Resolution Pipeline
 
 - **Upload:** Client-side JPEG conversion (quality 0.9) + thumbnail generation (480px, quality 0.7) → dual-write to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` with `customMetadata: { date, event }`.
-- **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for full-res blob URLs. `HomePage` gates all rendering behind full-res readiness (no thumbnails shown). `SeeAllGalleryPage` uses progressive upgrade (thumb first, full-res overlaid). `ImageModalViewer` uses windowed full-res in the lightbox.
+- **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for full-res blob URLs. `HomePage` gates all rendering behind full-res readiness (no thumbnails shown). `All` uses progressive upgrade (thumb first, full-res overlaid). `ImageModalViewer` uses windowed full-res in the lightbox.
+- **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for full-res blob URLs. `HomePage` gates all rendering behind full-res readiness (no thumbnails shown). `All` uses progressive upgrade (thumb first, full-res overlaid). The media modal uses windowed full-res for images in the lightbox.
+- **Video upload & display:** Video uploads write the original to `videos/full/` and a generated poster JPEG to `videos/thumb/`. The `UploaderPage` extracts a poster frame client-side and uploads it as the thumbnail. The lightbox (now a media-capable modal) will play videos on demand; video bytes are not prefetched during gallery load.
 - **Memory:** Every `URL.createObjectURL` must have a matching `revokeObjectURL`. Follow existing cleanup patterns in effects, `evict()`, and `resetState()`.
 
 ## UI Conventions
@@ -58,7 +62,7 @@
 
 ## Gallery Grouping
 
-- `SeeAllGalleryPage` groups photos by year using local-date parsing (`getLocalDate`). Always use `YYYY-MM-DD` dates to avoid timezone-induced off-by-one grouping errors.
+- `All` groups photos by year using local-date parsing (`getLocalDate`). Always use `YYYY-MM-DD` dates to avoid timezone-induced off-by-one grouping errors.
 - Uses `IntersectionObserver` for visibility detection and preloads full-res for visible year-groups ± 3.
 - `GalleryGrid` expects square tiles — configure via `columns` prop, don't modify the grid classes directly.
 

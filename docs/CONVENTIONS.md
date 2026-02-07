@@ -109,15 +109,19 @@ ring-1 ring-white/60 backdrop-blur-2xl
    - Page renders inside `MainLayout` — Navbar, Footer, ScrollToTop are automatic
    - Access data via `useGallery()`, `useAuth()`, `useToast()` — never import providers
 
-### Opening the Image Modal
+### Opening the media modal
 
-**Never** mount `ImageModalViewer` directly. Use the global instance via context:
+Never mount the `mediaModalViewer` directly. Use the global instance via context helpers exposed by `GalleryContext`:
 
 ```tsx
-const { openModalWithImages, openModalForImageId } = useGallery();
+const { openModalWithImages, openModalWithMedia, openModalForImageId } =
+  useGallery();
 
 // Open with a subset of images
 openModalWithImages(someImages, { initialIndex: 0 });
+
+// Open with a mixed media array (images + videos)
+openModalWithMedia(mixedMediaArray, { initialIndex: 0 });
 
 // Open at a specific image (searches imageMetas or provided collection)
 openModalForImageId("photo1.jpg");
@@ -128,7 +132,7 @@ openModalWithImages(eventImages, { preloadAll: true });
 
 ### Displaying Images in a Grid
 
-Use `GalleryGrid` for any image grid. For progressive full-res loading (used by `SeeAllGalleryPage`):
+Use `GalleryGrid` for any image grid. For progressive full-res loading (used by `All`):
 
 ```tsx
 import { useFullResLoader } from "../hooks/useFullResLoader";
@@ -143,7 +147,7 @@ useEffect(() => {
   requestFullRes(visibleMetas);
 }, [visibleMetas]);
 
-// Build tiles
+// Build tiles (images)
 const tiles = metas.map((meta) => {
   const thumbUrl = resolveThumbUrl(meta);
   return {
@@ -153,6 +157,15 @@ const tiles = metas.map((meta) => {
     onClick: () => openModalForImageId(meta.id),
   };
 });
+
+// Example video tile — set `mediaType: 'video'` and use the video poster as the URL
+const videoTile = {
+  id: videoMeta.id,
+  url: resolveVideoThumbUrl(videoMeta),
+  caption: videoMeta.caption,
+  mediaType: "video" as const,
+  onClick: () => openModalWithMedia(videoCollection, { imageId: videoMeta.id }),
+};
 
 <GalleryGrid tiles={tiles} columns={{ base: 2, sm: 3, md: 4 }} />;
 ```
@@ -222,9 +235,9 @@ Auto-dismisses after 1.5s. Three variants: `success`, `error`, `logout`.
 
 The context resets all data on logout. If you cache `imageMetas` in local component state, it will go stale after logout/re-login.
 
-### ❌ Mounting another ImageModalViewer
+### ❌ Mounting another media modal instance
 
-There's already one global instance via `GalleryModalRenderer`. Mounting a second will cause duplicate backdrop, broken state.
+There's already one global `mediaModalViewer` instance mounted via `GalleryModalRenderer`. Mounting a second instance will cause a duplicate backdrop and broken modal state.
 
 ### ❌ Calling Firebase directly
 

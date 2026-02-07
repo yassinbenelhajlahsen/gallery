@@ -23,14 +23,20 @@ npm install
 4. **Storage** → Get started → Create default bucket
 5. **Storage** → Rules → Set read/write to require auth:
    ```
-   rules_version = '2';
-   service firebase.storage {
-     match /b/{bucket}/o {
-       match /{allPaths=**} {
-         allow read, write: if request.auth != null;
-       }
-     }
-   }
+    rules_version = '2';
+    service firebase.storage {
+      match /b/{bucket}/o {
+
+        match /images/{allPaths=**} {
+          allow read, write: if request.auth != null;
+        }
+
+        match /videos/{allPaths=**} {
+          allow read, write: if request.auth != null;
+        }
+
+      }
+    }
    ```
 6. **Project Settings** → Your apps → Add a **Web app** → Copy the config values
 
