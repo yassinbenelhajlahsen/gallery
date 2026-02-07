@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../services/firebaseConfig";
-import eventsData from "../assets/events.json";
-import type { TimelineEvent } from "../components/TimelineEventItem";
+import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useToast } from "../context/ToastContext";
 import { config } from "../config";
+import { setDoc, doc } from "firebase/firestore";
+import { db } from "../services/firebaseConfig";
 
 interface UploadProgress {
   fileName: string;
@@ -201,11 +202,64 @@ export default function UploaderPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // State for creating new event
+  const [newEventDate, setNewEventDate] = useState("");
+  const [newEventEmoji, setNewEventEmoji] = useState("");
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+
+  const { events, refreshEvents, refreshGallery } = useGallery();
+
   // Sort events by date (newest first)
   const sortedEvents = useMemo(() => {
-    const events = eventsData as TimelineEvent[];
     return [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-  }, []);
+  }, [events]);
+
+  // Generate next event id by finding the max number and incrementing
+  const generateNextEventId = () => {
+    const maxNum = events.reduce((max, event) => {
+      const num = parseInt(event.id.split("-")[1] || "0", 10);
+      return Math.max(max, num);
+    }, 0);
+    return `evt-${String(maxNum + 1).padStart(3, "0")}`;
+  };
+
+  // Handle creating a new event
+  const handleCreateEvent = async () => {
+    if (!newEventDate || !newEventTitle.trim()) {
+      toast("Please fill in date and title.", "error");
+      return;
+    }
+
+    setIsCreatingEvent(true);
+    try {
+      const newId = generateNextEventId();
+      const eventData = {
+        id: newId,
+        date: newEventDate,
+        title: newEventTitle.trim(),
+        emojiOrDot: newEventEmoji.trim() || undefined,
+        imageIds: [],
+      };
+
+      await setDoc(doc(db, "events", newId), eventData);
+
+      // Refresh events to include the new one
+      await refreshEvents();
+
+      toast("Event created successfully!", "success");
+
+      // Clear form
+      setNewEventDate("");
+      setNewEventEmoji("");
+      setNewEventTitle("");
+    } catch (err) {
+      console.error("Failed to create event:", err);
+      toast("Failed to create event. Please try again.", "error");
+    } finally {
+      setIsCreatingEvent(false);
+    }
+  };
 
   // Auto-fill date and event name when an event is selected
   const handleEventSelect = (eventId: string) => {
@@ -376,6 +430,8 @@ export default function UploaderPage() {
         `${results.length} upload${results.length === 1 ? "" : "s"} completed successfully!`,
         "success",
       );
+      // Refresh gallery to show new uploads
+      await refreshGallery();
       // Reset inputs and progress after successful upload(s)
       if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
       setFiles(null);
@@ -400,7 +456,7 @@ export default function UploaderPage() {
           className={`space-y-6 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
           <header className="space-y-2 text-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#F7DEE2]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em] text-[#3f3f3f]">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#C0C0C0]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em] text-[#3f3f3f]">
               Upload
             </span>
             <h1 className="text-3xl font-bold text-[#333]">
@@ -410,6 +466,87 @@ export default function UploaderPage() {
               Upload images or videos and link them to a timeline event
             </p>
           </header>
+
+          {/* Create New Event */}
+          <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
+            <h2 className="text-lg font-semibold text-[#333]">
+              Create New Event
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-[#333]">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                  className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-[#333]">
+                  Emoji
+                </label>
+                <input
+                  type="text"
+                  placeholder="🎂"
+                  value={newEventEmoji}
+                  onChange={(e) => setNewEventEmoji(e.target.value)}
+                  className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] placeholder-[#aaa] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-[#333]">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Birthday"
+                  value={newEventTitle}
+                  onChange={(e) => setNewEventTitle(e.target.value)}
+                  className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] placeholder-[#aaa] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleCreateEvent}
+              disabled={
+                isCreatingEvent || !newEventDate || !newEventTitle.trim()
+              }
+              className="w-full rounded-xl bg-[#F7DEE2] py-3 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
+            >
+              {isCreatingEvent ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="h-5 w-5 animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Creating…
+                </span>
+              ) : (
+                "Create Event"
+              )}
+            </button>
+          </div>
+
+          <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
 
           {/* Event Selection Dropdown */}
           <div className="space-y-2">
