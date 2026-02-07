@@ -6,19 +6,18 @@ const NAV_ITEMS = [
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
   { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
   { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
+  { label: "Upload", to: "/upload", activeClass: "bg-[#C0C0C0]" },
 ];
 
 const Navbar = () => {
-
-
   return (
     <header className="sticky top-0 z-20 border-b border-[#EDEDED]/80 bg-white/90 backdrop-blur-md">
       <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
-        <p className="shrink-0 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base">
+        <p className="hidden sm:block shrink-0 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base">
           {config.coupleDisplay}
         </p>
         <nav
-          className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 text-xs font-semibold text-[#666] sm:text-sm"
+          className="flex flex-wrap shrink-0 items-center justify-end gap-2 sm:gap-2 text-sm font-semibold text-[#666] sm:text-sm"
           aria-label="Primary"
         >
           {NAV_ITEMS.map((item) => (
@@ -26,7 +25,7 @@ const Navbar = () => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-full px-1.5 py-1.5 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
+                `rounded-full px-3 py-2 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
                   isActive
                     ? `${item.activeClass} text-[#222] shadow-sm scale-105`
                     : "bg-white/40 text-[#666] hover:bg-white/70 hover:text-[#222] hover:scale-105"
@@ -36,7 +35,6 @@ const Navbar = () => {
               {item.label}
             </NavLink>
           ))}
-          
         </nav>
       </div>
     </header>
