@@ -118,65 +118,67 @@ const HomePage: React.FC = () => {
 
   return (
     <section className="flex w-full justify-center">
-      <div
-        className={`mx-auto w-full max-w-5xl sm:max-w-full space-y-10 rounded-[36px] bg-white/80 p-10 text-center shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl transition-all duration-400 ease-out ${
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
-      >
-        <div className="space-y-3">
-          <p className="text-5xl uppercase tracking-[0.35em] mt-5 mb-15">
-            {config.coupleDisplay}
-          </p>
-        </div>
-
-        {/* Loading overlay — shown until all full-res images are ready */}
-        {!allFullResReady && imageMetas.length > 0 && (
-          <div className="flex flex-col items-center justify-center gap-4 py-16">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#F7DEE2] border-t-transparent" />
-            <p className="text-sm text-[#999] tracking-wide">
-              Loading photos…
+      <div className="mx-auto w-full max-w-5xl sm:max-w-full rounded-[36px] bg-white/80 p-10 text-center shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl">
+        <div
+          className={`space-y-10 transition-all duration-400 ease-out ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+        >
+          <div className="space-y-3">
+            <p className="text-5xl uppercase tracking-[0.35em] mt-5 mb-15">
+              {config.coupleDisplay}
             </p>
           </div>
-        )}
 
-        {allFullResReady && cloudTiles.length > 0 && (
-          <>
-            <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
-              {cloudTiles.map((tile) => (
+          {/* Loading overlay — shown until all full-res images are ready */}
+          {!allFullResReady && imageMetas.length > 0 && (
+            <div className="flex flex-col items-center justify-center gap-4 py-16">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#F7DEE2] border-t-transparent" />
+              <p className="text-sm text-[#999] tracking-wide">
+                Loading photos…
+              </p>
+            </div>
+          )}
+
+          {allFullResReady && cloudTiles.length > 0 && (
+            <>
+              <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
+                {cloudTiles.map((tile) => (
+                  <button
+                    type="button"
+                    key={tile.meta.id}
+                    onClick={() => handleTileClick(tile.meta.id)}
+                    className="group relative overflow-hidden rounded-2xl bg-linear-to-br from-[#FFF5DA] via-[#FDFDFB] to-[#FFE9F1] shadow-lg ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] touch-manipulation"
+                    style={{ willChange: "transform" }}
+                    aria-label={tile.caption ?? "Open memory"}
+                  >
+                    <div className="w-full aspect-square">
+                      <img
+                        src={tile.url}
+                        alt={tile.caption ?? "Romantic memory"}
+                        className="h-full w-full object-cover group-hover:opacity-95"
+                        decoding="async"
+                      />
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="pt-4">
                 <button
                   type="button"
-                  key={tile.meta.id}
-                  onClick={() => handleTileClick(tile.meta.id)}
-                  className="group relative overflow-hidden rounded-2xl bg-linear-to-br from-[#FFF5DA] via-[#FDFDFB] to-[#FFE9F1] shadow-lg ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] touch-manipulation"
-                  style={{ willChange: "transform" }}
-                  aria-label={tile.caption ?? "Open memory"}
+                  onClick={handleSeeAll}
+                  className="inline-flex items-center gap-3 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation mt-5"
                 >
-                  <div className="w-full aspect-square">
-                    <img
-                      src={tile.url}
-                      alt={tile.caption ?? "Romantic memory"}
-                      className="h-full w-full object-cover group-hover:opacity-95"
-                      decoding="async"
-                    />
-                  </div>
+                  See all photos
+                  <span aria-hidden="true">→</span>
                 </button>
-              ))}
-            </div>
+              </div>
+            </>
+          )}
 
-            <div className="pt-4">
-              <button
-                type="button"
-                onClick={handleSeeAll}
-                className="inline-flex items-center gap-3 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation mt-5"
-              >
-                See all memories
-                <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </>
-        )}
-
-        {allFullResReady && cloudTiles.length === 0 && renderEmptyState()}
+          {allFullResReady && cloudTiles.length === 0 && renderEmptyState()}
+        </div>
       </div>
     </section>
   );
