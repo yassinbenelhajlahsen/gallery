@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - **Node.js 18+** and npm
-- A **Firebase project** with Authentication (Email/Password) and Storage enabled
+- A **Firebase project** with Authentication (Email/Password), Storage, and Firestore enabled
 
 ## 1. Clone & Install
 
@@ -22,6 +22,7 @@ npm install
 3. **Authentication** → Users → Add a user (email + password — this is your login)
 4. **Storage** → Get started → Create default bucket
 5. **Storage** → Rules → Set read/write to require auth:
+
    ```
     rules_version = '2';
     service firebase.storage {
@@ -38,7 +39,20 @@ npm install
       }
     }
    ```
-6. **Project Settings** → Your apps → Add a **Web app** → Copy the config values
+
+6. **Firestore** → Get started → Create database → Start in **test mode** (you can secure it later)
+7. **Firestore** → Rules → Set read/write to require auth:
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /events/{eventId} {
+         allow read, write: if request.auth != null;
+       }
+     }
+   }
+   ```
+8. **Project Settings** → Your apps → Add a **Web app** → Copy the config values
 
 ## 3. Environment Variables
 
@@ -86,9 +100,26 @@ The app expects this layout in Firebase Storage (created automatically on first 
 images/
 ├── full/    ← original JPEGs
 └── thumb/   ← 480px thumbnails
+
+videos/
+├── full/    ← original videos
+└── thumb/   ← poster JPEGs
 ```
 
 Both are written by the uploader. See [DATA-FLOW.md](DATA-FLOW.md) for the full pipeline.
+
+## Database Structure
+
+The app uses Firestore for timeline events (created via the uploader UI):
+
+```
+events/
+├── evt-001/    ← event documents
+├── evt-002/
+└── ...
+```
+
+Each event document contains: `{ id, date, title, emojiOrDot?, imageIds? }`. See [DATA-FLOW.md](DATA-FLOW.md) for the events service.
 
 ## CORS (Optional)
 

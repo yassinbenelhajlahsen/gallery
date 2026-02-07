@@ -253,7 +253,7 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 
 **File:** `src/pages/TimelinePage.tsx`
 
-- Reads `events.json` and sorts newest-first
+- Reads events from `GalleryContext` (loaded from Firestore on app launch) and sorts newest-first
 - Links images to events via two methods:
   1. Explicit `imageIds` array on the event
   2. Matching `event` metadata on uploaded images (normalized, case-insensitive)
@@ -265,12 +265,15 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 **File:** `src/pages/UploaderPage.tsx`
 
 - File selection → client-side JPEG conversion → upload to Firebase Storage
-- Generates both full-res JPEG (quality 0.9) and thumbnail (480px, quality 0.7)
-- Uploads to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` in parallel
+- Generates both full-res JPEG (quality 0.9) and thumbnail (480px, quality 0.7) for images
+- Generates poster thumbnails for videos (first frame extraction)
+- Uploads to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` for photos, `videos/full/` and `videos/thumb/` for videos
 - Writes `date` and `event` as custom metadata on both files
-- Event dropdown auto-fills date and event name from `events.json`
+- Event dropdown auto-fills date and event name from events loaded in `GalleryContext`
+- Includes inline event creation form with auto-incrementing IDs
 - Per-file progress tracking with status: pending → converting → uploading → success/error
 - Uses `useToast` for success notification
+- Automatically refreshes gallery after successful uploads to show new content immediately
 
 ### `LoginPage`
 

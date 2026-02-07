@@ -4,15 +4,15 @@
 
 ## Tech Stack
 
-| Layer     | Technology                                        |
-| --------- | ------------------------------------------------- |
-| Framework | React 19 + TypeScript                             |
-| Routing   | react-router-dom v7 (`createBrowserRouter`)       |
-| Styling   | Tailwind CSS v4 (PostCSS plugin)                  |
-| Animation | framer-motion (installed, used selectively)       |
-| Backend   | Firebase Auth (email/password) + Firebase Storage |
-| Caching   | IndexedDB via custom `mediaCacheService`          |
-| Build     | Vite + `tsc -b` (see `npm run build`)             |
+| Layer     | Technology                                                    |
+| --------- | ------------------------------------------------------------- |
+| Framework | React 19 + TypeScript                                         |
+| Routing   | react-router-dom v7 (`createBrowserRouter`)                   |
+| Styling   | Tailwind CSS v4 (PostCSS plugin)                              |
+| Animation | framer-motion (installed, used selectively)                   |
+| Backend   | Firebase Auth (email/password) + Firebase Storage + Firestore |
+| Caching   | IndexedDB via custom `mediaCacheService`                      |
+| Build     | Vite + `tsc -b` (see `npm run build`)                         |
 
 ## Directory Map
 
@@ -24,7 +24,7 @@ src/
 ├── index.css                   # Tailwind directives + global styles
 │
 ├── assets/
-│   └── events.json             # Timeline event definitions (source of truth)
+│   └── events.example.json     # Legacy, now uses Firestore Database
 │
 ├── components/
 │   ├── Footer.tsx              # Site-wide footer
@@ -39,7 +39,7 @@ src/
 │
 ├── context/
 │   ├── AuthContext.tsx          # Auth state + login/logout
-│   ├── GalleryContext.tsx       # Image metas, preloading, modal state
+│   ├── GalleryContext.tsx       # Image metas, events, preloading, modal state
 │   └── ToastContext.tsx         # Toast notification system
 │
 ├── hooks/
@@ -56,11 +56,12 @@ src/
 │   ├── PhotosPage.tsx          # Alias/entry for the All photos page (route: /photos)
 │   ├── VideosPage.tsx          # Videos gallery page (groups videos by year)
 │   ├── TimelinePage.tsx        # Chronological event list
-│   └── UploaderPage.tsx        # Client-side JPEG conversion + upload
+│   └── UploaderPage.tsx        # Client-side JPEG conversion + upload + event creation
 │
 └── services/
     ├── authService.ts           # Firebase Auth wrapper
-    ├── firebaseConfig.ts        # Firebase app init + exports
+    ├── eventsService.ts         # Firestore events: fetch/create operations
+    ├── firebaseConfig.ts        # Firebase app init + exports (Auth, Storage, Firestore)
     ├── mediaCacheService.ts     # IndexedDB cache (thumbnails + manifest)
     └── storageService.ts        # Firebase Storage: metadata fetch + types
 ```
@@ -94,17 +95,17 @@ The router is a flat `createBrowserRouter` array defined in `App.tsx`.
 
 ### Route Table
 
-| Path        | Guard            | Component       | Notes                                        |
-| ----------- | ---------------- | --------------- | -------------------------------------------- |
-| `/login`    | `GuestRoute`     | `LoginPage`     | Redirects to `/home` or `/loading` if authed |
-| `/loading`  | `ProtectedRoute` | `LoadingScreen` | Redirects to `/home` once gallery loads      |
-| `/`         | `ProtectedRoute` | `MainLayout`    | Requires auth + `hasGalleryLoadedOnce`       |
-| `/home`     | (nested)         | `HomePage`      | Random photo grid                            |
-| `/timeline` | (nested)         | `TimelinePage`  | Event list from `events.json`                |
-| `/photos`   | (nested)         | `All`           | All photos grouped by year (route `/photos`) |
-| `/videos`   | (nested)         | `VideosPage`    | Videos gallery (route `/videos`)             |
-| `/upload`   | (nested)         | `UploaderPage`  | Photo upload form                            |
-| `*`         | —                | `NotFoundPage`  | 404 catch-all                                |
+| Path        | Guard            | Component       | Notes                                         |
+| ----------- | ---------------- | --------------- | --------------------------------------------- |
+| `/login`    | `GuestRoute`     | `LoginPage`     | Redirects to `/home` or `/loading` if authed  |
+| `/loading`  | `ProtectedRoute` | `LoadingScreen` | Redirects to `/home` once gallery loads       |
+| `/`         | `ProtectedRoute` | `MainLayout`    | Requires auth + `hasGalleryLoadedOnce`        |
+| `/home`     | (nested)         | `HomePage`      | Random photo grid                             |
+| `/timeline` | (nested)         | `TimelinePage`  | Event list from Firestore `events` collection |
+| `/photos`   | (nested)         | `All`           | All photos grouped by year (route `/photos`)  |
+| `/videos`   | (nested)         | `VideosPage`    | Videos gallery (route `/videos`)              |
+| `/upload`   | (nested)         | `UploaderPage`  | Photo upload form + event creation            |
+| `*`         | —                | `NotFoundPage`  | 404 catch-all                                 |
 
 ### Guard Components
 
@@ -156,8 +157,17 @@ images/
 └── thumb/   ← 480px thumbnails (generated client-side on upload)
     ├── photo1.jpg
     └── photo2.jpg
+
+videos/
+├── full/    ← Original video files
+│   ├── video1.mp4
+│   └── video2.mov
+└── thumb/   ← Generated poster JPEGs (first frame or custom)
+    ├── video1.jpg
+    └── video2.jpg
 ```
 
-- The uploader writes both `full/` and `thumb/` variants.
-- `storageService.ts` reads from `full/` for metadata + download URLs, and resolves `thumb/` URLs as fallbacks.
+- The uploader writes both `images/full/` and `images/thumb/` variants for photos, and `videos/full/` + `videos/thumb/` for videos.
+- `storageService.ts` reads from `full/` directories for metadata + download URLs, and resolves `thumb/` URLs as fallbacks.
 - Custom metadata (`date`, `event`, `caption`) is stored on the **full/** file's Firebase metadata.
+- Video thumbnails are generated client-side (first frame extraction) and uploaded as JPEG posters.
