@@ -31,7 +31,7 @@ GalleryContext (GalleryProvider)           ← Central state owner
 
 ### `storageService.ts`
 
-**Single responsibility:** Talk to Firebase Storage. Returns typed `ImageMeta[]`.
+**Single responsibility:** Talk to Firebase Storage. Returns typed `ImageMeta[]` and `VideoMeta[]`.
 
 ```typescript
 type ImageMeta = {
@@ -43,11 +43,21 @@ type ImageMeta = {
   downloadUrl: string; // full-res download URL (signed)
   thumbUrl: string; // thumbnail download URL (falls back to downloadUrl)
 };
+
+type VideoMeta = {
+  id: string; // filename (e.g. "video1.mp4")
+  storagePath: string; // "videos/full/video1.mp4"
+  date: string; // ISO string, normalized
+  event?: string; // custom metadata
+  caption?: string; // custom metadata
+  downloadUrl: string; // video download URL (signed)
+  thumbUrl: string; // poster thumbnail URL
+};
 ```
 
-**`fetchAllImageMetadata()`** does:
+**`fetchAllImageMetadata()`** and **`fetchAllVideoMetadata()`** do:
 
-1. `listAll(ref(storage, "images/full"))` to discover all files
+1. `listAll(ref(storage, "images/videos/full"))` to discover all files
 2. For each file, fetches metadata + full download URL + thumb download URL in parallel
 3. Normalizes `date` from custom metadata (falls back to `timeCreated`)
 4. Returns sorted **newest-first** by date
@@ -55,8 +65,35 @@ type ImageMeta = {
 **Key details:**
 
 - Metadata normalization handles both `date`/`Date`, `event`/`Event`, `caption`/`Caption` keys (case-insensitive custom metadata)
-- If a thumbnail doesn't exist in `images/thumb/`, falls back to the full-res URL
+- If a thumbnail doesn't exist in `images/videos/thumb/`, falls back to the full-res URL
 - Date parsing is defensive — returns `new Date().toISOString()` if unparseable
+
+### `eventsService.ts`
+
+**Single responsibility:** Talk to Firestore for timeline events. Returns typed `TimelineEvent[]`.
+
+```typescript
+type TimelineEvent = {
+  id: string; // Firestore document ID (e.g. "evt-001")
+  date: string; // YYYY-MM-DD format
+  title: string; // Event title
+  emojiOrDot?: string; // Emoji or "•" for display
+  imageIds?: string[]; // Associated image IDs
+};
+```
+
+**`fetchEvents()`** does:
+
+1. `query(collection(db, "events"), orderBy("date", "desc"))` to get all events
+2. Maps Firestore documents to `TimelineEvent` objects
+3. Returns sorted **newest-first** by date
+
+**Key details:**
+
+- Events are stored in Firestore `events` collection
+- Document ID serves as the event `id` field
+- Events can be created/updated via the uploader page
+- Images link to events via explicit `imageIds` array or matching `event` metadata
 
 ### `authService.ts`
 
@@ -115,12 +152,15 @@ IndexedDB-backed thumbnail cache with two object stores:
 
 ### `GalleryContext`
 
-The **central data hub**. Owns image metadata, preloaded blobs, loading state, and modal state.
+The **central data hub**. Owns image metadata, video metadata, events, preloaded blobs, loading state, and modal state.
 
 **State shape:**
 
 ```typescript
 {
+  events: TimelineEvent[];           // Timeline events from Firestore, newest-first
+  refreshEvents: () => Promise<void>; // Refresh events from Firestore
+  refreshGallery: () => Promise<void>; // Refresh image/video metadata
   imageMetas: ImageMeta[];           // All image metadata, newest-first
   videoMetas: VideoMeta[];           // Video metadata (posters + meta)
   preloadedImages: PreloadedImage[]; // Thumbnail blob URLs
@@ -140,13 +180,14 @@ The **central data hub**. Owns image metadata, preloaded blobs, loading state, a
 **Loading sequence (runs when `user` becomes non-null):**
 
 ```
-1. Check IndexedDB cache (loadFromCache)
+1. Start events fetch (non-blocking, runs in parallel)
+2. Check IndexedDB cache (loadFromCache)
    ├── Cache hit  → Show cached data instantly, set hasGalleryLoadedOnce = true
    └── Cache miss → Show loading progress starting at 20%
-2. Fetch fresh metadata from Firebase (fetchAllImageMetadata)
-3. Diff-sync cache (syncCache) — downloads only NEW thumbnails
-4. Update state with fresh data
-5. Release old blob URLs to prevent memory leaks
+3. Fetch fresh metadata from Firebase (fetchAllImageMetadata + fetchAllVideoMetadata)
+4. Diff-sync cache (syncCache) — downloads only NEW thumbnails
+5. Update state with fresh data + events
+6. Release old blob URLs to prevent memory leaks
 ```
 
 **On logout / auth loss:**

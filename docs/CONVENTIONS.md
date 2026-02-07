@@ -184,24 +184,22 @@ const allReady =
 
 ### Adding a Timeline Event
 
-Edit `src/assets/events.json`:
+Events are now created through the uploader page UI and stored in Firestore. Use the "Create New Event" form in the uploader:
 
-```json
-{
-  "id": "unique-event-id",
-  "date": "2026-01-15",
-  "title": "Event Title",
-  "emojiOrDot": "🎉",
-  "imageIds": ["photo1.jpg", "photo2.jpg"]
-}
-```
+1. Navigate to `/upload`
+2. Fill in the event creation form:
+   - **Date** (required): Event date in YYYY-MM-DD format
+   - **Emoji** (optional): Display emoji for the event
+   - **Title** (required): Event name/title
+3. Click "Create Event"
 
 **Rules:**
 
-- `id` must be unique across all events
+- Event IDs are auto-generated as `evt-XXX` (incrementing numbers)
 - `date` must be `YYYY-MM-DD` format
-- `imageIds` are optional — images also link by matching `event` metadata to `title` (case-insensitive)
+- `imageIds` start empty — images link by matching `event` metadata to `title` (case-insensitive)
 - Events auto-sort newest-first in `TimelinePage`
+- Events are stored in Firestore `events` collection with auth-protected access
 
 ### Uploading Images (Programmatically)
 

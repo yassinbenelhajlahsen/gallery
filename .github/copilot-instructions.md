@@ -56,7 +56,7 @@
 
 ## Timeline & Events
 
-- Events defined in `src/assets/events.json` with `{ id, date, title, emojiOrDot?, imageIds? }`.
+- Events defined in Firestore `events` collection with `{ id, date, title, emojiOrDot?, imageIds? }`.
 - Images link to events two ways: explicit `imageIds` array OR matching `event` metadata (normalized, case-insensitive). Both are unioned.
 - Keep `id` unique, `date` as `YYYY-MM-DD`. Events auto-sort newest-first in `TimelinePage`.
 
