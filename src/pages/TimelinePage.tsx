@@ -5,6 +5,7 @@ import type { TimelineEvent } from "../components/TimelineEventItem";
 import eventsData from "../assets/events.json";
 import { useGallery } from "../context/GalleryContext";
 import type { ImageMeta } from "../services/storageService";
+import type { MediaMeta, VideoMeta } from "../services/mediaTypes";
 import { usePageReveal } from "../hooks/usePageReveal";
 
 const timelineEvents: TimelineEvent[] = [
@@ -24,93 +25,118 @@ const normalize = (value?: string | null) => {
 };
 
 const TimelinePage: React.FC = () => {
-  const { imageMetas, openModalWithImages } = useGallery();
+  const { imageMetas, videoMetas, openModalWithMedia } = useGallery();
   const isVisible = usePageReveal();
 
-  const eventImageMap = React.useMemo(() => {
-    const map = new Map<string, ImageMeta[]>();
-    const normalizedMetaBuckets = new Map<string, ImageMeta[]>();
+  const eventMediaMap = React.useMemo(() => {
+    const map = new Map<string, MediaMeta[]>();
+    const normalizedImageBuckets = new Map<string, ImageMeta[]>();
+    const normalizedVideoBuckets = new Map<string, VideoMeta[]>();
 
-    // Build buckets of images grouped by normalized event name
     imageMetas.forEach((meta) => {
       const key = normalize(meta.event);
       if (!key) return;
-      const bucket = normalizedMetaBuckets.get(key) ?? [];
+      const bucket = normalizedImageBuckets.get(key) ?? [];
       bucket.push(meta);
-      normalizedMetaBuckets.set(key, bucket);
+      normalizedImageBuckets.set(key, bucket);
+    });
+
+    videoMetas.forEach((meta) => {
+      const key = normalize(meta.event);
+      if (!key) return;
+      const bucket = normalizedVideoBuckets.get(key) ?? [];
+      bucket.push(meta);
+      normalizedVideoBuckets.set(key, bucket);
     });
 
     timelineEvents.forEach((event) => {
-      let matches: ImageMeta[] = [];
+      const matches: MediaMeta[] = [];
+      const existingIds = new Set<string>();
 
-      // First try explicit imageIds
+      // Explicit IDs are treated as media IDs (image ids or video filenames)
       if (event.imageIds?.length) {
-        matches = event.imageIds
-          .map((imageId) => imageMetas.find((meta) => meta.id === imageId))
-          .filter((meta): meta is ImageMeta => Boolean(meta));
+        event.imageIds.forEach((id) => {
+          const img = imageMetas.find((m) => m.id === id);
+          if (img && !existingIds.has(img.id)) {
+            matches.push({ ...img, type: "image" } as const);
+            existingIds.add(img.id);
+          }
+          const vid = videoMetas.find((v) => v.id === id);
+          if (vid && !existingIds.has(vid.id)) {
+            matches.push(vid);
+            existingIds.add(vid.id);
+          }
+        });
       }
 
-      // ALSO try matching by event name (this adds images uploaded with matching event metadata)
+      // Match by event title (union, no duplicates)
       const normalizedEventTitle = normalize(event.title);
-      const bucket = normalizedMetaBuckets.get(normalizedEventTitle);
+      const imgBucket = normalizedImageBuckets.get(normalizedEventTitle) ?? [];
+      const vidBucket = normalizedVideoBuckets.get(normalizedEventTitle) ?? [];
 
-      if (bucket?.length) {
-        // Merge bucket images with explicit imageIds, avoiding duplicates
-        const existingIds = new Set(matches.map((m) => m.id));
-        const additionalImages = bucket.filter(
-          (img) => !existingIds.has(img.id),
-        );
-        matches = [...matches, ...additionalImages];
-      }
+      imgBucket.forEach((img) => {
+        if (existingIds.has(img.id)) return;
+        matches.push({ ...img, type: "image" } as const);
+        existingIds.add(img.id);
+      });
 
+      vidBucket.forEach((vid) => {
+        if (existingIds.has(vid.id)) return;
+        matches.push(vid);
+        existingIds.add(vid.id);
+      });
+
+      // Sort newest-first for stability inside modal
+      matches.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
       map.set(event.id, matches);
     });
 
     return map;
-  }, [imageMetas]);
+  }, [imageMetas, videoMetas]);
 
   const handleEventSelect = React.useCallback(
     (event: TimelineEvent) => {
-      const matches = eventImageMap.get(event.id) ?? [];
+      const matches = eventMediaMap.get(event.id) ?? [];
       if (!matches.length) return;
-      openModalWithImages(matches, { preloadAll: true });
+      // Timeline is the ONLY place where mixed image+video navigation is allowed.
+      openModalWithMedia(matches, { preloadAll: true });
     },
-    [eventImageMap, openModalWithImages],
+    [eventMediaMap, openModalWithMedia],
   );
 
   return (
     <section className="flex w-full justify-center">
-      <div
-        className={`mx-auto w-full max-w-4xl sm:max-w-full space-y-8 rounded-4xl bg-white/80 p-10 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl transition-all duration-400 ease-out ${
-          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
-      >
-        <header className="space-y-4 text-center sm:text-left">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#D8ECFF]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em]">
-            Timeline
-          </span>
-        </header>
+      <div className="mx-auto w-full max-w-7xl space-y-16 rounded-4xl bg-white/80 p-6 sm:p-10 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl">
+        <div
+          className={`space-y-10 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+        >
+          <header className="space-y-4">
+            <span className="inline-flex items-center justify-center rounded-full bg-[#D8ECFF]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em] text-[#1f4f6f]">
+              Timeline
+            </span>
+          </header>
 
-        <ol className="space-y-4">
-          {timelineEvents.map((event) => (
-            <li key={event.id}>
-              <TimelineEventItem
-                event={event}
-                onSelect={handleEventSelect}
-                linkedImageCount={eventImageMap.get(event.id)?.length ?? 0}
-              />
-            </li>
-          ))}
-        </ol>
+          <ol className="space-y-4">
+            {timelineEvents.map((event) => (
+              <li key={event.id}>
+                <TimelineEventItem
+                  event={event}
+                  onSelect={handleEventSelect}
+                  linkedImageCount={eventMediaMap.get(event.id)?.length ?? 0}
+                />
+              </li>
+            ))}
+          </ol>
 
-        <div className="flex justify-center pt-6">
-          <Link
-            to="/upload"
-            className="inline-flex items-center gap-2 rounded-full bg-[#F7DEE2]/80 px-5 py-2 text-sm font-semibold text-[#3f3f3f] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F7DEE2] hover:scale-105 active:scale-95 touch-manipulation"
-          >
-            Upload Images
-            <span aria-hidden="true">↗</span>
-          </Link>
+          <div className="flex justify-center pt-6">
+            <Link
+              to="/upload"
+              className="inline-flex items-center gap-2 rounded-full bg-[#F7DEE2]/80 px-5 py-2 text-sm font-semibold text-[#3f3f3f] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F7DEE2] hover:scale-105 active:scale-95 touch-manipulation"
+            >
+              Upload
+              <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
         </div>
       </div>
     </section>

@@ -1,14 +1,28 @@
 import React from "react";
 import type { ImageMeta } from "../services/storageService";
+import type {
+  ImageMediaMeta,
+  MediaMeta,
+  VideoMeta,
+} from "../services/mediaTypes";
+import { getVideoDownloadUrl } from "../services/storageService";
+
+const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
+  Boolean(item && (item as VideoMeta).type === "video");
+
+const isImageMeta = (item: MediaMeta | undefined): item is ImageMediaMeta =>
+  Boolean(item && !isVideoMeta(item));
 
 export type ImageModalViewerProps = {
-  images: ImageMeta[];
+  media: MediaMeta[];
   initialIndex?: number;
   isOpen: boolean;
   onClose: () => void;
   onChangeIndex?: (nextIndex: number) => void;
   /** Resolves a cached thumbnail blob URL for an image (used as placeholder) */
   resolveThumbUrl?: (image: ImageMeta) => string;
+  /** Resolves a cached thumbnail blob URL for a video (used for poster) */
+  resolveVideoThumbUrl?: (video: VideoMeta) => string;
   /** When true, preload full-res for ALL images instead of only the ±N window */
   preloadAll?: boolean;
 };
@@ -40,12 +54,13 @@ const toLocalDate = (dateString: string) => {
 };
 
 const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
-  images,
+  media,
   initialIndex = 0,
   isOpen,
   onClose,
   onChangeIndex,
   resolveThumbUrl,
+  resolveVideoThumbUrl,
   preloadAll = false,
 }) => {
   const [activeIndex, setActiveIndex] = React.useState(initialIndex);
@@ -65,7 +80,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   const SLIDE_DURATION = 300;
   const PRELOAD_AHEAD = 10;
   const PRELOAD_BEHIND = 5;
-  const totalImages = images.length;
+  const totalItems = media.length;
 
   const clearAnimationTimeout = () => {
     if (animationTimeoutRef.current != null) {
@@ -89,6 +104,11 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
           });
           return new Map();
         });
+        // Release any video object URL
+        setActiveVideoUrl((prev) => {
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+          return null;
+        });
         loadingIdsRef.current.clear();
         clearAnimationTimeout();
       }, 300);
@@ -99,7 +119,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   // Initialize index when opening
   React.useEffect(() => {
     if (isOpen) {
-      const safeIndex = clampIndex(initialIndex, images.length);
+      const safeIndex = clampIndex(initialIndex, media.length);
       setActiveIndex(safeIndex);
       setIsClosing(false);
       // Set initialized flag after a brief delay to allow DOM to settle
@@ -109,31 +129,104 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         });
       });
     }
-  }, [initialIndex, images.length, isOpen]);
+  }, [initialIndex, isOpen, media.length]);
+
+  const currentItem = media[activeIndex];
+
+  // ── Video URL (object URL) management ──
+  // Videos must never be cached; we keep only a single object URL for the active video.
+  const [activeVideoUrl, setActiveVideoUrl] = React.useState<string | null>(
+    null,
+  );
+  const videoElRef = React.useRef<HTMLVideoElement | null>(null);
+  const videoLoadTokenRef = React.useRef(0);
+
+  const cleanupVideo = React.useCallback(() => {
+    const el = videoElRef.current;
+    if (el) {
+      try {
+        el.pause();
+        // Ensure the element releases decoding/buffer
+        el.removeAttribute("src");
+        el.load();
+      } catch {
+        // ignore
+      }
+    }
+    videoElRef.current = null;
+
+    setActiveVideoUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
+  }, []);
+
+  // Fetch video bytes ONLY when a video becomes active (after user opened modal)
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    if (!isVideoMeta(currentItem)) {
+      // If we moved away from a video, ensure it's fully cleaned up.
+      cleanupVideo();
+      return;
+    }
+
+    // New active video: cleanup any previous video first.
+    cleanupVideo();
+
+    const token = ++videoLoadTokenRef.current;
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        // This is the FIRST moment we request any video URL.
+        const url = await getVideoDownloadUrl(currentItem.videoPath);
+        if (cancelled || token !== videoLoadTokenRef.current) return;
+
+        // Fetch to blob so we can revoke URL on close/slide.
+        const res = await fetch(url, { mode: "cors" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled || token !== videoLoadTokenRef.current) return;
+
+        const objectUrl = URL.createObjectURL(blob);
+        setActiveVideoUrl(objectUrl);
+      } catch (err) {
+        console.warn("[Modal] Failed to load video", err);
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cleanupVideo, currentItem, isOpen]);
 
   // ── Full-res windowed preloading ──
   // Load full-res for the active image + window, or ALL if preloadAll is set.
   // Evict any blob URLs outside the window (only when not preloadAll).
   React.useEffect(() => {
-    if (!isOpen || !images.length) return;
+    if (!isOpen || !media.length) return;
 
-    // Compute the set of indices we want loaded
-    const wantedIndices = new Set<number>();
+    // Map media index -> image index for preloading window, keeping behavior for images-only modals.
+    // In mixed modals, we only preload images that are in-window AND are images.
+    const wantedMediaIndices = new Set<number>();
     if (preloadAll) {
-      for (let i = 0; i < images.length; i++) wantedIndices.add(i);
+      for (let i = 0; i < media.length; i++) wantedMediaIndices.add(i);
     } else {
       for (let offset = -PRELOAD_BEHIND; offset <= PRELOAD_AHEAD; offset++) {
         const idx = activeIndex + offset;
-        if (idx >= 0 && idx < images.length) {
-          wantedIndices.add(idx);
-        }
+        if (idx >= 0 && idx < media.length) wantedMediaIndices.add(idx);
       }
     }
 
-    const wantedIds = new Set<string>();
-    wantedIndices.forEach((idx) => {
-      const img = images[idx];
-      if (img) wantedIds.add(img.id);
+    const wantedImageIds = new Set<string>();
+    wantedMediaIndices.forEach((idx) => {
+      const item = media[idx];
+      if (isImageMeta(item)) wantedImageIds.add(item.id);
     });
 
     // Evict entries outside the window
@@ -141,7 +234,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       let changed = false;
       const next = new Map(prev);
       for (const [id, url] of prev) {
-        if (!wantedIds.has(id)) {
+        if (!wantedImageIds.has(id)) {
           if (url.startsWith("blob:")) URL.revokeObjectURL(url);
           next.delete(id);
           changed = true;
@@ -152,15 +245,16 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 
     // Clean loadingIdsRef for evicted images so they can be re-fetched
     for (const id of loadingIdsRef.current) {
-      if (!wantedIds.has(id)) {
+      if (!wantedImageIds.has(id)) {
         loadingIdsRef.current.delete(id);
       }
     }
 
     // Start loading wanted images that aren't already loaded or in-flight
-    wantedIndices.forEach((idx) => {
-      const img = images[idx];
-      if (!img) return;
+    wantedMediaIndices.forEach((idx) => {
+      const item = media[idx];
+      if (!isImageMeta(item)) return;
+      const img = item;
       if (loadingIdsRef.current.has(img.id)) return;
 
       loadingIdsRef.current.add(img.id);
@@ -186,13 +280,13 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
           loadingIdsRef.current.delete(img.id);
         });
     });
-  }, [activeIndex, images, isOpen, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
+  }, [activeIndex, isOpen, media, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
 
   const goToIndex = React.useCallback(
     (next: number, _direction?: "left" | "right", immediate = false) => {
-      if (!images.length) return;
+      if (!media.length) return;
 
-      const safeIndex = clampIndex(next, images.length);
+      const safeIndex = clampIndex(next, media.length);
       if (safeIndex === activeIndex && !immediate) return;
 
       if (immediate) {
@@ -211,7 +305,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         animationTimeoutRef.current = null;
       }, SLIDE_DURATION);
     },
-    [SLIDE_DURATION, activeIndex, images.length, onChangeIndex],
+    [SLIDE_DURATION, activeIndex, media.length, onChangeIndex],
   );
 
   React.useEffect(() => {
@@ -292,33 +386,26 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
     touchStartX.current = null;
   };
 
-  if (!isOpen || !images.length) {
+  if (!isOpen || !media.length) {
     return null;
   }
 
-  const currentImage = images[activeIndex];
-  const hasMultipleImages = images.length > 1;
-  const imageUrl = currentImage
-    ? (fullResUrls.get(currentImage.id) ??
-      resolveThumbUrl?.(currentImage) ??
-      currentImage.thumbUrl)
-    : undefined;
-  const hasImageData = Boolean(currentImage && imageUrl);
-  const eventLabel = currentImage?.event ?? "Memory";
-  const captionLabel = currentImage?.caption;
-  const dateLabel = currentImage
-    ? toLocalDate(currentImage.date).toLocaleDateString(undefined, {
+  const hasMultipleItems = media.length > 1;
+  const eventLabel = currentItem?.event ?? "Memory";
+  const captionLabel = currentItem?.caption;
+  const dateLabel = currentItem
+    ? toLocalDate(currentItem.date).toLocaleDateString(undefined, {
         year: "numeric",
         month: "long",
         day: "numeric",
       })
     : "";
-  const progressPercent = totalImages
-    ? Math.min(100, ((activeIndex + 1) / totalImages) * 100)
+  const progressPercent = totalItems
+    ? Math.min(100, ((activeIndex + 1) / totalItems) * 100)
     : 0;
   const accentPalette = ["#F7DEE2", "#D8ECFF", "#FFE89D", "#E8D4F8", "#B9E4FF"];
   const accentColor = accentPalette[activeIndex % accentPalette.length];
-  const metadataKey = currentImage?.id ?? `meta-${activeIndex}`;
+  const metadataKey = currentItem?.id ?? `meta-${activeIndex}`;
 
   return (
     <div
@@ -341,7 +428,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       onClick={handleBackdropClick}
     >
       <div
-        className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
+        className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-visible sm:overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
           isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100"
         }`}
         style={{
@@ -377,11 +464,11 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         </button>
 
         <div className="flex flex-col gap-4 sm:gap-6">
-          <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-black/20 p-4 sm:min-h-105 overflow-hidden">
+          <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-black/20 p-4 sm:min-h-105 overflow-visible sm:overflow-hidden">
             <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
 
-            {hasImageData ? (
+            {currentItem ? (
               <div
                 className={`flex w-full items-center gap-6 ${
                   isAnimating ? "cursor-grabbing" : "cursor-pointer"
@@ -395,35 +482,53 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                   transitionProperty: "transform",
                 }}
               >
-                {images.map((image, index) => {
-                  // Prefer full-res blob if loaded, otherwise use thumbnail
-                  const thumbUrl = resolveThumbUrl?.(image) ?? image.thumbUrl;
-                  const fullUrl = fullResUrls.get(image.id);
-                  const imgUrl = fullUrl ?? thumbUrl;
+                {media.map((item, index) => {
                   const isActiveSlide = index === activeIndex;
-                  const isFullRes = fullResUrls.has(image.id);
+                  const isItemVideo = isVideoMeta(item);
 
                   return (
                     <div
-                      key={`${image.id}-${index}`}
+                      key={`${item.id}-${index}`}
                       className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-black/10 p-3 shadow-2xl transition-transform duration-500 ${
                         isActiveSlide
                           ? "scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)]"
                           : "scale-95 opacity-100"
                       }`}
                     >
-                      {imgUrl ? (
-                        <ModalImage
-                          src={imgUrl}
-                          thumbSrc={thumbUrl}
-                          alt={image.caption ?? image.event ?? "Gallery image"}
+                      {isItemVideo ? (
+                        <ModalVideo
                           isActive={isActiveSlide}
-                          isFullRes={isFullRes}
+                          objectUrl={isActiveSlide ? activeVideoUrl : null}
+                          posterUrl={
+                            resolveVideoThumbUrl?.(item) ?? item.thumbUrl
+                          }
+                          videoRef={videoElRef}
                         />
                       ) : (
-                        <p className="text-center text-sm text-white/80">
-                          Unable to load image.
-                        </p>
+                        (() => {
+                          const image = item as ImageMeta;
+                          const thumbUrl =
+                            resolveThumbUrl?.(image) ?? image.thumbUrl;
+                          const fullUrl = fullResUrls.get(image.id);
+                          const imgUrl = fullUrl ?? thumbUrl;
+                          const isFullRes = fullResUrls.has(image.id);
+
+                          return imgUrl ? (
+                            <ModalImage
+                              src={imgUrl}
+                              thumbSrc={thumbUrl}
+                              alt={
+                                image.caption ?? image.event ?? "Gallery image"
+                              }
+                              isActive={isActiveSlide}
+                              isFullRes={isFullRes}
+                            />
+                          ) : (
+                            <p className="text-center text-sm text-white/80">
+                              Unable to load image.
+                            </p>
+                          );
+                        })()
                       )}
                       <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
                     </div>
@@ -432,17 +537,17 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
               </div>
             ) : (
               <p className="text-center text-sm text-white/80">
-                Unable to load image.
+                Unable to load media.
               </p>
             )}
 
-            {hasMultipleImages && (
+            {hasMultipleItems && (
               <div className="pointer-events-none absolute inset-0 hidden items-center justify-between px-2 sm:flex">
                 <button
                   type="button"
                   onClick={goToPrev}
                   className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
-                  aria-label="Previous image"
+                  aria-label="Previous"
                 >
                   ←
                 </button>
@@ -450,7 +555,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                   type="button"
                   onClick={goToNext}
                   className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
-                  aria-label="Next image"
+                  aria-label="Next"
                 >
                   →
                 </button>
@@ -480,11 +585,11 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                   {activeIndex + 1}
                 </span>
                 <span className="text-xs text-white/40">/</span>
-                <span className="text-xs text-white/60">{images.length}</span>
+                <span className="text-xs text-white/60">{media.length}</span>
               </div>
-              {images.length <= 10 ? (
+              {media.length <= 10 ? (
                 <div className="flex items-center gap-1.5" role="presentation">
-                  {Array.from({ length: images.length }, (_, i) => (
+                  {Array.from({ length: media.length }, (_, i) => (
                     <button
                       key={i}
                       onClick={() =>
@@ -635,6 +740,77 @@ const ModalImage: React.FC<{
         />
       )}
     </div>
+  );
+};
+
+const ModalVideo: React.FC<{
+  isActive: boolean;
+  objectUrl: string | null;
+  posterUrl: string;
+  videoRef: React.MutableRefObject<HTMLVideoElement | null>;
+}> = ({ isActive, objectUrl, posterUrl, videoRef }) => {
+  // If the slide is not active, render only a poster image (no <video> tag)
+  if (!isActive) {
+    return (
+      <img
+        src={posterUrl}
+        alt="Video thumbnail"
+        className="max-h-[60vh] w-full rounded-[28px] object-contain relative z-20"
+        decoding="async"
+        loading="lazy"
+      />
+    );
+  }
+
+  if (!objectUrl) {
+    // Still resolving download URL / fetching bytes
+    return (
+      <div className="relative flex w-full items-center justify-center">
+        <img
+          src={posterUrl}
+          alt="Video thumbnail"
+          className="max-h-[60vh] w-full rounded-[28px] object-contain opacity-70 relative z-20"
+          decoding="async"
+          loading="eager"
+        />
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <svg
+            className="h-8 w-8 animate-spin text-white/40"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <video
+      ref={(el) => {
+        videoRef.current = el;
+      }}
+      src={objectUrl}
+      poster={posterUrl}
+      autoPlay
+      controls
+      playsInline
+      className="max-h-[60vh] w-full rounded-[28px] object-contain relative z-30"
+    />
   );
 };
 
