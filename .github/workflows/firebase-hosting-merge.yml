@@ -14,11 +14,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Restore events data
-        run: printenv EVENTS_JSON > src/assets/events.json
-        env:
-          EVENTS_JSON: ${{ secrets.EVENTS_JSON }}
-
       - run: npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
