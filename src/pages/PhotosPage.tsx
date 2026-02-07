@@ -13,9 +13,9 @@ type YearGroup = {
 /** How many year-groups ahead/behind the visible one to preload full-res */
 const PRELOAD_GROUPS = 3;
 
-const SeeAllGalleryPage: React.FC = () => {
+const All: React.FC = () => {
   const { imageMetas, resolveThumbUrl, openModalForImageId } = useGallery();
-  const isVisible = usePageReveal(40);
+  const isVisible = usePageReveal();
   const { resolveUrl, requestFullRes, evict } = useFullResLoader();
 
   const yearGroups = React.useMemo<YearGroup[]>(() => {
@@ -128,13 +128,13 @@ const SeeAllGalleryPage: React.FC = () => {
     <section className="flex w-full justify-center">
       <div className="mx-auto w-full max-w-7xl rounded-4xl bg-white/85 p-6 sm:p-10 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl">
         <div
-          className={`space-y-10 transition-opacity duration-400 ${
-            isVisible ? "opacity-100" : "opacity-0"
+          className={`space-y-10 transition-all duration-400 ease-out ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <header className="space-y-4 text-center">
+          <header className="space-y-4">
             <span className="inline-flex items-center justify-center rounded-full bg-[#FFE39F]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em] text-[#9a6b2c]">
-              All memories
+              Photos
             </span>
           </header>
 
@@ -202,4 +202,4 @@ const getLocalDate = (dateString: string) => {
   return Number.isNaN(parsed) ? new Date(0) : new Date(parsed);
 };
 
-export default SeeAllGalleryPage;
+export default All;

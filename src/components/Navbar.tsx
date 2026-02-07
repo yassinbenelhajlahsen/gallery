@@ -1,25 +1,15 @@
 import { NavLink } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
 import { config } from "../config";
 
 const NAV_ITEMS = [
-  { label: "Home", to: "/home", activeClass: "bg-[#F7DEE2]" },
+  { label: "Home", to: "/home", activeClass: "bg-[#F9A1B2]" },
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
-  { label: "See All", to: "/gallery", activeClass: "bg-[#FFE39F]" },
+  { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
+  { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
 ];
 
 const Navbar = () => {
-  const { logout } = useAuth();
-  const { toast } = useToast();
 
-  const handleLogout = async () => {
-    toast(config.logoutToast, "logout");
-    // Small delay so the user sees the toast before redirect
-    setTimeout(async () => {
-      await logout();
-    }, 200);
-  };
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#EDEDED]/80 bg-white/90 backdrop-blur-md">
@@ -36,7 +26,7 @@ const Navbar = () => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-full px-2.5 py-1.5 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
+                `rounded-full px-1.5 py-1.5 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
                   isActive
                     ? `${item.activeClass} text-[#222] shadow-sm scale-105`
                     : "bg-white/40 text-[#666] hover:bg-white/70 hover:text-[#222] hover:scale-105"
@@ -46,26 +36,7 @@ const Navbar = () => {
               {item.label}
             </NavLink>
           ))}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="ml-1 rounded-full px-2.5 py-1.5 sm:px-4 leading-tight text-[#999] transition-all duration-150 hover:bg-[#FFE9F1] hover:text-[#555] active:scale-95 touch-manipulation"
-            aria-label="Sign out"
-          >
-            <svg
-              className="h-4 w-4 sm:h-[18px] sm:w-[18px]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-          </button>
+          
         </nav>
       </div>
     </header>

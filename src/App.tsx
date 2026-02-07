@@ -9,7 +9,8 @@ import LoginPage from "./pages/LoginPage";
 import LoadingScreen from "./pages/LoadingScreen";
 import HomePage from "./pages/HomePage";
 import TimelinePage from "./pages/TimelinePage";
-import SeeAllGalleryPage from "./pages/SeeAllGalleryPage";
+import PhotosPage from "./pages/PhotosPage";
+import VideosPage from "./pages/VideosPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GalleryProvider, useGallery } from "./context/GalleryContext";
 import Navbar from "./components/Navbar";
@@ -162,8 +163,9 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/home" replace /> },
       { path: "home", element: <HomePage /> },
       { path: "timeline", element: <TimelinePage /> },
-      { path: "gallery", element: <SeeAllGalleryPage /> },
+      { path: "photos", element: <PhotosPage /> },
       { path: "upload", element: <UploaderPage /> },
+      { path: "videos", element: <VideosPage /> },
     ],
   },
 
