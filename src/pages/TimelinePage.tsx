@@ -1,16 +1,10 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import TimelineEventItem from "../components/TimelineEventItem";
 import type { TimelineEvent } from "../components/TimelineEventItem";
-import eventsData from "../assets/events.json";
 import { useGallery } from "../context/GalleryContext";
 import type { ImageMeta } from "../services/storageService";
 import type { MediaMeta, VideoMeta } from "../services/mediaTypes";
 import { usePageReveal } from "../hooks/usePageReveal";
-
-const timelineEvents: TimelineEvent[] = [
-  ...(eventsData as TimelineEvent[]),
-].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
 const normalize = (value?: string | null) => {
   if (!value) return "";
@@ -27,6 +21,8 @@ const normalize = (value?: string | null) => {
 const TimelinePage: React.FC = () => {
   const { imageMetas, videoMetas, openModalWithMedia } = useGallery();
   const isVisible = usePageReveal();
+
+  const { events: timelineEvents } = useGallery();
 
   const eventMediaMap = React.useMemo(() => {
     const map = new Map<string, MediaMeta[]>();
@@ -92,7 +88,7 @@ const TimelinePage: React.FC = () => {
     });
 
     return map;
-  }, [imageMetas, videoMetas]);
+  }, [imageMetas, videoMetas, timelineEvents]);
 
   const handleEventSelect = React.useCallback(
     (event: TimelineEvent) => {
@@ -127,16 +123,6 @@ const TimelinePage: React.FC = () => {
               </li>
             ))}
           </ol>
-
-          <div className="flex justify-center pt-6">
-            <Link
-              to="/upload"
-              className="inline-flex items-center gap-2 rounded-full bg-[#F7DEE2]/80 px-5 py-2 text-sm font-semibold text-[#3f3f3f] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F7DEE2] hover:scale-105 active:scale-95 touch-manipulation"
-            >
-              Upload
-              <span aria-hidden="true">↗</span>
-            </Link>
-          </div>
         </div>
       </div>
     </section>

@@ -10,6 +10,8 @@ import {
 } from "react";
 import type { ImageMeta, PreloadedImage } from "../services/storageService";
 import type { MediaMeta, VideoMeta } from "../services/mediaTypes";
+import type { TimelineEvent } from "../components/TimelineEventItem";
+import { fetchEvents } from "../services/eventsService";
 import {
   fetchAllImageMetadata,
   fetchAllVideoMetadata,
@@ -30,6 +32,10 @@ type OpenModalOptions = {
 };
 
 type GalleryContextValue = {
+  /** Timeline events loaded from Firestore (loaded on app startup after auth) */
+  events: TimelineEvent[];
+  refreshEvents: () => Promise<void>;
+  refreshGallery: () => Promise<void>;
   imageMetas: ImageMeta[];
   videoMetas: VideoMeta[];
   preloadedImages: PreloadedImage[];
@@ -85,6 +91,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const [modalInitialIndex, setModalInitialIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPreloadAll, setModalPreloadAll] = useState(false);
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
 
   useEffect(() => {
     return () => {
@@ -121,6 +128,22 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     let cancelled = false;
 
     const run = async () => {
+      // Fetch timeline events from Firestore early in the loading sequence so
+      // the timeline is available app-wide shortly after auth becomes ready.
+      // This call is intentionally non-blocking for the gallery metadata flow.
+      (async () => {
+        try {
+          const docs = await fetchEvents();
+          if (!cancelled)
+            setEvents(
+              docs.sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
+            );
+        } catch (err) {
+          // Don't fail the entire gallery load if events can't be read.
+          console.warn("[Gallery] Failed to load timeline events:", err);
+          if (!cancelled) setEvents([]);
+        }
+      })();
       setIsGalleryLoading(true);
       setLoadError(null);
       setLoadingProgress(0);
@@ -291,8 +314,65 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     setModalInitialIndex(index);
   }, []);
 
+  const refreshEvents = useCallback(async () => {
+    try {
+      const docs = await fetchEvents();
+      setEvents(docs.sort((a, b) => Date.parse(b.date) - Date.parse(a.date)));
+    } catch (err) {
+      console.error("Failed to refresh events:", err);
+    }
+  }, []);
+
+  const refreshGallery = useCallback(async () => {
+    try {
+      setIsGalleryLoading(true);
+      setLoadError(null);
+
+      // Fetch fresh metadata from Firebase
+      const freshMetas = await fetchAllImageMetadata();
+      if (!freshMetas.length) {
+        setImageMetas([]);
+        setPreloadedImages([]);
+        setHasGalleryLoadedOnce(true);
+        return;
+      }
+
+      // Update metas immediately
+      setImageMetas(freshMetas);
+
+      // Diff-sync cache
+      const synced = await syncCache(freshMetas, () => {});
+      setPreloadedImages((prev) => {
+        releasePreloadedUrls(prev);
+        return synced;
+      });
+
+      // Fetch video metadata
+      try {
+        const freshVideoMetas = await fetchAllVideoMetadata();
+        setVideoMetas(freshVideoMetas);
+        await syncVideoThumbCache(freshVideoMetas);
+      } catch (videoErr) {
+        console.warn("[Gallery] Failed to load video metadata", videoErr);
+        setVideoMetas([]);
+      }
+
+      setHasGalleryLoadedOnce(true);
+    } catch (error) {
+      console.error("Failed to refresh gallery", error);
+      setLoadError(
+        error instanceof Error ? error.message : "Failed to refresh gallery",
+      );
+    } finally {
+      setIsGalleryLoading(false);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
+      events,
+      refreshEvents,
+      refreshGallery,
       imageMetas,
       videoMetas,
       preloadedImages,
@@ -313,6 +393,9 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       updateModalIndex,
     }),
     [
+      events,
+      refreshEvents,
+      refreshGallery,
       imageMetas,
       videoMetas,
       preloadedImages,
