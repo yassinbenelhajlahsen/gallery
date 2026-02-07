@@ -5,6 +5,8 @@ export type GalleryGridTile = {
   url: string;
   /** Optional full-res URL — overlaid on top of the thumb when loaded */
   fullUrl?: string;
+  /** Optional media discriminator for UI only */
+  mediaType?: "image" | "video";
   caption?: string;
   onClick?: () => void;
 };
@@ -56,7 +58,7 @@ const GalleryGrid: React.FC<GalleryGridProps> = ({ tiles, columns }) => {
   if (!tiles.length) {
     return (
       <div className="rounded-3xl border border-dashed border-[#EDEDED] bg-white/70 px-6 py-10 text-center text-[#777]">
-        <p>No images yet. They'll appear as soon as we sync your gallery.</p>
+        <p>No media yet. They'll appear as soon as we sync your gallery.</p>
       </div>
     );
   }
@@ -76,6 +78,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
   const [hasError, setHasError] = React.useState(false);
 
   const hasFullRes = Boolean(tile.fullUrl && tile.fullUrl !== tile.url);
+  const isVideo = tile.mediaType === "video";
 
   // Check if the image is already decoded (browser cache / blob URL hot)
   const thumbRef = React.useCallback(
@@ -126,6 +129,14 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
           decoding="async"
           onLoad={() => setFullLoaded(true)}
         />
+      )}
+
+      {isVideo && !hasError && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 ring-1 ring-white/20 backdrop-blur-sm">
+            ▶
+          </span>
+        </div>
       )}
       {hasError && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#f5f5f5] text-sm text-[#999]">

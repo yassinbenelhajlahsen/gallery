@@ -56,7 +56,7 @@ const TimelineEventItem: React.FC<TimelineEventItemProps> = ({
             {linkedImageCount} photo{linkedImageCount === 1 ? "" : "s"} linked
           </p>
         ) : (
-          <p className="text-sm text-[#b2b0b0]">No Photos Available</p>
+          <p className="text-sm text-[#b2b0b0]">No Media Available</p>
         )}
       </div>
     </button>
