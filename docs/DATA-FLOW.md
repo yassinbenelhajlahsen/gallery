@@ -6,14 +6,14 @@
 
 ```
 Firebase Storage
-    │
-    ▼
-storageService.fetchAllImageMetadata()    ← Fetches metadata + URLs for all images
+  │
+  ▼
+storageService.fetchAllImageMetadata() / fetchAllVideoMetadata()    ← Fetches metadata + URLs for all images and videos
     │
     ▼
 GalleryContext (GalleryProvider)           ← Central state owner
     │
-    ├──► imageCacheService (IndexedDB)     ← Caches thumbnail blobs for instant restore
+    ├──► mediaCacheService (IndexedDB)     ← Caches thumbnail blobs for instant restore
     │
     ├──► imageMetas[]                      ← Metadata array available to all pages
     ├──► preloadedImages[]                 ← Thumbnail blob URLs for grid rendering
@@ -22,7 +22,7 @@ GalleryContext (GalleryProvider)           ← Central state owner
     └──► Modal state (isModalOpen, modalImages, etc.)
               │
               ▼
-         GalleryModalRenderer → ImageModalViewer
+         GalleryModalRenderer → mediaModalViewer
               │
               └──► Full-res on-demand loading (windowed ±N or preloadAll)
 ```
@@ -70,7 +70,7 @@ Thin wrapper around Firebase Auth. Hardcodes the login email from `config.authEm
 
 **Rule:** Never call Firebase Auth directly. Use `useAuth()` hook which wraps `authService`.
 
-### `imageCacheService.ts`
+### `mediaCacheService.ts`
 
 IndexedDB-backed thumbnail cache with two object stores:
 
@@ -122,6 +122,7 @@ The **central data hub**. Owns image metadata, preloaded blobs, loading state, a
 ```typescript
 {
   imageMetas: ImageMeta[];           // All image metadata, newest-first
+  videoMetas: VideoMeta[];           // Video metadata (posters + meta)
   preloadedImages: PreloadedImage[]; // Thumbnail blob URLs
   isGalleryLoading: boolean;         // True while fetching
   hasGalleryLoadedOnce: boolean;     // Flips true after first successful load
@@ -130,9 +131,9 @@ The **central data hub**. Owns image metadata, preloaded blobs, loading state, a
 
   // Modal state
   isModalOpen: boolean;
-  modalImages: ImageMeta[];
+  modalMedia: MediaMeta[];           // Modal can show mixed images/videos
   modalInitialIndex: number;
-  modalPreloadAll: boolean;          // Preload ALL full-res vs windowed ±N
+  modalPreloadAll: boolean;          // Preload ALL full-res images vs windowed ±N
 }
 ```
 
@@ -156,12 +157,13 @@ The **central data hub**. Owns image metadata, preloaded blobs, loading state, a
 
 **Modal API:**
 
-| Method                                 | Use Case                                                      |
-| -------------------------------------- | ------------------------------------------------------------- |
-| `openModalWithImages(imgs, opts?)`     | Open lightbox with a specific image set                       |
-| `openModalForImageId(id, collection?)` | Open lightbox at a specific image, optionally within a subset |
-| `closeModal()`                         | Close the lightbox                                            |
-| `updateModalIndex(idx)`                | Sync index when user swipes in the modal                      |
+| Method                                 | Use Case                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------- |
+| `openModalWithImages(imgs, opts?)`     | Open lightbox with a specific image set                                       |
+| `openModalForImageId(id, collection?)` | Open lightbox at a specific image, optionally within a subset                 |
+| `openModalWithMedia(media, opts?)`     | Open media modal with images and/or videos (timeline only allows mixed media) |
+| `closeModal()`                         | Close the lightbox                                                            |
+| `updateModalIndex(idx)`                | Sync index when user swipes in the modal                                      |
 
 **`OpenModalOptions`:**
 
@@ -189,10 +191,10 @@ toast(message: string, variant?: "success" | "error" | "logout")
 
 ### `useFullResLoader`
 
-Used by `HomePage` and `SeeAllGalleryPage` to load full-resolution images as blob URLs.
+Used by `HomePage` and `All` to load full-resolution images as blob URLs.
 
 - **`HomePage`** fetches full-res for its 6/9 chosen tiles and **gates all rendering** behind `allFullResReady` — no thumbnails are ever shown. A loading spinner is displayed until every chosen image has its full-res blob loaded.
-- **`SeeAllGalleryPage`** uses it for **progressive upgrade** — thumbnails display immediately, and full-res blobs overlay them as they load.
+- **`All`** uses it for **progressive upgrade** — thumbnails display immediately, and full-res blobs overlay them as they load.
 
 ```typescript
 const { resolveUrl, requestFullRes, evict, hasFullRes } = useFullResLoader();
@@ -236,9 +238,9 @@ Display flow:
   1. IndexedDB cache → thumbnail blob URL (instant, ~50ms)
   2. Firebase thumb URL → fallback if no cache
   3. useFullResLoader → full-res blob URL
-     • HomePage: full-res only, gated behind loading spinner (no thumbnails shown)
-     • SeeAllGalleryPage: progressive upgrade (thumbnail shown first, full-res overlaid)
-  4. ImageModalViewer → full-res blob URL (windowed ±10/5 preload)
+    • HomePage: full-res only, gated behind loading spinner (no thumbnails shown)
+    • All: progressive upgrade (thumbnail shown first, full-res overlaid)
+  4. mediaModalViewer → full-res blob URL for images (windowed ±10/5 preload). Videos are played on demand using `getVideoDownloadUrl()`; posters are used as thumbnails.
 ```
 
 ## Memory Management

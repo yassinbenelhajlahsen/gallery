@@ -1,12 +1,12 @@
-# gallery
+# Gallery
 
-A private, password-protected photo gallery built as a gift — and as a real engineering project.
+A private, password-protected photo and video gallery built as a gift — and as a real engineering project.
 
 React 19 · TypeScript · Firebase · Tailwind CSS · Vite
 
 ## Why This Exists
 
-I built this to solve a real problem: a private, fast, and beautiful way to browse and upload shared photos — without relying on Google Photos or iCloud shared albums. It also gave me an excuse to dig into performance patterns (IndexedDB caching, progressive image loading, blob URL lifecycle management) that don't come up in typical CRUD apps.
+I built this to solve a real problem: a private, fast, and beautiful way to browse and upload shared photos and videos — without relying on Google Photos or iCloud shared albums. It also gave me an excuse to dig into performance patterns (IndexedDB caching, progressive image loading, blob URL lifecycle management) that don't come up in typical CRUD apps.
 
 ## Privacy by Design
 
@@ -17,7 +17,7 @@ This repo is public, but the app is private. Every user-facing string (names, ti
 ```
 React SPA (Vite)
   ├── Firebase Auth         — password-only login, single account
-  ├── Firebase Storage      — full-res + 480px thumbnails, dual-write on upload
+  ├── Firebase Storage      — images (full-res + 480px thumbnails) and videos (original + poster thumbnails), dual-write on upload
   ├── IndexedDB cache       — instant gallery restore for returning visitors
   └── Blob URL pipeline     — progressive thumb → full-res upgrade, windowed preloading
 ```
@@ -26,14 +26,14 @@ The app uses a **three-layer provider hierarchy** (Auth → Gallery → Toast) t
 
 ## Key Technical Decisions
 
-| Decision                         | Tradeoff                              | Why                                                                             |
-| -------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------- |
-| **Client-side JPEG conversion**  | Adds ~200ms per upload vs raw upload  | Normalizes formats (HEIC, PNG) and generates thumbnails without a backend       |
-| **IndexedDB thumbnail cache**    | ~5MB storage per 200 photos           | Instant gallery restore (<50ms) vs re-downloading every thumbnail on revisit    |
-| **Windowed full-res preloading** | More complex than loading all at once | Keeps memory bounded in the modal — only ±10 ahead / ±5 behind are in memory    |
-| **Blob URLs over data URIs**     | Must track and revoke to avoid leaks  | Much faster to create/render; the codebase has explicit cleanup in every effect |
-| **No backend / serverless**      | Limited to Firebase's capabilities    | Zero infrastructure to maintain — Firebase handles auth, storage, and CDN       |
-| **Env-driven display strings**   | Extra config step for contributors    | Keeps the repo safe for public visibility without any personal data             |
+| Decision                         | Tradeoff                              | Why                                                                                                                 |
+| -------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Client-side JPEG conversion**  | Adds ~200ms per upload vs raw upload  | Normalizes formats (HEIC, PNG) and generates thumbnails without a backend                                           |
+| **IndexedDB thumbnail cache**    | ~5MB storage per 200 photos           | Instant gallery restore (<50ms) vs re-downloading every thumbnail on revisit                                        |
+| **Windowed full-res preloading** | More complex than loading all at once | Keeps memory bounded in the modal — only ±10 ahead / ±5 behind are in memory (images only; videos stream on-demand) |
+| **Blob URLs over data URIs**     | Must track and revoke to avoid leaks  | Much faster to create/render; the codebase has explicit cleanup in every effect                                     |
+| **No backend / serverless**      | Limited to Firebase's capabilities    | Zero infrastructure to maintain — Firebase handles auth, storage, and CDN                                           |
+| **Env-driven display strings**   | Extra config step for contributors    | Keeps the repo safe for public visibility without any personal data                                                 |
 
 ## What I'd Build Next
 

@@ -11,7 +11,7 @@
 | Styling   | Tailwind CSS v4 (PostCSS plugin)                  |
 | Animation | framer-motion (installed, used selectively)       |
 | Backend   | Firebase Auth (email/password) + Firebase Storage |
-| Caching   | IndexedDB via custom `imageCacheService`          |
+| Caching   | IndexedDB via custom `mediaCacheService`          |
 | Build     | Vite + `tsc -b` (see `npm run build`)             |
 
 ## Directory Map
@@ -29,8 +29,8 @@ src/
 ├── components/
 │   ├── Footer.tsx              # Site-wide footer
 │   ├── GalleryGrid.tsx         # Responsive grid of square tiles (reusable)
-│   ├── GalleryModalRenderer.tsx# Mounts ImageModalViewer from GalleryContext
-│   ├── ImageModalViewer.tsx    # Full-screen lightbox with swipe/keyboard nav
+│   ├── GalleryModalRenderer.tsx# Mounts mediaModalViewer from GalleryContext
+│   ├── mediaModalViewer.tsx    # Full-screen lightbox that supports images & videos
 │   ├── Navbar.tsx              # Sticky top nav with route links + logout
 │   ├── ScrollToTop.tsx         # Scroll-to-top on route change
 │   ├── TimelineEventItem.tsx   # Single event row for the timeline
@@ -52,14 +52,16 @@ src/
 │   ├── LoadingScreen.tsx       # Shown until gallery first loads
 │   ├── LoginPage.tsx           # Password-only login
 │   ├── NotFoundPage.tsx        # 404 page
-│   ├── SeeAllGalleryPage.tsx   # All photos grouped by year
+│   ├── All.tsx   # All photos grouped by year
+│   ├── PhotosPage.tsx          # Alias/entry for the All photos page (route: /photos)
+│   ├── VideosPage.tsx          # Videos gallery page (groups videos by year)
 │   ├── TimelinePage.tsx        # Chronological event list
 │   └── UploaderPage.tsx        # Client-side JPEG conversion + upload
 │
 └── services/
     ├── authService.ts           # Firebase Auth wrapper
     ├── firebaseConfig.ts        # Firebase app init + exports
-    ├── imageCacheService.ts     # IndexedDB cache (thumbnails + manifest)
+    ├── mediaCacheService.ts     # IndexedDB cache (thumbnails + manifest)
     └── storageService.ts        # Firebase Storage: metadata fetch + types
 ```
 
@@ -92,16 +94,17 @@ The router is a flat `createBrowserRouter` array defined in `App.tsx`.
 
 ### Route Table
 
-| Path        | Guard            | Component           | Notes                                        |
-| ----------- | ---------------- | ------------------- | -------------------------------------------- |
-| `/login`    | `GuestRoute`     | `LoginPage`         | Redirects to `/home` or `/loading` if authed |
-| `/loading`  | `ProtectedRoute` | `LoadingScreen`     | Redirects to `/home` once gallery loads      |
-| `/`         | `ProtectedRoute` | `MainLayout`        | Requires auth + `hasGalleryLoadedOnce`       |
-| `/home`     | (nested)         | `HomePage`          | Random photo grid                            |
-| `/timeline` | (nested)         | `TimelinePage`      | Event list from `events.json`                |
-| `/gallery`  | (nested)         | `SeeAllGalleryPage` | All photos grouped by year                   |
-| `/upload`   | (nested)         | `UploaderPage`      | Photo upload form                            |
-| `*`         | —                | `NotFoundPage`      | 404 catch-all                                |
+| Path        | Guard            | Component       | Notes                                        |
+| ----------- | ---------------- | --------------- | -------------------------------------------- |
+| `/login`    | `GuestRoute`     | `LoginPage`     | Redirects to `/home` or `/loading` if authed |
+| `/loading`  | `ProtectedRoute` | `LoadingScreen` | Redirects to `/home` once gallery loads      |
+| `/`         | `ProtectedRoute` | `MainLayout`    | Requires auth + `hasGalleryLoadedOnce`       |
+| `/home`     | (nested)         | `HomePage`      | Random photo grid                            |
+| `/timeline` | (nested)         | `TimelinePage`  | Event list from `events.json`                |
+| `/photos`   | (nested)         | `All`           | All photos grouped by year (route `/photos`) |
+| `/videos`   | (nested)         | `VideosPage`    | Videos gallery (route `/videos`)             |
+| `/upload`   | (nested)         | `UploaderPage`  | Photo upload form                            |
+| `*`         | —                | `NotFoundPage`  | 404 catch-all                                |
 
 ### Guard Components
 

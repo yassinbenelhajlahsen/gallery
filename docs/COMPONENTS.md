@@ -8,7 +8,7 @@
 
 **File:** `src/components/GalleryGrid.tsx`
 
-Responsive tile grid for displaying images. Used by `SeeAllGalleryPage` and can be reused anywhere a photo grid is needed.
+Responsive tile grid for displaying images. Used by `All` and can be reused anywhere a photo grid is needed.
 
 **Props:**
 
@@ -27,6 +27,8 @@ type GalleryGridTile = {
   id: string;
   url: string; // Thumbnail URL (shown first)
   fullUrl?: string; // Full-res URL (overlaid when loaded)
+  /** Optional media discriminator for UI only */
+  mediaType?: "image" | "video";
   caption?: string;
   onClick?: () => void;
 };
@@ -40,7 +42,7 @@ type GalleryGridTile = {
 - Shows empty state placeholder when `tiles` is empty
 - Internal `TileItem` component manages per-tile loading state
 
-**Usage example (from SeeAllGalleryPage):**
+**Usage example (from All):**
 
 ```tsx
 <GalleryGrid
@@ -57,37 +59,30 @@ type GalleryGridTile = {
 
 ---
 
-### `ImageModalViewer`
+### `mediaModalViewer` (image + video lightbox)
 
-**File:** `src/components/ImageModalViewer.tsx` (664 lines)
+**File:** `src/components/mediaModalViewer.tsx`
 
-Full-screen lightbox with keyboard nav, touch swipe, and progressive full-res loading.
+Full-screen lightbox that supports both images and videos. It replaces the old image-only viewer and can display mixed media arrays (images + videos) for timeline playback.
 
-**Props:**
+**Props (summary):**
 
-```typescript
-type ImageModalViewerProps = {
-  images: ImageMeta[];
-  initialIndex?: number;
-  isOpen: boolean;
-  onClose: () => void;
-  onChangeIndex?: (nextIndex: number) => void;
-  resolveThumbUrl?: (image: ImageMeta) => string;
-  preloadAll?: boolean; // Preload ALL full-res vs windowed ±N
-};
-```
+- `media: MediaMeta[]` — array of media objects (images/video) where images have `type: 'image'` and videos `type: 'video'`
+- `initialIndex?: number` — start index
+- `isOpen: boolean` — modal visibility
+- `onClose: () => void`
+- `onChangeIndex?: (nextIndex: number) => void`
+- `resolveThumbUrl?: (image: ImageMeta) => string` — placeholder thumbnails for images
+- `resolveVideoThumbUrl?: (video: VideoMeta) => string` — poster/thumb URL for videos
+- `preloadAll?: boolean` — when true, preload ALL image full-res (ignored for videos)
 
 **Key internals:**
 
-- Manages its own `fullResUrls: Map<string, string>` for full-resolution blob URLs
-- **Windowed preloading**: By default loads ±10 ahead / ±5 behind the active index
-- **preloadAll mode**: Loads every image's full-res (used by timeline events with small sets)
-- Evicts blob URLs outside the preload window to conserve memory
-- Supports `left`/`right` keyboard arrows, Escape to close, touch swipe gestures
-- Wraps around at both ends (index clamping loops)
-- Shows image date and caption in overlay metadata
+- Manages full-res blob URLs for images with windowed preloading (±10 ahead / ±5 behind) and evicts outside the window
+- Plays videos on demand — video bytes are not prefetched during gallery load; posters are used for thumbnails
+- Supports keyboard nav, touch swipe, and proper blob URL lifecycle handling
 
-**Do NOT mount this directly** — use `GalleryModalRenderer` + `useGallery().openModalWithImages()`.
+Open the media modal via `GalleryModalRenderer` / `useGallery()` helpers (do not mount directly).
 
 ---
 
@@ -95,17 +90,18 @@ type ImageModalViewerProps = {
 
 **File:** `src/components/GalleryModalRenderer.tsx`
 
-Thin bridge between `GalleryContext` and `ImageModalViewer`. Mounted once in `App.tsx`, outside the router.
+Thin bridge between `GalleryContext` and the global `mediaModalViewer`. Mounted once in `App.tsx`, outside the router.
 
 ```tsx
-// This is the entire component — it just wires context to props
-<ImageModalViewer
-  images={modalImages}
+// This is the entire component — it wires context to the media modal
+<mediaModalViewer
+  media={modalMedia}
   initialIndex={modalInitialIndex}
   isOpen={isModalOpen}
   onClose={closeModal}
   onChangeIndex={updateModalIndex}
   resolveThumbUrl={resolveThumbUrl}
+  resolveVideoThumbUrl={resolveVideoThumbUrl}
   preloadAll={modalPreloadAll}
 />
 ```
@@ -173,13 +169,14 @@ Sticky top navigation bar. Auto-highlights active route.
 
 ```typescript
 const NAV_ITEMS = [
-  { label: "Home", to: "/home", activeClass: "bg-[#F7DEE2]" },
+  { label: "Home", to: "/home", activeClass: "bg-[#F9A1B2]" },
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
-  { label: "See All", to: "/gallery", activeClass: "bg-[#FFE39F]" },
+  { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
+  { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
 ];
 ```
 
-Each nav item gets a distinct pastel highlight when active. Logout button with an SVG icon is on the right.
+Each nav item gets a distinct pastel highlight when active. The Navbar no longer contains a logout button — logout was moved into the `Footer` component for a simpler mobile layout.
 
 ---
 
@@ -241,9 +238,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Clicking a tile opens the modal with the displayed subset
 - "See All" button navigates to `/gallery`
 
-### `SeeAllGalleryPage`
+### `All`
 
-**File:** `src/pages/SeeAllGalleryPage.tsx`
+**File:** `src/pages/All.tsx`
 
 - Groups all `imageMetas` by year (newest-first)
 - Each year section uses `GalleryGrid` with `{ base: 1, sm: 2, md: 3, lg: 4 }` columns
