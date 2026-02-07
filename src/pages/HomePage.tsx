@@ -130,17 +130,22 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          {/* Loading overlay — shown until all full-res images are ready */}
+          {/* Skeleton grid — shown until all full-res images are ready */}
           {!allFullResReady && imageMetas.length > 0 && (
-            <div className="flex flex-col items-center justify-center gap-4 py-16">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#F7DEE2] border-t-transparent" />
-              <p className="text-sm text-[#999] tracking-wide">
-                Loading photos…
-              </p>
+            <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
+              {Array.from({ length: chosenIds.length || 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-white/60"
+                >
+                  <div className="skeleton-loader h-full w-full" />
+                </div>
+              ))}
             </div>
           )}
 
-          {allFullResReady && cloudTiles.length > 0 && (
+          {/* Only render the real grid and images when all are ready, so they appear at once */}
+          {allFullResReady && cloudTiles.length > 0 ? (
             <>
               <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
                 {cloudTiles.map((tile) => (
@@ -158,6 +163,7 @@ const HomePage: React.FC = () => {
                         alt={tile.caption ?? "Romantic memory"}
                         className="h-full w-full object-cover group-hover:opacity-95"
                         decoding="async"
+                        style={{ opacity: 1 }}
                       />
                     </div>
                   </button>
@@ -175,7 +181,7 @@ const HomePage: React.FC = () => {
                 </button>
               </div>
             </>
-          )}
+          ) : null}
 
           {allFullResReady && cloudTiles.length === 0 && renderEmptyState()}
         </div>
