@@ -105,7 +105,7 @@ const HomePage: React.FC = () => {
   );
 
   const handleSeeAll = () => {
-    navigate("/gallery", { state: { transition: "fade" } });
+    navigate("/photos", { state: { transition: "fade" } });
   };
 
   const renderEmptyState = () => (
