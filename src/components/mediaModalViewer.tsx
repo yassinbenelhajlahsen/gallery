@@ -471,7 +471,9 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 
             {currentItem ? (
               <div
-                className={`flex w-full items-center gap-6`}
+                className={`flex w-full items-center gap-6 ${
+                  isAnimating ? "cursor-grabbing" : ""
+                }`}
                 style={{
                   transform: `translateX(calc(${activeIndex} * (-100% - 1.5rem)))`,
                   transitionDuration: hasInitialized
