@@ -112,7 +112,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
         ref={thumbRef}
         src={tile.url}
         alt={tile.caption ?? "Gallery image"}
-        className={`h-full w-full object-cover ${
+        className={`cursor-pointer h-full w-full object-cover ${
           thumbLoaded ? "opacity-100" : "opacity-0"
         }`}
         decoding="sync"
@@ -124,7 +124,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
           ref={fullRef}
           src={tile.fullUrl}
           alt={tile.caption ?? "Gallery image"}
-          className={`absolute inset-0 h-full w-full object-cover ${
+          className={`cursor-pointer absolute inset-0 h-full w-full object-cover ${
             fullLoaded ? "opacity-100" : "opacity-0"
           } transition-opacity duration-200`}
           decoding="async"
@@ -134,7 +134,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
       {isVideo && !hasError && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 ring-1 ring-white/20 backdrop-blur-sm">
+          <span className="cursor-pointer flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 ring-1 ring-white/20 backdrop-blur-sm">
             ▶
           </span>
         </div>

@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
   { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
   { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
-  { label: "Upload", to: "/upload", activeClass: "bg-[#C0C0C0]" },
+  { label: "Upload", to: "/upload", activeClass: "bg-[#C0C0C0]/70" },
 ];
 
 const Navbar = () => {

@@ -444,7 +444,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         </div>
         <button
           type="button"
-          className="absolute right-4 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-[#1a1a1a]/80 text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10 backdrop-blur-lg transition-all duration-200 hover:bg-[#2a2a2a] hover:text-white hover:ring-white/20 active:scale-95 sm:h-12 sm:w-12"
+          className="cursor-pointer absolute right-4 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-[#1a1a1a]/80 text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10 backdrop-blur-lg transition-all duration-200 hover:bg-[#2a2a2a] hover:text-white hover:ring-white/20 active:scale-95 sm:h-12 sm:w-12"
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
           onClick={handleClose}
           aria-label="Close modal"
@@ -471,9 +471,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 
             {currentItem ? (
               <div
-                className={`flex w-full items-center gap-6 ${
-                  isAnimating ? "cursor-grabbing" : "cursor-pointer"
-                }`}
+                className={`flex w-full items-center gap-6`}
                 style={{
                   transform: `translateX(calc(${activeIndex} * (-100% - 1.5rem)))`,
                   transitionDuration: hasInitialized
@@ -547,7 +545,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                 <button
                   type="button"
                   onClick={goToPrev}
-                  className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
+                  className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
                   aria-label="Previous"
                 >
                   ←
@@ -555,7 +553,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                 <button
                   type="button"
                   onClick={goToNext}
-                  className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
+                  className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
                   aria-label="Next"
                 >
                   →
