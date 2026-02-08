@@ -14,9 +14,12 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-20 border-b border-[#EDEDED]/80 bg-white/90 backdrop-blur-md">
       <div className="flex w-full items-center justify-between gap-3 px-4 py-3">
-        <p className="hidden sm:block shrink-0 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base">
+        <NavLink
+          to="/home"
+          className="hidden sm:block shrink-0 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base rounded-full px-2.5 py-2 transition-all duration-150 active:scale-95 touch-manipulation hover:scale-105"
+        >
           {config.coupleDisplay}
-        </p>
+        </NavLink>
         <nav
           className="flex flex-wrap shrink-0 items-center justify-end gap-2 sm:gap-2 text-sm font-semibold text-[#666] sm:text-sm"
           aria-label="Primary"
