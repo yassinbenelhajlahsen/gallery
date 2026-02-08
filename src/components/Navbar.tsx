@@ -25,7 +25,7 @@ const Navbar = () => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-full px-3 py-2 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
+                `rounded-full px-2.5 py-2 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
                   isActive
                     ? `${item.activeClass} text-[#222] shadow-sm scale-105`
                     : "bg-white/40 text-[#666] hover:bg-white/70 hover:text-[#222] hover:scale-105"
