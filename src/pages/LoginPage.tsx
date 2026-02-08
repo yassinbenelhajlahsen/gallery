@@ -77,6 +77,9 @@ const LoginPage: React.FC = () => {
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
                 disabled={disabled}
+                focusColor="#F7DEE2"
+                borderColor="#F0F0F0"
+                labelColor="#333"
               />
               <button
                 type="button"

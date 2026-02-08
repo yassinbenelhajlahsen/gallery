@@ -24,10 +24,6 @@ brandDisplay: (env.VITE_BRAND_DISPLAY as string) || "Our Gallery",
   loginHeading:
     (env.VITE_LOGIN_HEADING as string) || "Welcome to our secret archive",
 
-  /** Placeholder in the uploader "event name" field */
-  eventPlaceholder:
-    (env.VITE_EVENT_PLACEHOLDER as string) || "e.g., Birthday Party",
-
   /** Email used for Firebase Auth sign-in */
   authEmail: (env.VITE_AUTH_EMAIL as string) || "",
 
