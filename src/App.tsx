@@ -167,12 +167,8 @@ const router = createBrowserRouter([
       { path: "photos", element: <PhotosPage /> },
       { path: "upload", element: <UploaderPage /> },
       { path: "videos", element: <VideosPage /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
-  },
-
-  {
-    path: "*",
-    element: <NotFoundPage />,
   },
 ]);
 
