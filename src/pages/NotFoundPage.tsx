@@ -1,3 +1,4 @@
+// src/pages/NotFoundPage.tsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { usePageReveal } from "../hooks/usePageReveal";

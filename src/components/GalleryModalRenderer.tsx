@@ -1,3 +1,4 @@
+// src/components/GalleryModalRenderer.tsx
 import React from "react";
 import ImageModalViewer from "./mediaModalViewer";
 import { useGallery } from "../context/GalleryContext";

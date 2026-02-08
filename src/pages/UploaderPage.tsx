@@ -1,3 +1,4 @@
+// src/pages/UploaderPage.tsx
 import { useState, useMemo, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../services/firebaseConfig";

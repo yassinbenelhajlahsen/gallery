@@ -1,3 +1,4 @@
+// src/context/GalleryContext.tsx
 /* eslint-disable react-refresh/only-export-components */
 import type { PropsWithChildren } from "react";
 import {

@@ -1,3 +1,4 @@
+// src/hooks/useFullResLoader.ts
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ImageMeta } from "../services/storageService";
 

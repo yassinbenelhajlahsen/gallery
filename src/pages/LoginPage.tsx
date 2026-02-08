@@ -1,3 +1,4 @@
+// src/pages/LoginPage.tsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FloatingInput } from "../components/ui/FloatingInput";

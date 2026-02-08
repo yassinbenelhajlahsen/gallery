@@ -1,3 +1,4 @@
+// src/services/mediaCacheService.ts
 /**
  * IndexedDB-backed image cache.
  *

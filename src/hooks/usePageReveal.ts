@@ -1,3 +1,4 @@
+// src/hooks/usePageReveal.ts
 import { useEffect, useState } from "react";
 
 /**

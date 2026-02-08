@@ -1,3 +1,4 @@
+// src/services/storageService.ts
 import type { FullMetadata } from "firebase/storage";
 import {
   getDownloadURL,

@@ -1,3 +1,4 @@
+// src/context/AuthContext.tsx
 /* eslint-disable react-refresh/only-export-components */
 import type { PropsWithChildren } from "react";
 import {
@@ -47,7 +48,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       login,
       logout,
     }),
-    [user, initializing, login, logout]
+    [user, initializing, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

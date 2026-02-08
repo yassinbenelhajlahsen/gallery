@@ -1,3 +1,4 @@
+// src/services/authService.ts
 import type { Unsubscribe, User } from "firebase/auth";
 import {
   onAuthStateChanged,

@@ -1,3 +1,4 @@
+// src/pages/LoadingScreen.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGallery } from "../context/GalleryContext";
 
@@ -10,7 +11,7 @@ const ANIM_MS = 520; // how long the smooth tween lasts
 const LoadingScreen = () => {
   const animals = useMemo(
     () => ["🦥", "🐨", "🦥", "🐨", "🦥", "🐨", "🦥", "🐨", "🦥", "🐨"],
-    []
+    [],
   );
 
   // Get real loading progress from Firebase via GalleryContext
