@@ -135,10 +135,16 @@ Single row in the timeline list. Clickable only when it has linked images.
 **Props:**
 
 ```typescript
+
+export type MediaCounts = {
+  imageCount: number;
+  videoCount: number;
+};
+
 type TimelineEventItemProps = {
   event: TimelineEvent;
   onSelect: (event: TimelineEvent) => void;
-  linkedImageCount?: number;
+  mediaCounts?: MediaCounts;
 };
 
 type TimelineEvent = {
@@ -204,6 +210,10 @@ type FloatingInputProps = {
   disabled?: boolean;
   className?: string;
   error?: string; // Shows red border + error styling
+  // Visual customizations (optional)
+  focusColor?: string; // color used for border / ring on focus (hex)
+  borderColor?: string; // default border color (hex)
+  labelColor?: string; // optional override for the floating label color
   // Plus: inputMode, autoCapitalize, autoCorrect, spellCheck
 };
 ```
