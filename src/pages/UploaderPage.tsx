@@ -4,7 +4,7 @@ import { storage } from "../services/firebaseConfig";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useToast } from "../context/ToastContext";
-import { config } from "../config";
+import { FloatingInput } from "../components/ui/FloatingInput";
 import { setDoc, doc } from "firebase/firestore";
 import { db } from "../services/firebaseConfig";
 
@@ -475,37 +475,57 @@ export default function UploaderPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-[#333]">
-                  Date *
+                  Date<span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   value={newEventDate}
                   onChange={(e) => setNewEventDate(e.target.value)}
-                  className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+                  className="
+                    pt-4.5
+                    pb-4.5
+                    w-full
+                    min-w-0
+                    appearance-none
+                    box-border
+                    rounded-xl
+                    border-2 border-[#F0F0F0]
+                    bg-white
+                    px-4 py-3
+                    text-[#333]
+                    shadow-sm
+                    transition-all duration-200
+                    hover:border-[#F7DEE2]
+                    focus:border-[#F7DEE2]
+                    focus:outline-none
+                    focus:ring-2 focus:ring-[#F7DEE2]/30
+                  "
                 />
               </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#333]">
-                  Emoji
-                </label>
-                <input
+              <div className="space-y-2 mt-7">
+                <FloatingInput
+                  id="new-event-title"
                   type="text"
-                  placeholder="🎂"
-                  value={newEventEmoji}
-                  onChange={(e) => setNewEventEmoji(e.target.value)}
-                  className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] placeholder-[#aaa] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#333]">
-                  Title *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Birthday"
+                  label="Title*"
+                  className="w-full"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
-                  className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] placeholder-[#aaa] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+                  focusColor="#F7DEE2"
+                  borderColor="#F0F0F0"
+                  labelColor="#333"
+                />
+              </div>
+              <div className="space-y-2 mt-7">
+                <FloatingInput
+                  id="new-event-emoji"
+                  type="text"
+                  label="Emoji"
+                  className="w-full"
+                  value={newEventEmoji}
+                  onChange={(e) => setNewEventEmoji(e.target.value)}
+                  focusColor="#F7DEE2"
+                  borderColor="#F0F0F0"
+                  labelColor="#333"
                 />
               </div>
             </div>
@@ -556,7 +576,7 @@ export default function UploaderPage() {
             <select
               value={selectedEventId}
               onChange={(e) => handleEventSelect(e.target.value)}
-              className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+              className="pt-4.5 pb-4.5 w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
             >
               <option value="">Select an event (optional)</option>
               {sortedEvents.map((event) => {
@@ -590,7 +610,8 @@ export default function UploaderPage() {
           {/* File Input */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-[#333]">
-              Select Media (Images / Videos) *
+              Select Media (Images / Videos)
+              <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -608,35 +629,52 @@ export default function UploaderPage() {
               )}
             </div>
           </div>
-
+          {/* Event Name */}
+          <div className="space-y-2">
+            <FloatingInput
+              id="event-name"
+              type="text"
+              label="Event Name"
+              className="w-full"
+              value={eventName}
+              onChange={(e) => handleEventNameChange(e.target.value)}
+              focusColor="#F7DEE2"
+              borderColor="#F0F0F0"
+              labelColor="#333"
+            />
+            <p className="text-xs text-[#888]">
+              Used to link media to timeline events
+            </p>
+          </div>
           {/* Date Input */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-[#333]">
-              Event Date *
+              Date<span className="text-red-500">*</span>
             </label>
             <input
               type="date"
               value={date}
               onChange={(e) => handleDateChange(e.target.value)}
-              className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+              className="
+                pt-4.5
+                pb-4.5
+                w-full
+                min-w-0
+                appearance-none
+                box-border
+                rounded-xl
+                border-2 border-[#F0F0F0]
+                bg-white
+                px-4 py-3
+                text-[#333]
+                shadow-sm
+                transition-all duration-200
+                hover:border-[#F7DEE2]
+                focus:border-[#F7DEE2]
+                focus:outline-none
+                focus:ring-2 focus:ring-[#F7DEE2]/30
+              "
             />
-          </div>
-
-          {/* Event Name */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
-              Event Name
-            </label>
-            <input
-              type="text"
-              placeholder={config.eventPlaceholder}
-              value={eventName}
-              onChange={(e) => handleEventNameChange(e.target.value)}
-              className="w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] placeholder-[#aaa] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
-            />
-            <p className="text-xs text-[#888]">
-              Used to link media to timeline events
-            </p>
           </div>
 
           {/* Upload Button */}

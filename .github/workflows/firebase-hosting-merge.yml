@@ -27,7 +27,6 @@ jobs:
           VITE_COUPLE_DISPLAY: ${{ secrets.VITE_COUPLE_DISPLAY }}
           VITE_SITE_DESCRIPTION: ${{ secrets.VITE_SITE_DESCRIPTION }}
           VITE_LOGIN_HEADING: ${{ secrets.VITE_LOGIN_HEADING }}
-          VITE_EVENT_PLACEHOLDER: ${{ secrets.VITE_EVENT_PLACEHOLDER }}
           VITE_AUTH_EMAIL: ${{ secrets.VITE_AUTH_EMAIL }}
           VITE_LOGOUT_TOAST: ${{ secrets.VITE_LOGOUT_TOAST }}
           VITE_NOT_FOUND_TEXT: ${{ secrets.VITE_NOT_FOUND_TEXT }}
