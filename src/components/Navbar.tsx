@@ -3,7 +3,6 @@ import { NavLink } from "react-router-dom";
 import { config } from "../config";
 
 const NAV_ITEMS = [
-  { label: "Home", to: "/home", activeClass: "bg-[#F9A1B2]" },
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
   { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
   { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
@@ -24,6 +23,20 @@ const Navbar = () => {
           className="flex flex-wrap shrink-0 items-center justify-end gap-2 sm:gap-2 text-sm font-semibold text-[#666] sm:text-sm"
           aria-label="Primary"
         >
+          <div className="block sm:hidden">
+            <NavLink
+              to="/home"
+              className={({ isActive }) =>
+                `rounded-full px-2.5 py-2 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
+                  isActive
+                    ? `bg-[#F9A1B2] text-[#222] shadow-sm scale-105`
+                    : "bg-white/40 text-[#666] hover:bg-white/70 hover:text-[#222] hover:scale-105"
+                }`
+              }
+            >
+              Home
+            </NavLink>
+          </div>
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
