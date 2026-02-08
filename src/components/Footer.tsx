@@ -15,7 +15,7 @@ const Footer = () => {
   };
 
   return (
-    <footer className="mt-auto border-t border-[#F0EDE8]/60 bg-white/50 backdrop-blur-sm">
+    <footer className="mt-auto bg-linear-to-b from-white/0 via-white/70 to-white backdrop-blur-sm">
       <div className="mx-auto flex flex-col items-center justify-center gap-1.5 px-4 py-4 text-xs text-[#aaa]">
         <div className="flex items-center gap-1.5">
           <span>Made with</span>
