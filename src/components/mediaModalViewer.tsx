@@ -1,3 +1,4 @@
+// src/components/mediaModalViewer.tsx
 import React from "react";
 import type { ImageMeta } from "../services/storageService";
 import type {

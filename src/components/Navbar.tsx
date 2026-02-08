@@ -1,3 +1,4 @@
+// src/components/Navbar.tsx
 import { NavLink } from "react-router-dom";
 import { config } from "../config";
 

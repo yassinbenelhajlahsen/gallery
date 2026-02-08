@@ -1,3 +1,4 @@
+// src/components/GalleryGrid.tsx
 import React from "react";
 
 export type GalleryGridTile = {

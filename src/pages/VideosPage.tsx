@@ -1,3 +1,4 @@
+// src/pages/VideosPage.tsx
 import React from "react";
 import type { VideoMeta } from "../services/mediaTypes";
 import GalleryGrid from "../components/GalleryGrid";

@@ -1,3 +1,4 @@
+// src/config.ts
 /**
  * Centralised config sourced from environment variables.
  *

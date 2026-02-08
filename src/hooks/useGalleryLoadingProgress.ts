@@ -1,3 +1,4 @@
+// src/hooks/useGalleryLoadingProgress.ts
 import { useEffect, useState } from "react";
 import type { ImageMeta, PreloadedImage } from "../services/storageService";
 import { fetchAllImageMetadata } from "../services/storageService";

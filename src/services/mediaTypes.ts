@@ -1,3 +1,4 @@
+// src/services/mediaTypes.ts
 import type { ImageMeta } from "./storageService";
 
 export type MediaType = "image" | "video";

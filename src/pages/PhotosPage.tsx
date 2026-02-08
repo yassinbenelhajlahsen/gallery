@@ -1,3 +1,4 @@
+// src/pages/PhotosPage.tsx
 import React from "react";
 import type { ImageMeta } from "../services/storageService";
 import { useGallery } from "../context/GalleryContext";

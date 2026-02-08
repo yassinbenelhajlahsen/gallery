@@ -1,3 +1,4 @@
+// scripts/migrateEventsToFirestore.mjs
 import fs from "fs";
 import path from "path";
 import admin from "firebase-admin";

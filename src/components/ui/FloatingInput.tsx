@@ -1,4 +1,4 @@
-// frontend/src/components/ui/FloatingInput.tsx
+// src/components/ui/FloatingInput.tsx
 import React from "react";
 
 type FloatingInputProps = {

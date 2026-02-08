@@ -1,3 +1,4 @@
+// src/components/Footer.tsx
 import { config } from "../config";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
