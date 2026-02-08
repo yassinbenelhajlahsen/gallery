@@ -429,7 +429,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       onClick={handleBackdropClick}
     >
       <div
-        className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-visible sm:overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
+        className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
           isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100"
         }`}
         style={{
@@ -465,7 +465,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         </button>
 
         <div className="flex flex-col gap-4 sm:gap-6">
-          <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-black/20 p-4 sm:min-h-105 overflow-visible sm:overflow-hidden">
+          <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-black/20 p-4 sm:min-h-105 overflow-hidden">
             <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
 
