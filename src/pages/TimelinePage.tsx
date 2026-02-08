@@ -113,15 +113,27 @@ const TimelinePage: React.FC = () => {
           </header>
 
           <ol className="space-y-4">
-            {timelineEvents.map((event) => (
-              <li key={event.id}>
-                <TimelineEventItem
-                  event={event}
-                  onSelect={handleEventSelect}
-                  linkedImageCount={eventMediaMap.get(event.id)?.length ?? 0}
-                />
-              </li>
-            ))}
+            {timelineEvents.map((event) => {
+              const matches = eventMediaMap.get(event.id) ?? [];
+              const mediaCounts = matches.reduce(
+                (acc, m) => {
+                  if (m.type === "image") acc.imageCount += 1;
+                  if (m.type === "video") acc.videoCount += 1;
+                  return acc;
+                },
+                { imageCount: 0, videoCount: 0 },
+              );
+
+              return (
+                <li key={event.id}>
+                  <TimelineEventItem
+                    event={event}
+                    onSelect={handleEventSelect}
+                    mediaCounts={mediaCounts}
+                  />
+                </li>
+              );
+            })}
           </ol>
         </div>
       </div>

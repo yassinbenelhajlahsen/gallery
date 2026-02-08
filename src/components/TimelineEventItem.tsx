@@ -8,18 +8,24 @@ export type TimelineEvent = {
   imageIds?: string[];
 };
 
+export type MediaCounts = {
+  imageCount: number;
+  videoCount: number;
+};
+
 export type TimelineEventItemProps = {
   event: TimelineEvent;
   onSelect: (event: TimelineEvent) => void;
-  linkedImageCount?: number;
+  mediaCounts?: MediaCounts;
 };
 
 const TimelineEventItem: React.FC<TimelineEventItemProps> = ({
   event,
   onSelect,
-  linkedImageCount = 0,
+  mediaCounts,
 }) => {
-  const hasImages = linkedImageCount > 0;
+  const { imageCount = 0, videoCount = 0 } = mediaCounts ?? {};
+  const hasImages = imageCount > 0 || videoCount > 0;
   const toLocalDate = (isoDate: string) => {
     const [year, month, day] = isoDate.split("-").map(Number);
     return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
@@ -53,7 +59,16 @@ const TimelineEventItem: React.FC<TimelineEventItemProps> = ({
         <p className="text-lg font-semibold text-[#333]">{event.title}</p>
         {hasImages ? (
           <p className="text-sm text-[#5e5e5e]">
-            {linkedImageCount} photo{linkedImageCount === 1 ? "" : "s"} linked
+            {(() => {
+              const parts: string[] = [];
+              if (imageCount > 0) {
+                parts.push(`${imageCount} photo${imageCount === 1 ? "" : "s"}`);
+              }
+              if (videoCount > 0) {
+                parts.push(`${videoCount} video${videoCount === 1 ? "" : "s"}`);
+              }
+              return <>{parts.join(" • ")}</>;
+            })()}
           </p>
         ) : (
           <p className="text-sm text-[#b2b0b0]">No Media Available</p>
