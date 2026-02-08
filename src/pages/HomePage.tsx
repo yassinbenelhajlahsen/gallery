@@ -154,7 +154,7 @@ const HomePage: React.FC = () => {
                     type="button"
                     key={tile.meta.id}
                     onClick={() => handleTileClick(tile.meta.id)}
-                    className="group relative overflow-hidden rounded-2xl bg-linear-to-br from-[#FFF5DA] via-[#FDFDFB] to-[#FFE9F1] shadow-lg ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] touch-manipulation"
+                    className="group relative overflow-hidden rounded-2xl bg-linear-to-br from-[#FFF5DA] via-[#FDFDFB] to-[#FFE9F1] shadow-lg ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] touch-manipulation cursor-pointer"
                     style={{ willChange: "transform" }}
                     aria-label={tile.caption ?? "Open memory"}
                   >
@@ -175,7 +175,7 @@ const HomePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSeeAll}
-                  className="inline-flex items-center gap-3 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation mt-5"
+                  className="cursor-pointer  inline-flex items-center gap-3 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation mt-5"
                 >
                   See all photos
                   <span aria-hidden="true">→</span>
