@@ -464,171 +464,167 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
           </svg>
         </button>
 
-        <div className="flex flex-col gap-4 sm:gap-6">
-          <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-black/20 p-4 sm:min-h-105 overflow-hidden">
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-80" />
+        <div className="relative flex min-h-80 flex-1 items-center justify-center rounded-4xl bg-linear-to-b from-transparent via-black/10 to-transparent p-4 sm:min-h-105 overflow-hidden backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-[#050505] via-[#050505]/60 to-transparent opacity-60" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-60" />
 
-            {currentItem ? (
-              <div
-                className={`flex w-full items-center gap-6 ${
-                  isAnimating ? "cursor-grabbing" : ""
-                }`}
-                style={{
-                  transform: `translateX(calc(${activeIndex} * (-100% - 1.5rem)))`,
-                  transitionDuration: hasInitialized
-                    ? `${SLIDE_DURATION}ms`
-                    : "0ms",
-                  transitionTimingFunction: "cubic-bezier(0.22,0.61,0.36,1)",
-                  transitionProperty: "transform",
-                }}
+          {currentItem ? (
+            <div
+              className={`flex w-full items-center gap-6 ${
+                isAnimating ? "cursor-grabbing" : ""
+              }`}
+              style={{
+                transform: `translateX(calc(${activeIndex} * (-100% - 1.5rem)))`,
+                transitionDuration: hasInitialized
+                  ? `${SLIDE_DURATION}ms`
+                  : "0ms",
+                transitionTimingFunction: "cubic-bezier(0.22,0.61,0.36,1)",
+                transitionProperty: "transform",
+              }}
+            >
+              {media.map((item, index) => {
+                const isActiveSlide = index === activeIndex;
+                const isItemVideo = isVideoMeta(item);
+
+                return (
+                  <div
+                    key={`${item.id}-${index}`}
+                    className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-linear-to-br from-black/5 via-black/10 to-black/15 p-3 shadow-2xl transition-transform duration-500 backdrop-blur-[1px] ${
+                      isActiveSlide
+                        ? "scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)]"
+                        : "scale-95 opacity-100"
+                    }`}
+                  >
+                    {isItemVideo ? (
+                      <ModalVideo
+                        isActive={isActiveSlide}
+                        objectUrl={isActiveSlide ? activeVideoUrl : null}
+                        posterUrl={
+                          resolveVideoThumbUrl?.(item) ?? item.thumbUrl
+                        }
+                        videoRef={videoElRef}
+                      />
+                    ) : (
+                      (() => {
+                        const image = item as ImageMeta;
+                        const thumbUrl =
+                          resolveThumbUrl?.(image) ?? image.thumbUrl;
+                        const fullUrl = fullResUrls.get(image.id);
+                        const imgUrl = fullUrl ?? thumbUrl;
+                        const isFullRes = fullResUrls.has(image.id);
+
+                        return imgUrl ? (
+                          <ModalImage
+                            src={imgUrl}
+                            thumbSrc={thumbUrl}
+                            alt={
+                              image.caption ?? image.event ?? "Gallery image"
+                            }
+                            isActive={isActiveSlide}
+                            isFullRes={isFullRes}
+                          />
+                        ) : (
+                          <p className="text-center text-sm text-white/80">
+                            Unable to load image.
+                          </p>
+                        );
+                      })()
+                    )}
+                    <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-white/80">
+              Unable to load media.
+            </p>
+          )}
+
+          {hasMultipleItems && (
+            <div className="pointer-events-none absolute inset-0 hidden items-center justify-between px-2 sm:flex">
+              <button
+                type="button"
+                onClick={goToPrev}
+                className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
+                aria-label="Previous"
               >
-                {media.map((item, index) => {
-                  const isActiveSlide = index === activeIndex;
-                  const isItemVideo = isVideoMeta(item);
+                ←
+              </button>
+              <button
+                type="button"
+                onClick={goToNext}
+                className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
+                aria-label="Next"
+              >
+                →
+              </button>
+            </div>
+          )}
+        </div>
 
-                  return (
-                    <div
-                      key={`${item.id}-${index}`}
-                      className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-black/10 p-3 shadow-2xl transition-transform duration-500 ${
-                        isActiveSlide
-                          ? "scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)]"
-                          : "scale-95 opacity-100"
-                      }`}
-                    >
-                      {isItemVideo ? (
-                        <ModalVideo
-                          isActive={isActiveSlide}
-                          objectUrl={isActiveSlide ? activeVideoUrl : null}
-                          posterUrl={
-                            resolveVideoThumbUrl?.(item) ?? item.thumbUrl
-                          }
-                          videoRef={videoElRef}
-                        />
-                      ) : (
-                        (() => {
-                          const image = item as ImageMeta;
-                          const thumbUrl =
-                            resolveThumbUrl?.(image) ?? image.thumbUrl;
-                          const fullUrl = fullResUrls.get(image.id);
-                          const imgUrl = fullUrl ?? thumbUrl;
-                          const isFullRes = fullResUrls.has(image.id);
-
-                          return imgUrl ? (
-                            <ModalImage
-                              src={imgUrl}
-                              thumbSrc={thumbUrl}
-                              alt={
-                                image.caption ?? image.event ?? "Gallery image"
-                              }
-                              isActive={isActiveSlide}
-                              isFullRes={isFullRes}
-                            />
-                          ) : (
-                            <p className="text-center text-sm text-white/80">
-                              Unable to load image.
-                            </p>
-                          );
-                        })()
-                      )}
-                      <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
-                    </div>
-                  );
-                })}
+        <footer
+          className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-white/80 sm:flex-row sm:items-center sm:justify-between transition-all duration-300"
+          aria-live="polite"
+        >
+          <div
+            key={metadataKey}
+            className="metadata-fade-up transition-opacity duration-200"
+          >
+            <p className="text-base font-semibold text-white">{eventLabel}</p>
+            {captionLabel && (
+              <p className="leading-relaxed text-white/80">{captionLabel}</p>
+            )}
+            {dateLabel && <p className="text-xs text-white/60">{dateLabel}</p>}
+          </div>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-white/90">
+                {activeIndex + 1}
+              </span>
+              <span className="text-xs text-white/40">/</span>
+              <span className="text-xs text-white/60">{media.length}</span>
+            </div>
+            {media.length <= 10 ? (
+              <div className="flex items-center gap-1.5" role="presentation">
+                {Array.from({ length: media.length }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() =>
+                      goToIndex(i, i > activeIndex ? "left" : "right")
+                    }
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === activeIndex
+                        ? "w-8 opacity-100"
+                        : "w-1.5 opacity-40 hover:opacity-70"
+                    }`}
+                    style={{
+                      backgroundColor:
+                        i === activeIndex
+                          ? accentColor
+                          : "rgba(255, 255, 255, 0.6)",
+                    }}
+                    aria-label={`Go to image ${i + 1}`}
+                  />
+                ))}
               </div>
             ) : (
-              <p className="text-center text-sm text-white/80">
-                Unable to load media.
-              </p>
-            )}
-
-            {hasMultipleItems && (
-              <div className="pointer-events-none absolute inset-0 hidden items-center justify-between px-2 sm:flex">
-                <button
-                  type="button"
-                  onClick={goToPrev}
-                  className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
-                  aria-label="Previous"
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  onClick={goToNext}
-                  className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
-                  aria-label="Next"
-                >
-                  →
-                </button>
+              <div
+                className="relative h-1 w-full overflow-hidden rounded-full bg-white/10 sm:w-32"
+                role="presentation"
+              >
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${progressPercent}%`,
+                    backgroundColor: accentColor,
+                    boxShadow: `0 0 12px ${accentColor}80`,
+                  }}
+                />
               </div>
             )}
           </div>
-
-          <footer
-            className="flex flex-col gap-4 rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-white/80 sm:flex-row sm:items-center sm:justify-between transition-all duration-300"
-            aria-live="polite"
-          >
-            <div
-              key={metadataKey}
-              className="metadata-fade-up transition-opacity duration-200"
-            >
-              <p className="text-base font-semibold text-white">{eventLabel}</p>
-              {captionLabel && (
-                <p className="leading-relaxed text-white/80">{captionLabel}</p>
-              )}
-              {dateLabel && (
-                <p className="text-xs text-white/60">{dateLabel}</p>
-              )}
-            </div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white/90">
-                  {activeIndex + 1}
-                </span>
-                <span className="text-xs text-white/40">/</span>
-                <span className="text-xs text-white/60">{media.length}</span>
-              </div>
-              {media.length <= 10 ? (
-                <div className="flex items-center gap-1.5" role="presentation">
-                  {Array.from({ length: media.length }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() =>
-                        goToIndex(i, i > activeIndex ? "left" : "right")
-                      }
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        i === activeIndex
-                          ? "w-8 opacity-100"
-                          : "w-1.5 opacity-40 hover:opacity-70"
-                      }`}
-                      style={{
-                        backgroundColor:
-                          i === activeIndex
-                            ? accentColor
-                            : "rgba(255, 255, 255, 0.6)",
-                      }}
-                      aria-label={`Go to image ${i + 1}`}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div
-                  className="relative h-1 w-full overflow-hidden rounded-full bg-white/10 sm:w-32"
-                  role="presentation"
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${progressPercent}%`,
-                      backgroundColor: accentColor,
-                      boxShadow: `0 0 12px ${accentColor}80`,
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </footer>
-        </div>
+        </footer>
       </div>
     </div>
   );
