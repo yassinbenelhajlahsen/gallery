@@ -5,9 +5,6 @@ import { fetchAllImageMetadata } from "../services/storageService";
 
 const PRELOAD_LIMIT = 999;
 
-const hasBrowserObjectUrl = () =>
-  typeof URL !== "undefined" && !!URL.createObjectURL;
-
 export function useGalleryLoadingProgress() {
   const [progress, setProgress] = useState(0);
   const [metas, setMetas] = useState<ImageMeta[]>([]);
@@ -33,38 +30,29 @@ export function useGalleryLoadingProgress() {
           return;
         }
 
-        // Step 2: Preload images (remaining 80% of progress)
+        // Instead of downloading thumbnail bytes and creating blob URLs,
+        // simply record the thumbnail network URL so the browser can load
+        // thumbnails via <img src="...">. This preserves the existing
+        // visual behavior while avoiding manual byte handling.
         const total = Math.min(PRELOAD_LIMIT, allMetas.length);
         const targets = allMetas.slice(0, total);
-        const supportsObjectUrl = hasBrowserObjectUrl();
 
         let loaded = 0;
 
-        const preloadBatch = await Promise.all(
-          targets.map(async (meta) => {
-            // Download thumbnails only — full-res loaded on demand in modal
-            const response = await fetch(meta.thumbUrl, { mode: "cors" });
-            if (!response.ok) {
-              throw new Error(
-                `Failed to preload thumbnail: ${meta.storagePath}`,
-              );
-            }
-
-            const blob = await response.blob();
-            const objectUrl = supportsObjectUrl
-              ? URL.createObjectURL(blob)
-              : meta.thumbUrl;
-
-            loaded++;
-            if (!cancelled) {
-              // Map loaded count to 20-100% range
-              const loadProgress = 20 + (loaded / total) * 80;
-              setProgress(loadProgress);
-            }
-
-            return { meta, blob, objectUrl } satisfies PreloadedImage;
-          }),
-        );
+        const preloadBatch = targets.map((meta) => {
+          loaded++;
+          if (!cancelled) {
+            const loadProgress = 20 + (loaded / total) * 80;
+            setProgress(loadProgress);
+          }
+          // Provide a placeholder blob to satisfy the shape; consumers
+          // should prefer objectUrl which is the authoritative thumb URL.
+          return {
+            meta,
+            blob: new Blob(),
+            objectUrl: meta.thumbUrl,
+          } as PreloadedImage;
+        });
 
         if (!cancelled) {
           setPreloaded(preloadBatch);

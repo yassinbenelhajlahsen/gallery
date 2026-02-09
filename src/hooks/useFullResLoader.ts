@@ -1,5 +1,5 @@
 // src/hooks/useFullResLoader.ts
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ImageMeta } from "../services/storageService";
 
 /**
@@ -15,57 +15,34 @@ export function useFullResLoader() {
     new Map(),
   );
   const loadingIdsRef = useRef<Set<string>>(new Set());
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    const loadingIds = loadingIdsRef.current;
-    return () => {
-      mountedRef.current = false;
-      // Revoke all blob URLs on unmount
-      setFullResUrls((prev) => {
-        prev.forEach((url) => {
-          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-        });
-        return new Map();
-      });
-      loadingIds.clear();
-    };
-  }, []);
 
   /**
    * Request full-res images for the given metas.
    * Already-loaded or in-flight images are skipped.
    */
   const requestFullRes = useCallback((metas: ImageMeta[]) => {
+    // Instead of fetching bytes and creating blob URLs, record the
+    // authoritative download URL for each image so the browser can load
+    // the image directly via <img src="...">. This avoids manual blob
+    // handling and lets the browser stream/cache/prioritize naturally.
     metas.forEach((meta) => {
       if (loadingIdsRef.current.has(meta.id)) return;
 
       loadingIdsRef.current.add(meta.id);
 
-      fetch(meta.downloadUrl, { mode: "cors" })
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const blob = await res.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          if (!mountedRef.current) {
-            URL.revokeObjectURL(objectUrl);
-            return;
+      try {
+        setFullResUrls((prev) => {
+          if (prev.has(meta.id)) {
+            // already resolved
+            return prev;
           }
-          setFullResUrls((prev) => {
-            if (prev.has(meta.id)) {
-              URL.revokeObjectURL(objectUrl);
-              return prev;
-            }
-            const next = new Map(prev);
-            next.set(meta.id, objectUrl);
-            return next;
-          });
-        })
-        .catch((err) => {
-          console.warn(`[FullRes] Failed to load ${meta.id}:`, err);
-          loadingIdsRef.current.delete(meta.id);
+          const next = new Map(prev);
+          next.set(meta.id, meta.downloadUrl);
+          return next;
         });
+      } finally {
+        loadingIdsRef.current.delete(meta.id);
+      }
     });
   }, []);
 
@@ -73,7 +50,7 @@ export function useFullResLoader() {
    * Evict full-res blob URLs for images NOT in the given set of IDs.
    */
   const evict = useCallback((keepIds: Set<string>) => {
-    // Clean loading refs
+    // Clean loading refs and evict any stored download URLs for images
     for (const id of loadingIdsRef.current) {
       if (!keepIds.has(id)) {
         loadingIdsRef.current.delete(id);
@@ -83,9 +60,8 @@ export function useFullResLoader() {
     setFullResUrls((prev) => {
       let changed = false;
       const next = new Map(prev);
-      for (const [id, url] of prev) {
+      for (const [id] of prev) {
         if (!keepIds.has(id)) {
-          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
           next.delete(id);
           changed = true;
         }

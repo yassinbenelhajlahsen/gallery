@@ -78,6 +78,32 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   );
   const loadingIdsRef = React.useRef<Set<string>>(new Set());
 
+  // ── Video URL (remote URL) management ──
+  // We keep only a single active video URL (Firebase download URL) and let
+  // the browser stream it. No blob/object URL creation.
+  const [activeVideoUrl, setActiveVideoUrl] = React.useState<string | null>(
+    null,
+  );
+  const videoElRef = React.useRef<HTMLVideoElement | null>(null);
+  const videoLoadTokenRef = React.useRef(0);
+
+  const cleanupVideo = React.useCallback(() => {
+    const el = videoElRef.current;
+    if (el) {
+      try {
+        el.pause();
+        el.removeAttribute("src");
+        el.load();
+      } catch {
+        // ignore
+      }
+    }
+    videoElRef.current = null;
+
+    // We no longer create blob URLs for video; just clear the stored URL.
+    setActiveVideoUrl(null);
+  }, []);
+
   const SLIDE_DURATION = 300;
   const PRELOAD_AHEAD = 10;
   const PRELOAD_BEHIND = 5;
@@ -98,18 +124,11 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         setIsAnimating(false);
         setIsClosing(false);
         setHasInitialized(false);
-        // Release all full-res blob URLs
-        setFullResUrls((prev) => {
-          prev.forEach((url) => {
-            if (url.startsWith("blob:")) URL.revokeObjectURL(url);
-          });
-          return new Map();
-        });
-        // Release any video object URL
-        setActiveVideoUrl((prev) => {
-          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-          return null;
-        });
+        // Clear stored full-res URLs and active video URL. We no longer
+        // create blob object URLs for media; the browser will load the
+        // Firebase download URLs directly.
+        setFullResUrls(new Map());
+        setActiveVideoUrl(null);
         loadingIdsRef.current.clear();
         clearAnimationTimeout();
       }, 300);
@@ -134,36 +153,6 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 
   const currentItem = media[activeIndex];
 
-  // ── Video URL (object URL) management ──
-  // Videos must never be cached; we keep only a single object URL for the active video.
-  const [activeVideoUrl, setActiveVideoUrl] = React.useState<string | null>(
-    null,
-  );
-  const videoElRef = React.useRef<HTMLVideoElement | null>(null);
-  const videoLoadTokenRef = React.useRef(0);
-
-  const cleanupVideo = React.useCallback(() => {
-    const el = videoElRef.current;
-    if (el) {
-      try {
-        el.pause();
-        // Ensure the element releases decoding/buffer
-        el.removeAttribute("src");
-        el.load();
-      } catch {
-        // ignore
-      }
-    }
-    videoElRef.current = null;
-
-    setActiveVideoUrl((prev) => {
-      if (prev && prev.startsWith("blob:")) {
-        URL.revokeObjectURL(prev);
-      }
-      return null;
-    });
-  }, []);
-
   // Fetch video bytes ONLY when a video becomes active (after user opened modal)
   React.useEffect(() => {
     if (!isOpen) return;
@@ -182,18 +171,10 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 
     const run = async () => {
       try {
-        // This is the FIRST moment we request any video URL.
+        // Resolve a downloadable URL and let the browser stream it.
         const url = await getVideoDownloadUrl(currentItem.videoPath);
         if (cancelled || token !== videoLoadTokenRef.current) return;
-
-        // Fetch to blob so we can revoke URL on close/slide.
-        const res = await fetch(url, { mode: "cors" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        if (cancelled || token !== videoLoadTokenRef.current) return;
-
-        const objectUrl = URL.createObjectURL(blob);
-        setActiveVideoUrl(objectUrl);
+        setActiveVideoUrl(url);
       } catch (err) {
         console.warn("[Modal] Failed to load video", err);
       }
@@ -230,13 +211,12 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       if (isImageMeta(item)) wantedImageIds.add(item.id);
     });
 
-    // Evict entries outside the window
+    // Evict entries outside the window (we store download URLs only)
     setFullResUrls((prev) => {
       let changed = false;
       const next = new Map(prev);
-      for (const [id, url] of prev) {
+      for (const [id] of prev) {
         if (!wantedImageIds.has(id)) {
-          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
           next.delete(id);
           changed = true;
         }
@@ -260,26 +240,15 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
 
       loadingIdsRef.current.add(img.id);
 
-      fetch(img.downloadUrl, { mode: "cors" })
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const blob = await res.blob();
-          const objectUrl = URL.createObjectURL(blob);
-          setFullResUrls((prev) => {
-            // Don't overwrite if already present (race)
-            if (prev.has(img.id)) {
-              URL.revokeObjectURL(objectUrl);
-              return prev;
-            }
-            const next = new Map(prev);
-            next.set(img.id, objectUrl);
-            return next;
-          });
-        })
-        .catch((err) => {
-          console.warn(`[Modal] Failed to load full-res for ${img.id}:`, err);
-          loadingIdsRef.current.delete(img.id);
-        });
+      // Instead of fetching bytes, record the download URL so the
+      // browser can load it directly when the <img> is rendered.
+      setFullResUrls((prev) => {
+        if (prev.has(img.id)) return prev;
+        const next = new Map(prev);
+        next.set(img.id, img.downloadUrl);
+        return next;
+      });
+      loadingIdsRef.current.delete(img.id);
     });
   }, [activeIndex, isOpen, media, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
 
@@ -720,6 +689,7 @@ const ModalImage: React.FC<{
             isActive ? "kenburns-active" : ""
           } ${thumbLoaded ? "opacity-100" : "opacity-0"}`}
           loading={isActive ? "eager" : "lazy"}
+          decoding="async"
           onLoad={() => setThumbLoaded(true)}
         />
       )}
@@ -732,7 +702,8 @@ const ModalImage: React.FC<{
           className={`absolute inset-0 max-h-[60vh] w-full rounded-[28px] object-contain ${
             isActive ? "kenburns-active" : ""
           } ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
-          loading="eager"
+          loading={isActive ? "eager" : "lazy"}
+          decoding="async"
           onLoad={() => setFullLoaded(true)}
         />
       )}
