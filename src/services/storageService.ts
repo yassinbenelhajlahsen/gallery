@@ -1,16 +1,8 @@
 // src/services/storageService.ts
-import type { FullMetadata } from "firebase/storage";
-import {
-  getDownloadURL,
-  getMetadata,
-  getStorage,
-  listAll,
-  ref,
-} from "firebase/storage";
-import { app } from "./firebaseConfig";
+import { getDownloadURL, ref } from "firebase/storage";
+import { getDocs, collection } from "firebase/firestore";
+import { storage, db } from "./firebaseConfig";
 import type { VideoMeta } from "./mediaTypes";
-
-const storage = getStorage(app);
 
 /**
  * Storage layout:
@@ -46,57 +38,52 @@ export type PreloadedImage = {
   objectUrl: string;
 };
 
-const normalizeDate = (metadata: FullMetadata): string => {
-  const customDate =
-    metadata.customMetadata?.date ?? metadata.customMetadata?.Date;
-  const fallback =
-    customDate ??
-    metadata.updated ??
-    metadata.timeCreated ??
-    new Date().toISOString();
-  const timestamp = Date.parse(fallback);
-  if (Number.isNaN(timestamp)) {
-    return new Date().toISOString();
+const normalizeDateField = (raw: any): string => {
+  if (!raw) return new Date().toISOString();
+  try {
+    // Firestore Timestamp support
+    if (typeof raw === "object" && typeof raw.toDate === "function") {
+      return raw.toDate().toISOString();
+    }
+    if (typeof raw === "string") {
+      const ts = Date.parse(raw);
+      if (!Number.isNaN(ts)) return new Date(ts).toISOString();
+    }
+  } catch (e) {
+    // fallthrough
   }
-  return new Date(timestamp).toISOString();
+  return new Date().toISOString();
 };
 
-const extractEvent = (metadata: FullMetadata) =>
-  metadata.customMetadata?.event ?? metadata.customMetadata?.Event ?? undefined;
-
-const extractCaption = (metadata: FullMetadata) =>
-  metadata.customMetadata?.caption ??
-  metadata.customMetadata?.Caption ??
-  undefined;
-
 export async function fetchAllImageMetadata(): Promise<ImageMeta[]> {
-  const fullResult = await listAll(ref(storage, FULL_ROOT));
+  const snap = await getDocs(collection(db, "images"));
 
-  const imagePromises = fullResult.items.map(async (itemRef) => {
-    const thumbRef = ref(storage, `${THUMB_ROOT}/${itemRef.name}`);
+  const imagePromises = snap.docs.map(async (d) => {
+    const data = d.data() as Record<string, unknown>;
+    const id = (data.id as string) ?? d.id;
+    const storagePath = (data.fullPath as string) ?? `${FULL_ROOT}/${id}`;
+    const thumbPath = (data.thumbPath as string) ?? `${THUMB_ROOT}/${id}`;
 
-    const [metadata, downloadUrl, thumbUrl] = await Promise.all([
-      getMetadata(itemRef),
-      getDownloadURL(itemRef),
-      getDownloadURL(thumbRef).catch(() => null),
-    ]);
+    // Build download URLs
+    const downloadUrl = await getDownloadURL(ref(storage, storagePath));
+    const thumbUrl = await getDownloadURL(ref(storage, thumbPath)).catch(
+      () => null,
+    );
 
-    const date = normalizeDate(metadata);
-    const event = extractEvent(metadata);
+    const date = normalizeDateField(data.date);
 
     return {
-      id: itemRef.name,
-      storagePath: itemRef.fullPath,
+      id,
+      storagePath,
       date,
-      event,
-      caption: extractCaption(metadata),
+      event: typeof data.event === "string" ? data.event : undefined,
+      caption: typeof data.caption === "string" ? data.caption : undefined,
       downloadUrl,
       thumbUrl: thumbUrl ?? downloadUrl,
     } satisfies ImageMeta;
   });
 
   const unsorted = await Promise.all(imagePromises);
-
   return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 }
 
@@ -111,33 +98,40 @@ const hasAllowedVideoExtension = (name: string) =>
  * - Can resolve thumb URLs (JPEG only) for display.
  */
 export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
-  const fullResult = await listAll(ref(storage, VIDEO_FULL_ROOT));
+  const snap = await getDocs(collection(db, "videos"));
 
-  const videoPromises = fullResult.items
-    .filter((itemRef) => hasAllowedVideoExtension(itemRef.name))
-    .map(async (itemRef) => {
-      const thumbName = itemRef.name.replace(/\.[^.]+$/, ".jpg");
-      const thumbRef = ref(storage, `${VIDEO_THUMB_ROOT}/${thumbName}`);
+  const videoPromises = snap.docs
+    .map(async (d) => {
+      const data = d.data() as Record<string, unknown>;
+      const id = (data.id as string) ?? d.id;
 
-      const [metadata, thumbUrl] = await Promise.all([
-        getMetadata(itemRef),
-        // Thumb URL is allowed (JPEG only)
-        getDownloadURL(thumbRef),
-      ]);
+      if (!hasAllowedVideoExtension(id)) return null;
 
-      const date = normalizeDate(metadata);
-      const event = extractEvent(metadata);
+      const videoPath =
+        (data.videoPath as string) ?? `${VIDEO_FULL_ROOT}/${id}`;
+      const thumbPath =
+        (data.thumbPath as string) ??
+        `${VIDEO_THUMB_ROOT}/${id.replace(/\.[^.]+$/, ".jpg")}`;
+
+      // Resolve thumb URL; if missing, fallback to the video's download URL
+      const thumbUrl = await getDownloadURL(ref(storage, thumbPath)).catch(
+        async () =>
+          await getDownloadURL(ref(storage, videoPath)).catch(() => ""),
+      );
+
+      const date = normalizeDateField(data.date);
 
       return {
-        id: itemRef.name,
+        id,
         type: "video",
         date,
-        event,
-        caption: extractCaption(metadata),
-        videoPath: itemRef.fullPath,
+        event: typeof data.event === "string" ? data.event : undefined,
+        caption: typeof data.caption === "string" ? data.caption : undefined,
+        videoPath,
         thumbUrl,
       } satisfies VideoMeta;
-    });
+    })
+    .filter(Boolean) as Promise<VideoMeta>[];
 
   const unsorted = await Promise.all(videoPromises);
   return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));

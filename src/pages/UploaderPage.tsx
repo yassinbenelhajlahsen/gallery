@@ -1,13 +1,12 @@
 // src/pages/UploaderPage.tsx
 import { useState, useMemo, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../services/firebaseConfig";
+import { storage, db } from "../services/firebaseConfig";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useToast } from "../context/ToastContext";
 import { FloatingInput } from "../components/ui/FloatingInput";
-import { setDoc, doc } from "firebase/firestore";
-import { db } from "../services/firebaseConfig";
+import { setDoc, doc, serverTimestamp } from "firebase/firestore";
 
 interface UploadProgress {
   fileName: string;
@@ -351,25 +350,54 @@ export default function UploaderPage() {
             const fullRef = ref(storage, `videos/full/${videoId}`);
             const thumbRef = ref(storage, `videos/thumb/${thumbName}`);
 
-            const metadata = {
-              customMetadata: {
-                date,
-                event: eventName || "",
-              },
-            };
-
             updateProgress(fileName, { status: "uploading", progress: 60 });
 
-            // Metadata on video file ONLY
+            // Upload video & poster; avoid storing app fields in Storage metadata.
             await Promise.all([
-              uploadBytes(fullRef, originalFile, metadata),
-              uploadBytes(thumbRef, posterBlob),
+              uploadBytes(fullRef, originalFile, {
+                contentType: originalFile.type,
+              }),
+              uploadBytes(thumbRef, posterBlob, { contentType: "image/jpeg" }),
             ]);
 
-            updateProgress(fileName, { progress: 90 });
-            const url = await getDownloadURL(thumbRef);
-            updateProgress(fileName, { progress: 100 });
-            updateProgress(fileName, { status: "success", url });
+            updateProgress(fileName, { progress: 85 });
+
+            // Write Firestore doc for the video
+            try {
+              const payload: Record<string, unknown> = {
+                id: videoId,
+                type: "video",
+                date,
+                videoPath: `videos/full/${videoId}`,
+                thumbPath: `videos/thumb/${thumbName}`,
+                createdAt: serverTimestamp(),
+              };
+              if (eventName && eventName.trim().length > 0)
+                payload.event = eventName.trim();
+
+              updateProgress(fileName, { progress: 88 });
+              await setDoc(doc(db, "videos", videoId), payload, {
+                merge: true,
+              });
+              updateProgress(fileName, { progress: 95 });
+            } catch (fireErr) {
+              const msg =
+                fireErr instanceof Error ? fireErr.message : String(fireErr);
+              console.error(
+                `[Upload] ✗ Firestore write failed for ${videoId}:`,
+                fireErr,
+              );
+              updateProgress(fileName, {
+                status: "error",
+                error: `Failed to write metadata: ${msg}`,
+                progress: 0,
+              });
+              toast(`Failed to save metadata for ${videoId}: ${msg}`, "error");
+              continue; // proceed to next file
+            }
+
+            const url = await getDownloadURL(thumbRef).catch(() => "");
+            updateProgress(fileName, { progress: 100, status: "success", url });
             results.push(url);
           } else {
             // Load the image once for both operations
@@ -389,26 +417,51 @@ export default function UploaderPage() {
             const fullRef = ref(storage, `images/full/${jpgName}`);
             const thumbRef = ref(storage, `images/thumb/${jpgName}`);
 
-            const metadata = {
-              customMetadata: {
-                date,
-                event: eventName || "",
-              },
-            };
-
             updateProgress(fileName, { status: "uploading", progress: 60 });
 
-            // Upload full-res and thumbnail in parallel
+            // Upload full-res and thumbnail in parallel. Do NOT write app metadata to Storage.
             await Promise.all([
-              uploadBytes(fullRef, jpegBlob, metadata),
-              uploadBytes(thumbRef, thumbBlob, metadata),
+              uploadBytes(fullRef, jpegBlob, { contentType: "image/jpeg" }),
+              uploadBytes(thumbRef, thumbBlob, { contentType: "image/jpeg" }),
             ]);
             updateProgress(fileName, { progress: 80 });
 
-            const url = await getDownloadURL(fullRef);
-            updateProgress(fileName, { progress: 100 });
+            // Write Firestore doc for the image
+            try {
+              const payload: Record<string, unknown> = {
+                id: jpgName,
+                type: "image",
+                date,
+                fullPath: `images/full/${jpgName}`,
+                thumbPath: `images/thumb/${jpgName}`,
+                createdAt: serverTimestamp(),
+              };
+              if (eventName && eventName.trim().length > 0)
+                payload.event = eventName.trim();
 
-            updateProgress(fileName, { status: "success", url });
+              updateProgress(fileName, { progress: 85 });
+              await setDoc(doc(db, "images", jpgName), payload, {
+                merge: true,
+              });
+              updateProgress(fileName, { progress: 95 });
+            } catch (fireErr) {
+              const msg =
+                fireErr instanceof Error ? fireErr.message : String(fireErr);
+              console.error(
+                `[Upload] ✗ Firestore write failed for ${jpgName}:`,
+                fireErr,
+              );
+              updateProgress(fileName, {
+                status: "error",
+                error: `Failed to write metadata: ${msg}`,
+                progress: 0,
+              });
+              toast(`Failed to save metadata for ${jpgName}: ${msg}`, "error");
+              continue; // proceed to next file
+            }
+
+            const url = await getDownloadURL(fullRef).catch(() => "");
+            updateProgress(fileName, { progress: 100, status: "success", url });
             results.push(url);
           }
         } catch (fileError) {
@@ -532,7 +585,6 @@ export default function UploaderPage() {
             </div>
             <button
               onClick={handleCreateEvent}
-
               disabled={
                 isCreatingEvent || !newEventDate || !newEventTitle.trim()
               }
