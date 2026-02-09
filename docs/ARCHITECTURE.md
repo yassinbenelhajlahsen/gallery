@@ -9,7 +9,6 @@
 | Framework | React 19 + TypeScript                                         |
 | Routing   | react-router-dom v7 (`createBrowserRouter`)                   |
 | Styling   | Tailwind CSS v4 (PostCSS plugin)                              |
-| Animation | framer-motion (installed, used selectively)                   |
 | Backend   | Firebase Auth (email/password) + Firebase Storage + Firestore |
 | Caching   | IndexedDB via custom `mediaCacheService`                      |
 | Build     | Vite + `tsc -b` (see `npm run build`)                         |
