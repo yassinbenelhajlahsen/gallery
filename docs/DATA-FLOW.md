@@ -278,17 +278,18 @@ Upload flow:
 Display flow:
   1. IndexedDB cache → thumbnail blob URL (instant, ~50ms)
   2. Firebase thumb URL → fallback if no cache
-  3. useFullResLoader → full-res blob URL
+  3. useFullResLoader → full-res download URL (browser loads directly)
     • HomePage: full-res only, gated behind loading spinner (no thumbnails shown)
     • All: progressive upgrade (thumbnail shown first, full-res overlaid)
-  4. mediaModalViewer → full-res blob URL for images (windowed ±10/5 preload). Videos are played on demand using `getVideoDownloadUrl()`; posters are used as thumbnails.
+  4. mediaModalViewer → full-res download URL for images (browser loads directly). Videos are played on demand using `getVideoDownloadUrl()`; posters are used as thumbnails.
 ```
 
 ## Memory Management
 
 The codebase is careful about blob URL lifecycle:
 
-- **`GalleryContext`**: Calls `URL.revokeObjectURL` on old `preloadedImages` when replacing
-- **`useFullResLoader`**: Revokes all URLs on unmount; `evict()` revokes URLs outside a keep-set
-- **`ImageModalViewer`**: Manages its own `fullResUrls` Map, revokes on close and when evicting outside the preload window
-- **`GalleryContext.resetState`**: Releases preloaded URLs on logout
+- **`GalleryContext`**: Calls `URL.revokeObjectURL` on old `preloadedImages` (thumbnail blobs) when replacing
+- **`mediaCacheService`**: Manages thumbnail blob URLs from IndexedDB cache, revokes on eviction
+- **`GalleryContext.resetState`**: Releases preloaded thumbnail URLs on logout
+
+Full-resolution images are now loaded directly by the browser via Firebase download URLs, eliminating the need for blob URL management for full-res content.

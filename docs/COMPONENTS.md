@@ -78,9 +78,9 @@ Full-screen lightbox that supports both images and videos. It replaces the old i
 
 **Key internals:**
 
-- Manages full-res blob URLs for images with windowed preloading (±10 ahead / ±5 behind) and evicts outside the window
+- Manages full-res download URLs for images with windowed preloading (±10 ahead / ±5 behind) and evicts outside the window
 - Plays videos on demand — video bytes are not prefetched during gallery load; posters are used for thumbnails
-- Supports keyboard nav, touch swipe, and proper blob URL lifecycle handling
+- Supports keyboard nav, touch swipe, and proper URL lifecycle handling
 
 Open the media modal via `GalleryModalRenderer` / `useGallery()` helpers (do not mount directly).
 
@@ -240,13 +240,13 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 
 **File:** `src/pages/HomePage.tsx`
 
-- Picks a random subset of images (6 mobile / 9 desktop) and renders them in a grid
+- Picks a random subset of images (6 mobile / 9 desktop) and renders them using the `GalleryGrid` component
 - Stable selection: re-picks only when the set of available IDs changes
 - Uses `useFullResLoader` to fetch **full-resolution only** — no thumbnails are shown
 - Shows a loading spinner until all chosen full-res images are ready (`allFullResReady`)
 - The grid, "See All" button, and empty state are hidden behind the full-res loading gate
 - Clicking a tile opens the modal with the displayed subset
-- "See All" button navigates to `/gallery`
+- "See All" button navigates to `/photos`
 
 ### `All`
 
@@ -256,7 +256,7 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Each year section uses `GalleryGrid` with `{ base: 1, sm: 2, md: 3, lg: 4 }` columns
 - Uses `IntersectionObserver` to detect visible year-groups
 - Preloads full-res for visible groups ± 3 groups ahead/behind
-- Evicts full-res blob URLs for off-screen groups (memory management)
+- Evicts full-res download URLs for off-screen groups (memory management)
 - Clicking any tile opens the modal with the **full** `imageMetas` array (all photos navigable)
 
 ### `TimelinePage`
