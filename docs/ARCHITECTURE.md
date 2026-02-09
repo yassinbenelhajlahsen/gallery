@@ -22,8 +22,6 @@ src/
 ├── main.tsx                    # ReactDOM entry
 ├── index.css                   # Tailwind directives + global styles
 │
-├── assets/
-│   └── events.example.json     # Legacy, now uses Firestore Database
 │
 ├── components/
 │   ├── Footer.tsx              # Site-wide footer
