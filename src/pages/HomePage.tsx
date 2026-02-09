@@ -5,6 +5,7 @@ import { useGallery } from "../context/GalleryContext";
 import type { ImageMeta } from "../services/storageService";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useFullResLoader } from "../hooks/useFullResLoader";
+import GalleryGrid from "../components/GalleryGrid";
 import { config } from "../config";
 
 type CloudTile = {
@@ -148,28 +149,15 @@ const HomePage: React.FC = () => {
           {/* Only render the real grid and images when all are ready, so they appear at once */}
           {allFullResReady && cloudTiles.length > 0 ? (
             <>
-              <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
-                {cloudTiles.map((tile) => (
-                  <button
-                    type="button"
-                    key={tile.meta.id}
-                    onClick={() => handleTileClick(tile.meta.id)}
-                    className="group relative overflow-hidden rounded-2xl bg-linear-to-br from-[#FFF5DA] via-[#FDFDFB] to-[#FFE9F1] shadow-lg ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] touch-manipulation cursor-pointer"
-                    style={{ willChange: "transform" }}
-                    aria-label={tile.caption ?? "Open memory"}
-                  >
-                    <div className="w-full aspect-square">
-                      <img
-                        src={tile.url}
-                        alt={tile.caption ?? "Romantic memory"}
-                        className="h-full w-full object-cover group-hover:opacity-95"
-                        decoding="async"
-                        style={{ opacity: 1 }}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <GalleryGrid
+                tiles={cloudTiles.map((tile) => ({
+                  id: tile.meta.id,
+                  url: tile.url,
+                  caption: tile.caption,
+                  onClick: () => handleTileClick(tile.meta.id),
+                }))}
+                columns={{ base: 2, sm: 3, md: 3, lg: 3 }}
+              />
 
               <div className="pt-4">
                 <button
