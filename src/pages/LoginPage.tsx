@@ -49,7 +49,16 @@ const LoginPage: React.FC = () => {
   const disabled = isSubmitting || initializing;
 
   return (
-    <section className="flex min-h-screen w-full items-center justify-center px-6 py-16">
+    <section className="relative flex min-h-screen w-full items-center justify-center px-6 py-16">
+      {/* Top safe-area fade (mobile): uses safe-area inset + gradient like Footer */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-50 md:hidden"
+        style={{ height: "calc(env(safe-area-inset-top, 0px) + 48px)" }}
+      >
+        <div className="h-full bg-linear-to-b from-white/0 via-white/70 to-white backdrop-blur-sm" />
+      </div>
+
       <div className="grid w-full max-w-5xl gap-10 rounded-[36px] bg-white/80 p-10 shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl transition-all duration-500 hover:ring-[#FACAD5]/60 lg:grid-cols-[1.2fr_1fr]">
         <div className="space-y-6 text-left">
           <p className="text-sm uppercase racking-[0.4em] text-[#888] text-center">
@@ -135,6 +144,15 @@ const LoginPage: React.FC = () => {
             {isSubmitting ? "Unlocking memories…" : "Unlock gallery"}
           </button>
         </form>
+      </div>
+
+      {/* Bottom safe-area fade (mobile): mirror of footer */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden"
+        style={{ height: "calc(env(safe-area-inset-bottom, 0px) + 56px)" }}
+      >
+        <div className="h-full bg-linear-to-t from-white/0 via-white/70 to-white backdrop-blur-sm" />
       </div>
     </section>
   );
