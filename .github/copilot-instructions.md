@@ -23,7 +23,7 @@
 
 ## Data & State
 
-- **`storageService.ts`** is the only file that touches Firebase Storage. It fetches metadata from `images/full/`, resolves thumbnail URLs from `images/thumb/`, normalizes custom metadata (`date`/`Date`, `event`/`Event`, `caption`/`Caption`), and sorts newest-first.
+- **`storageService.ts`** is the only file that touches Firebase Storage for download URLs. It reads media metadata from Firestore (`images` and `videos` collections), constructs signed download URLs from the Storage paths stored in those docs, normalizes the `date` field (supports ISO string or Firestore Timestamp), and sorts newest-first. Do not rely on Storage object `customMetadata` for app data.
 - **`mediaCacheService.ts`** manages an IndexedDB cache with two stores: `image-blobs` (thumbnail blobs keyed by image ID) and `meta` (manifest). `syncCache` diffs fresh metadata against cached keys, downloads only new thumbnails in batches of 60, and evicts removed ones.
 - **Videos & media:** The app now supports videos alongside images. `storageService.ts` exposes `fetchAllVideoMetadata()` and `getVideoDownloadUrl()` for videos stored under `videos/full/` (originals) and `videos/thumb/` (poster thumbnails). `mediaCacheService` also manages video poster caching (thumb JPEGs) via a separate sync path.
 - **`GalleryContext`** owns `imageMetas`, `preloadedImages`, loading state, and modal state. It runs a three-phase load on auth: (1) instant restore from IndexedDB cache, (2) fetch fresh metadata from Firebase, (3) diff-sync cache. On logout, `resetState()` clears all state and wipes IndexedDB. Never store gallery data outside this context.
@@ -40,7 +40,7 @@
 
 ## Image Resolution Pipeline
 
-- **Upload:** Client-side JPEG conversion (quality 0.9) + thumbnail generation (480px, quality 0.7) → dual-write to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` with `customMetadata: { date, event }`.
+- **Upload:** Client-side JPEG conversion (quality 0.9) + thumbnail generation (480px, quality 0.7) → dual-write to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` in Storage (do NOT store app fields in Storage metadata). After successful uploads, write or update a Firestore doc in the `images` collection with the JSON metadata (id, type: "image", date, optional event/caption, fullPath, thumbPath, createdAt: serverTimestamp()). Firestore is the source of truth for media metadata.
 - **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for full-res blob URLs. `HomePage` gates all rendering behind full-res readiness (no thumbnails shown). `All` uses progressive upgrade (thumb first, full-res overlaid). `ImageModalViewer` uses windowed full-res in the lightbox.
 - **Display:** IndexedDB cached thumb blob → Firebase thumb URL fallback → `useFullResLoader` for full-res blob URLs. `HomePage` gates all rendering behind full-res readiness (no thumbnails shown). `All` uses progressive upgrade (thumb first, full-res overlaid). The media modal uses windowed full-res for images in the lightbox.
 - **Video upload & display:** Video uploads write the original to `videos/full/` and a generated poster JPEG to `videos/thumb/`. The `UploaderPage` extracts a poster frame client-side and uploads it as the thumbnail. The lightbox (now a media-capable modal) will play videos on demand; video bytes are not prefetched during gallery load.

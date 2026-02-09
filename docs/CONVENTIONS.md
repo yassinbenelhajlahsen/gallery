@@ -197,7 +197,7 @@ Events are now created through the uploader page UI and stored in Firestore. Use
 
 - Event IDs are auto-generated as `evt-XXX` (incrementing numbers)
 - `date` must be `YYYY-MM-DD` format
-- `imageIds` start empty — images link by matching `event` metadata to `title` (case-insensitive)
+- `imageIds` start empty — images link by matching the `event` field on the image/video Firestore doc to the event `title` (case-insensitive)
 - Events auto-sort newest-first in `TimelinePage`
 - Events are stored in Firestore `events` collection with auth-protected access
 
@@ -208,8 +208,8 @@ Follow the same pattern as `UploaderPage.tsx`:
 1. Convert to JPEG client-side (use the `loadImage` → `convertToJpeg` pipeline)
 2. Generate a 480px thumbnail (`generateThumbnail`)
 3. Upload both to `images/full/<name>.jpg` and `images/thumb/<name>.jpg`
-4. Set `customMetadata: { date: "YYYY-MM-DD", event: "Event Name" }`
-5. Gallery auto-refreshes on next auth-triggered load or page reload
+4. Do NOT store app fields in Storage object metadata. Instead, after successful uploads write or update a Firestore doc in the `images` collection with the JSON metadata: `{ id, type: "image", date, event?, caption?, fullPath, thumbPath, createdAt: serverTimestamp() }`. Use `setDoc(doc(db, "images", id), payload, { merge: true })` so retries are safe.
+5. Gallery auto-refreshes on next auth-triggered load; you can also call `refreshGallery()` after upload to immediately surface new items.
 
 ### Adding a Toast Notification
 

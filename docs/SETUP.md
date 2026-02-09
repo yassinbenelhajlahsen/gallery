@@ -44,13 +44,27 @@ npm install
 7. **Firestore** → Rules → Set read/write to require auth:
    ```
    rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /events/{eventId} {
-         allow read, write: if request.auth != null;
-       }
-     }
-   }
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Timeline events
+    match /events/{eventId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Image metadata (Firestore is source of truth)
+    match /images/{imageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Video metadata (Firestore is source of truth)
+    match /videos/{videoId} {
+      allow read, write: if request.auth != null;
+    }
+
+  }
+}
+
    ```
 8. **Project Settings** → Your apps → Add a **Web app** → Copy the config values
 
