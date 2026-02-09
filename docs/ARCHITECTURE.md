@@ -49,7 +49,6 @@ src/
 │   ├── LoadingScreen.tsx       # Shown until gallery first loads
 │   ├── LoginPage.tsx           # Password-only login
 │   ├── NotFoundPage.tsx        # 404 page
-│   ├── All.tsx   # All photos grouped by year
 │   ├── PhotosPage.tsx          # Alias/entry for the All photos page (route: /photos)
 │   ├── VideosPage.tsx          # Videos gallery page (groups videos by year)
 │   ├── TimelinePage.tsx        # Chronological event list
@@ -68,11 +67,11 @@ src/
 Providers wrap the entire app in `App.tsx`. **Order matters** — inner providers can consume outer ones.
 
 ```
-<AuthProvider>              ← Firebase Auth state
-  <GalleryProvider>         ← Image data, preloading, modal state (consumes useAuth)
-    <ToastProvider>         ← Toast notifications
-      <RomanticBackdrop>    ← Visual wrapper (floating hearts, gradients)
-        <RouterProvider />  ← Route tree
+<AuthProvider>                   ← Firebase Auth state
+  <GalleryProvider>              ← Image data, preloading, modal state (consumes useAuth)
+    <ToastProvider>              ← Toast notifications
+      <RomanticBackdrop>         ← Visual wrapper (floating hearts, gradients)
+        <RouterProvider />       ← Route tree
         <GalleryModalRenderer /> ← Global lightbox (reads GalleryContext)
       </RomanticBackdrop>
     </ToastProvider>

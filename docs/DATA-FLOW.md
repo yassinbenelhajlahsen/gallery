@@ -31,42 +31,43 @@ GalleryContext (GalleryProvider)           ← Central state owner
 
 ### `storageService.ts`
 
-**Single responsibility:** Talk to Firebase Storage. Returns typed `ImageMeta[]` and `VideoMeta[]`.
+**Single responsibility:** Read media metadata from Firestore (`images` and `videos` collections), then resolve signed download URLs from Firebase Storage for the file paths stored on those docs. Returns typed `ImageMeta[]` and `VideoMeta[]`.
 
 ```typescript
 type ImageMeta = {
   id: string; // filename (e.g. "photo1.jpg")
   storagePath: string; // "images/full/photo1.jpg"
   date: string; // ISO string, normalized
-  event?: string; // custom metadata
-  caption?: string; // custom metadata
+  event?: string; // from Firestore doc
+  caption?: string; // from Firestore doc
   downloadUrl: string; // full-res download URL (signed)
   thumbUrl: string; // thumbnail download URL (falls back to downloadUrl)
 };
 
 type VideoMeta = {
   id: string; // filename (e.g. "video1.mp4")
-  storagePath: string; // "videos/full/video1.mp4"
+  type: "video";
   date: string; // ISO string, normalized
-  event?: string; // custom metadata
-  caption?: string; // custom metadata
-  downloadUrl: string; // video download URL (signed)
-  thumbUrl: string; // poster thumbnail URL
+  event?: string; // from Firestore doc
+  caption?: string; // from Firestore doc
+  videoPath: string; // Storage path like "videos/full/video1.mp4"
+  thumbUrl: string; // poster thumbnail URL (resolves from thumbPath or falls back)
 };
 ```
 
 **`fetchAllImageMetadata()`** and **`fetchAllVideoMetadata()`** do:
 
-1. `listAll(ref(storage, "images/videos/full"))` to discover all files
-2. For each file, fetches metadata + full download URL + thumb download URL in parallel
-3. Normalizes `date` from custom metadata (falls back to `timeCreated`)
-4. Returns sorted **newest-first** by date
+1. `getDocs(collection(db, "images"))` / `getDocs(collection(db, "videos"))` to load Firestore docs
+2. For each doc, read the storage paths (`fullPath` / `videoPath` and `thumbPath`) and build signed URLs with `getDownloadURL(ref(storage, path))`
+3. Normalize `date` from the Firestore field (supports ISO string or Firestore Timestamp). If missing/invalid, fall back to `new Date().toISOString()`
+4. If a thumb download fails, fall back to the full download URL (maintains existing fallback behavior)
+5. Return results sorted **newest-first** by date
 
 **Key details:**
 
-- Metadata normalization handles both `date`/`Date`, `event`/`Event`, `caption`/`Caption` keys (case-insensitive custom metadata)
-- If a thumbnail doesn't exist in `images/videos/thumb/`, falls back to the full-res URL
-- Date parsing is defensive — returns `new Date().toISOString()` if unparseable
+- Metadata now comes from Firestore documents (`images` / `videos`). Do not rely on Storage object `customMetadata`.
+- If a thumbnail doesn't exist in `images/videos/thumb/`, the service falls back to the full-res URL
+- Date parsing is defensive — supports Firestore Timestamp objects and ISO strings, otherwise falls back to `new Date().toISOString()`
 
 ### `eventsService.ts`
 
