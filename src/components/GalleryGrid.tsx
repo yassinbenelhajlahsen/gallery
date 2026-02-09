@@ -115,7 +115,8 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
         className={`cursor-pointer h-full w-full object-cover ${
           thumbLoaded ? "opacity-100" : "opacity-0"
         }`}
-        decoding="sync"
+        decoding="async"
+        loading="lazy"
         onLoad={() => setThumbLoaded(true)}
         onError={() => setHasError(true)}
       />
@@ -128,6 +129,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             fullLoaded ? "opacity-100" : "opacity-0"
           } transition-opacity duration-200`}
           decoding="async"
+          loading="lazy"
           onLoad={() => setFullLoaded(true)}
         />
       )}
