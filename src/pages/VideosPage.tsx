@@ -1,6 +1,6 @@
 // src/pages/VideosPage.tsx
 import React from "react";
-import type { VideoMeta } from "../services/mediaTypes";
+import type { VideoMeta } from "../types/mediaTypes";
 import GalleryGrid from "../components/GalleryGrid";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";

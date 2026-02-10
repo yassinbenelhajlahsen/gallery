@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import type { ImageMeta, PreloadedImage } from "../services/storageService";
-import type { MediaMeta, VideoMeta } from "../services/mediaTypes";
+import type { MediaMeta, VideoMeta } from "../types/mediaTypes";
 import type { TimelineEvent } from "../components/TimelineEventItem";
 import { fetchEvents } from "../services/eventsService";
 import {

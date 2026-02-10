@@ -1,11 +1,7 @@
 // src/components/mediaModalViewer.tsx
 import React from "react";
 import type { ImageMeta } from "../services/storageService";
-import type {
-  ImageMediaMeta,
-  MediaMeta,
-  VideoMeta,
-} from "../services/mediaTypes";
+import type { ImageMediaMeta, MediaMeta, VideoMeta } from "../types/mediaTypes";
 import { getVideoDownloadUrl } from "../services/storageService";
 
 const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
