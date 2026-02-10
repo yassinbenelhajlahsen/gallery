@@ -135,7 +135,6 @@ Single row in the timeline list. Clickable only when it has linked images.
 **Props:**
 
 ```typescript
-
 export type MediaCounts = {
   imageCount: number;
   videoCount: number;
@@ -242,9 +241,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 
 - Picks a random subset of images (6 mobile / 9 desktop) and renders them using the `GalleryGrid` component
 - Stable selection: re-picks only when the set of available IDs changes
-- Uses `useFullResLoader` to fetch **full-resolution only** — no thumbnails are shown
-- Shows a loading spinner until all chosen full-res images are ready (`allFullResReady`)
-- The grid, "See All" button, and empty state are hidden behind the full-res loading gate
+- Uses `useFullResLoader` to fetch full-resolution images in the background while showing thumbnails immediately
+- Shows a short skeleton while the chosen subset is being selected; thumbnails render instantly (progressive upgrade) and full-res images overlay as they become available
+- The grid, "See All" button, and empty state are shown immediately (when thumbnails are available) rather than gating on full-res readiness
 - Clicking a tile opens the modal with the displayed subset
 - "See All" button navigates to `/photos`
 

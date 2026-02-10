@@ -235,7 +235,7 @@ toast(message: string, variant?: "success" | "error" | "logout")
 
 Used by `HomePage` and `All` to load full-resolution images as blob URLs.
 
-- **`HomePage`** fetches full-res for its 6/9 chosen tiles and **gates all rendering** behind `allFullResReady` — no thumbnails are ever shown. A loading spinner is displayed until every chosen image has its full-res blob loaded.
+- **`HomePage`** fetches full-res for its 6/9 chosen tiles in the background while showing thumbnails immediately (progressive upgrade). A short skeleton is used only while the chosen subset is being selected; the grid and thumbnails render without waiting for all full-res blobs to finish.
 - **`All`** uses it for **progressive upgrade** — thumbnails display immediately, and full-res blobs overlay them as they load.
 
 ```typescript
@@ -280,8 +280,8 @@ Display flow:
   1. IndexedDB cache → thumbnail blob URL (instant, ~50ms)
   2. Firebase thumb URL → fallback if no cache
   3. useFullResLoader → full-res download URL (browser loads directly)
-    • HomePage: full-res only, gated behind loading spinner (no thumbnails shown)
-    • All: progressive upgrade (thumbnail shown first, full-res overlaid)
+  • HomePage: progressive upgrade — thumbnails shown immediately, full-res overlaid as they load
+  • All: progressive upgrade (thumbnail shown first, full-res overlaid)
   4. mediaModalViewer → full-res download URL for images (browser loads directly). Videos are played on demand using `getVideoDownloadUrl()`; posters are used as thumbnails.
 ```
 
