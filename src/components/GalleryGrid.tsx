@@ -105,47 +105,53 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
       className="group relative aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] touch-manipulation"
       style={{ willChange: "transform" }}
     >
-      {!thumbLoaded && !hasError && (
-        <div className="skeleton-loader absolute inset-0" />
-      )}
-      <img
-        ref={thumbRef}
-        src={tile.url}
-        alt={tile.caption ?? "Gallery image"}
-        className={`cursor-pointer h-full w-full object-cover ${
-          thumbLoaded ? "opacity-100" : "opacity-0"
-        }`}
-        decoding="async"
-        loading="lazy"
-        onLoad={() => setThumbLoaded(true)}
-        onError={() => setHasError(true)}
-      />
-      {hasFullRes && tile.fullUrl && (
+      {/* Inner clipping wrapper for mobile Safari stability: keep rounding and overflow consistent */}
+      <div className="absolute inset-0 rounded-2xl overflow-hidden">
+        {!thumbLoaded && !hasError && (
+          <div className="skeleton-loader absolute inset-0 rounded-2xl" />
+        )}
+
         <img
-          ref={fullRef}
-          src={tile.fullUrl}
+          ref={thumbRef}
+          src={tile.url}
           alt={tile.caption ?? "Gallery image"}
-          className={`cursor-pointer absolute inset-0 h-full w-full object-cover ${
-            fullLoaded ? "opacity-100" : "opacity-0"
-          } transition-opacity duration-200`}
+          className={`cursor-pointer h-full w-full object-cover rounded-2xl ${
+            thumbLoaded ? "opacity-100" : "opacity-0"
+          }`}
           decoding="async"
           loading="lazy"
-          onLoad={() => setFullLoaded(true)}
+          onLoad={() => setThumbLoaded(true)}
+          onError={() => setHasError(true)}
         />
-      )}
 
-      {isVideo && !hasError && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="cursor-pointer flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 ring-1 ring-white/20 backdrop-blur-sm">
-            ▶
-          </span>
-        </div>
-      )}
-      {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#f5f5f5] text-sm text-[#999]">
-          ✕
-        </div>
-      )}
+        {hasFullRes && tile.fullUrl && (
+          <img
+            ref={fullRef}
+            src={tile.fullUrl}
+            alt={tile.caption ?? "Gallery image"}
+            className={`cursor-pointer absolute inset-0 h-full w-full object-cover rounded-2xl ${
+              fullLoaded ? "opacity-100" : "opacity-0"
+            } transition-opacity duration-200`}
+            decoding="async"
+            loading="lazy"
+            onLoad={() => setFullLoaded(true)}
+          />
+        )}
+
+        {isVideo && !hasError && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="cursor-pointer flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 ring-1 ring-white/20 backdrop-blur-sm">
+              ▶
+            </span>
+          </div>
+        )}
+
+        {hasError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#f5f5f5] text-sm text-[#999] rounded-2xl">
+            ✕
+          </div>
+        )}
+      </div>
     </button>
   );
 };
