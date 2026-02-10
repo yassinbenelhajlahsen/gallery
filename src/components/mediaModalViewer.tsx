@@ -100,9 +100,13 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
     setActiveVideoUrl(null);
   }, []);
 
+  const isMobile =
+    window.innerWidth < 640 || navigator.connection?.saveData === true;
+
+  const PRELOAD_AHEAD = isMobile ? 3 : 10;
+  const PRELOAD_BEHIND = isMobile ? 2 : 5;
+
   const SLIDE_DURATION = 300;
-  const PRELOAD_AHEAD = 10;
-  const PRELOAD_BEHIND = 5;
   const totalItems = media.length;
 
   const clearAnimationTimeout = () => {
