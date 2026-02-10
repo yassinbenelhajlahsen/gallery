@@ -10,7 +10,7 @@ const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
 const isImageMeta = (item: MediaMeta | undefined): item is ImageMediaMeta =>
   Boolean(item && !isVideoMeta(item));
 
-export type ImageModalViewerProps = {
+export type MediaModalViewer = {
   media: MediaMeta[];
   initialIndex?: number;
   isOpen: boolean;
@@ -50,7 +50,7 @@ const toLocalDate = (dateString: string) => {
   return new Date(trimmed);
 };
 
-const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
+const MediaModalViewer: React.FC<MediaModalViewer> = ({
   media,
   initialIndex = 0,
   isOpen,
@@ -60,10 +60,15 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   resolveVideoThumbUrl,
   preloadAll = false,
 }) => {
-  const [activeIndex, setActiveIndex] = React.useState(initialIndex);
+  // visualIndex: used only for transform/animation (may go out of range)
+  const [visualIndex, setVisualIndex] = React.useState(initialIndex);
+  // dataIndex: used for selecting media, metadata, preload, and video lifecycle (always clamped)
+  const [dataIndex, setDataIndex] = React.useState(initialIndex);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
   const [hasInitialized, setHasInitialized] = React.useState(false);
+  // When true, force transitions to 0ms for instant snapping (used for teleport snap)
+  const [suppressTransition, setSuppressTransition] = React.useState(false);
   const touchStartX = React.useRef<number | null>(null);
   const animationTimeoutRef = React.useRef<number | null>(null);
 
@@ -120,7 +125,8 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   React.useEffect(() => {
     if (!isOpen) {
       const timer = setTimeout(() => {
-        setActiveIndex(0);
+        setVisualIndex(0);
+        setDataIndex(0);
         setIsAnimating(false);
         setIsClosing(false);
         setHasInitialized(false);
@@ -140,7 +146,8 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       const safeIndex = clampIndex(initialIndex, media.length);
-      setActiveIndex(safeIndex);
+      setVisualIndex(safeIndex);
+      setDataIndex(safeIndex);
       setIsClosing(false);
       // Set initialized flag after a brief delay to allow DOM to settle
       requestAnimationFrame(() => {
@@ -151,7 +158,8 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
     }
   }, [initialIndex, isOpen, media.length]);
 
-  const currentItem = media[activeIndex];
+  // current item is selected from dataIndex (always in-range)
+  const currentItem = media[dataIndex];
 
   // Fetch video bytes ONLY when a video becomes active (after user opened modal)
   React.useEffect(() => {
@@ -200,7 +208,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       for (let i = 0; i < media.length; i++) wantedMediaIndices.add(i);
     } else {
       for (let offset = -PRELOAD_BEHIND; offset <= PRELOAD_AHEAD; offset++) {
-        const idx = activeIndex + offset;
+        const idx = dataIndex + offset;
         if (idx >= 0 && idx < media.length) wantedMediaIndices.add(idx);
       }
     }
@@ -250,23 +258,75 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       });
       loadingIdsRef.current.delete(img.id);
     });
-  }, [activeIndex, isOpen, media, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
+  }, [dataIndex, isOpen, media, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
 
   const goToIndex = React.useCallback(
     (next: number, _direction?: "left" | "right", immediate = false) => {
       if (!media.length) return;
 
+      const wrapForward = next >= media.length;
+      const wrapBackward = next < 0;
+
       const safeIndex = clampIndex(next, media.length);
-      if (safeIndex === activeIndex && !immediate) return;
+      if (
+        safeIndex === dataIndex &&
+        !immediate &&
+        !wrapForward &&
+        !wrapBackward
+      )
+        return;
 
       if (immediate) {
-        setActiveIndex(safeIndex);
+        // Immediate jumps (init/external) should land instantly at the clamped index.
+        setSuppressTransition(false);
+        setVisualIndex(safeIndex);
+        setDataIndex(safeIndex);
         onChangeIndex?.(safeIndex);
         return;
       }
 
+      // Handle wrapping (teleport) cases by animating the visual index out-of-range
+      // while keeping the dataIndex clamped to a real item so that rendering
+      // (media, metadata, preload, video) continues to show valid content.
+      if (wrapForward || wrapBackward) {
+        const tempVisual = wrapForward ? media.length : -1;
+
+        // For forward wrap: we animate visually past the end, but keep dataIndex
+        // pointing to the last item so it remains rendered during the motion.
+        // For backward wrap: we animate visually before the first, but keep
+        // dataIndex pointing to the first item.
+        setIsAnimating(true);
+        setSuppressTransition(false);
+        setVisualIndex(tempVisual);
+        setDataIndex(wrapForward ? media.length - 1 : 0);
+
+        clearAnimationTimeout();
+        animationTimeoutRef.current = window.setTimeout(() => {
+          // Snap instantly (no transition) to the final wrapped position where
+          // visualIndex and dataIndex are aligned to the wrapped item.
+          setSuppressTransition(true);
+          const finalIndex = wrapForward ? 0 : media.length - 1;
+          setVisualIndex(finalIndex);
+          setDataIndex(finalIndex);
+          onChangeIndex?.(finalIndex);
+
+          // Restore animated transitions and clear animating flag on next tick
+          window.setTimeout(() => {
+            setSuppressTransition(false);
+            setIsAnimating(false);
+          }, 20);
+
+          animationTimeoutRef.current = null;
+        }, SLIDE_DURATION);
+
+        return;
+      }
+
+      // Non-wrap navigation: regular animated behavior.
       setIsAnimating(true);
-      setActiveIndex(safeIndex);
+      setSuppressTransition(false);
+      setVisualIndex(safeIndex);
+      setDataIndex(safeIndex);
       onChangeIndex?.(safeIndex);
 
       clearAnimationTimeout();
@@ -275,7 +335,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
         animationTimeoutRef.current = null;
       }, SLIDE_DURATION);
     },
-    [SLIDE_DURATION, activeIndex, media.length, onChangeIndex],
+    [SLIDE_DURATION, dataIndex, media.length, onChangeIndex],
   );
 
   React.useEffect(() => {
@@ -285,12 +345,12 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   }, []);
 
   const goToNext = React.useCallback(() => {
-    goToIndex(activeIndex + 1, "left");
-  }, [activeIndex, goToIndex]);
+    goToIndex(dataIndex + 1, "left");
+  }, [dataIndex, goToIndex]);
 
   const goToPrev = React.useCallback(() => {
-    goToIndex(activeIndex - 1, "right");
-  }, [activeIndex, goToIndex]);
+    goToIndex(dataIndex - 1, "right");
+  }, [dataIndex, goToIndex]);
 
   const handleClose = React.useCallback(() => {
     setIsClosing(true);
@@ -361,7 +421,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
   }
 
   const hasMultipleItems = media.length > 1;
-  const eventLabel = currentItem?.event ?? "Memory";
+  const eventLabel = currentItem?.event ?? "";
   const captionLabel = currentItem?.caption;
   const dateLabel = currentItem
     ? toLocalDate(currentItem.date).toLocaleDateString(undefined, {
@@ -371,11 +431,11 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
       })
     : "";
   const progressPercent = totalItems
-    ? Math.min(100, ((activeIndex + 1) / totalItems) * 100)
+    ? Math.min(100, ((dataIndex + 1) / totalItems) * 100)
     : 0;
   const accentPalette = ["#F7DEE2", "#D8ECFF", "#FFE89D", "#E8D4F8", "#B9E4FF"];
-  const accentColor = accentPalette[activeIndex % accentPalette.length];
-  const metadataKey = currentItem?.id ?? `meta-${activeIndex}`;
+  const accentColor = accentPalette[dataIndex % accentPalette.length];
+  const metadataKey = currentItem?.id ?? `meta-${dataIndex}`;
 
   return (
     <div
@@ -437,78 +497,69 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
           <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-[#050505] via-[#050505]/60 to-transparent opacity-60" />
           <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-60" />
 
-          {currentItem ? (
-            <div
-              className={`flex w-full items-center gap-6 ${
-                isAnimating ? "cursor-grabbing" : ""
-              }`}
-              style={{
-                transform: `translateX(calc(${activeIndex} * (-100% - 1.5rem)))`,
-                transitionDuration: hasInitialized
+          <div
+            className={`flex w-full items-center gap-6 ${
+              isAnimating ? "cursor-grabbing" : ""
+            }`}
+            style={{
+              transform: `translateX(calc(${visualIndex} * (-100% - 1.5rem)))`,
+              transitionDuration:
+                hasInitialized && !suppressTransition
                   ? `${SLIDE_DURATION}ms`
                   : "0ms",
-                transitionTimingFunction: "cubic-bezier(0.22,0.61,0.36,1)",
-                transitionProperty: "transform",
-              }}
-            >
-              {media.map((item, index) => {
-                const isActiveSlide = index === activeIndex;
-                const isItemVideo = isVideoMeta(item);
+              transitionTimingFunction: "cubic-bezier(0.22,0.61,0.36,1)",
+              transitionProperty: "transform",
+            }}
+          >
+            {media.map((item, index) => {
+              const isActiveSlide = index === dataIndex;
+              const isItemVideo = isVideoMeta(item);
 
-                return (
-                  <div
-                    key={`${item.id}-${index}`}
-                    className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-linear-to-br from-black/5 via-black/10 to-black/15 p-3 shadow-2xl transition-transform duration-500 backdrop-blur-[1px] ${
-                      isActiveSlide
-                        ? "scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)]"
-                        : "scale-95 opacity-100"
-                    }`}
-                  >
-                    {isItemVideo ? (
-                      <ModalVideo
-                        isActive={isActiveSlide}
-                        objectUrl={isActiveSlide ? activeVideoUrl : null}
-                        posterUrl={
-                          resolveVideoThumbUrl?.(item) ?? item.thumbUrl
-                        }
-                        videoRef={videoElRef}
-                      />
-                    ) : (
-                      (() => {
-                        const image = item as ImageMeta;
-                        const thumbUrl =
-                          resolveThumbUrl?.(image) ?? image.thumbUrl;
-                        const fullUrl = fullResUrls.get(image.id);
-                        const imgUrl = fullUrl ?? thumbUrl;
-                        const isFullRes = fullResUrls.has(image.id);
+              return (
+                <div
+                  key={`${item.id}-${index}`}
+                  className={`relative flex h-full w-full shrink-0 basis-full items-center justify-center rounded-4xl bg-linear-to-br from-black/5 via-black/10 to-black/15 p-3 shadow-2xl transition-transform duration-500 backdrop-blur-[1px] ${
+                    isActiveSlide
+                      ? "scale-[1.02] opacity-100 drop-shadow-[0_35px_45px_rgba(0,0,0,0.35)]"
+                      : "scale-95 opacity-100"
+                  }`}
+                >
+                  {isItemVideo ? (
+                    <ModalVideo
+                      isActive={isActiveSlide}
+                      objectUrl={isActiveSlide ? activeVideoUrl : null}
+                      posterUrl={resolveVideoThumbUrl?.(item) ?? item.thumbUrl}
+                      videoRef={videoElRef}
+                    />
+                  ) : (
+                    (() => {
+                      const image = item as ImageMeta;
+                      const thumbUrl =
+                        resolveThumbUrl?.(image) ?? image.thumbUrl;
+                      const fullUrl = fullResUrls.get(image.id);
+                      const imgUrl = fullUrl ?? thumbUrl;
+                      const isFullRes = fullResUrls.has(image.id);
 
-                        return imgUrl ? (
-                          <ModalImage
-                            src={imgUrl}
-                            thumbSrc={thumbUrl}
-                            alt={
-                              image.caption ?? image.event ?? "Gallery image"
-                            }
-                            isActive={isActiveSlide}
-                            isFullRes={isFullRes}
-                          />
-                        ) : (
-                          <p className="text-center text-sm text-white/80">
-                            Unable to load image.
-                          </p>
-                        );
-                      })()
-                    )}
-                    <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-center text-sm text-white/80">
-              Unable to load media.
-            </p>
-          )}
+                      return imgUrl ? (
+                        <ModalImage
+                          src={imgUrl}
+                          thumbSrc={thumbUrl}
+                          alt={image.caption ?? image.event ?? "Gallery image"}
+                          isActive={isActiveSlide}
+                          isFullRes={isFullRes}
+                        />
+                      ) : (
+                        <p className="text-center text-sm text-white/80">
+                          Unable to load image.
+                        </p>
+                      );
+                    })()
+                  )}
+                  <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
+                </div>
+              );
+            })}
+          </div>
 
           {hasMultipleItems && (
             <div className="pointer-events-none absolute inset-0 hidden items-center justify-between px-2 sm:flex">
@@ -549,7 +600,7 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-white/90">
-                {activeIndex + 1}
+                {clampIndex(dataIndex, media.length) + 1}
               </span>
               <span className="text-xs text-white/40">/</span>
               <span className="text-xs text-white/60">{media.length}</span>
@@ -560,16 +611,16 @@ const ImageModalViewer: React.FC<ImageModalViewerProps> = ({
                   <button
                     key={i}
                     onClick={() =>
-                      goToIndex(i, i > activeIndex ? "left" : "right")
+                      goToIndex(i, i > dataIndex ? "left" : "right")
                     }
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === activeIndex
+                      i === dataIndex
                         ? "w-8 opacity-100"
                         : "w-1.5 opacity-40 hover:opacity-70"
                     }`}
                     style={{
                       backgroundColor:
-                        i === activeIndex
+                        i === dataIndex
                           ? accentColor
                           : "rgba(255, 255, 255, 0.6)",
                     }}
@@ -652,7 +703,6 @@ const ModalImage: React.FC<{
     (isActive && !isFullRes) ||
     (isActive && isFullRes && !fullLoaded);
   const actualThumbSrc = thumbSrc ?? (isFullRes ? undefined : src);
-
   return (
     <div className="relative flex w-full items-center justify-center">
       {showSpinner && (
@@ -782,4 +832,4 @@ const ModalVideo: React.FC<{
   );
 };
 
-export default ImageModalViewer;
+export default MediaModalViewer;
