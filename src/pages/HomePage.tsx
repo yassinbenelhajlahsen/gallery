@@ -10,7 +10,8 @@ import { config } from "../config";
 
 type CloudTile = {
   meta: ImageMeta;
-  url: string;
+  url: string; // thumbnail URL (shown first)
+  fullUrl?: string; // full-res URL (overlays when ready)
   caption?: string;
 };
 
@@ -26,9 +27,9 @@ const pickRandomSubset = <T,>(items: T[], count: number): T[] => {
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { imageMetas, openModalWithImages } = useGallery();
+  const { imageMetas, openModalWithImages, resolveThumbUrl } = useGallery();
   const isVisible = usePageReveal();
-  const { resolveUrl, requestFullRes, hasFullRes } = useFullResLoader();
+  const { resolveUrl, requestFullRes } = useFullResLoader();
 
   // Store the *IDs* of chosen tiles so re-renders/re-mounts use the same set
   const [chosenIds, setChosenIds] = React.useState<string[]>([]);
@@ -73,26 +74,25 @@ const HomePage: React.FC = () => {
     if (chosenMetas.length) requestFullRes(chosenMetas);
   }, [chosenMetas, requestFullRes]);
 
-  // Track whether ALL chosen full-res images have loaded
-  const allFullResReady =
-    chosenIds.length > 0 && chosenIds.every((id) => hasFullRes(id));
-
-  // Build the display tiles from the stable IDs (full-res only)
+  // Build the display tiles from the stable IDs — show thumbnail first,
+  // and provide fullUrl for progressive overlay when available.
   const cloudTiles = React.useMemo<CloudTile[]>(() => {
     if (!chosenIds.length || !imageMetas.length) return [];
     return chosenIds
       .map((id) => {
         const meta = imageMetas.find((m) => m.id === id);
         if (!meta) return null;
-        const fullUrl = resolveUrl(meta, "");
+        const thumb = resolveThumbUrl(meta);
+        const fullUrl = resolveUrl(meta, thumb ?? "");
         return {
           meta,
-          url: fullUrl,
+          url: thumb ?? fullUrl,
+          fullUrl,
           caption: meta.caption ?? meta.event ?? "Captured memory",
         };
       })
       .filter(Boolean) as CloudTile[];
-  }, [chosenIds, imageMetas, resolveUrl]);
+  }, [chosenIds, imageMetas, resolveUrl, resolveThumbUrl]);
 
   const handleTileClick = React.useCallback(
     (metaId: string) => {
@@ -132,8 +132,11 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          {/* Skeleton grid — shown until all full-res images are ready */}
-          {!allFullResReady && imageMetas.length > 0 && (
+          {/* If we have no images yet, show the empty state or skeleton. Otherwise
+              render a progressive grid using thumbnails and overlay full-res when ready. */}
+          {imageMetas.length === 0 ? (
+            renderEmptyState()
+          ) : cloudTiles.length === 0 ? (
             <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
               {Array.from({ length: chosenIds.length || 6 }).map((_, i) => (
                 <div
@@ -144,15 +147,13 @@ const HomePage: React.FC = () => {
                 </div>
               ))}
             </div>
-          )}
-
-          {/* Only render the real grid and images when all are ready, so they appear at once */}
-          {allFullResReady && cloudTiles.length > 0 ? (
+          ) : (
             <>
               <GalleryGrid
                 tiles={cloudTiles.map((tile) => ({
                   id: tile.meta.id,
                   url: tile.url,
+                  fullUrl: tile.fullUrl,
                   caption: tile.caption,
                   onClick: () => handleTileClick(tile.meta.id),
                 }))}
@@ -170,9 +171,7 @@ const HomePage: React.FC = () => {
                 </button>
               </div>
             </>
-          ) : null}
-
-          {allFullResReady && cloudTiles.length === 0 && renderEmptyState()}
+          )}
         </div>
       </div>
     </section>
