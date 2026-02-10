@@ -63,7 +63,7 @@
 ## Gallery Grouping
 
 - `All` groups photos by year using local-date parsing (`getLocalDate`). Always use `YYYY-MM-DD` dates to avoid timezone-induced off-by-one grouping errors.
-- Uses `IntersectionObserver` for visibility detection and preloads full-res for visible year-groups ± 3.
+- Uses `IntersectionObserver` for visibility detection and preloads full-res for visible year-groups ± 3. (1 on mobile)
 - `GalleryGrid` expects square tiles — configure via `columns` prop, don't modify the grid classes directly.
 
 ## Code Patterns

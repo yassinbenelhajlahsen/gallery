@@ -254,7 +254,7 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Groups all `imageMetas` by year (newest-first)
 - Each year section uses `GalleryGrid` with `{ base: 1, sm: 2, md: 3, lg: 4 }` columns
 - Uses `IntersectionObserver` to detect visible year-groups
-- Preloads full-res for visible groups ± 3 groups ahead/behind
+- Preloads full-res for visible groups ± 3 groups (1 on mobile) ahead/behind
 - Evicts full-res download URLs for off-screen groups (memory management)
 - Clicking any tile opens the modal with the **full** `imageMetas` array (all photos navigable)
 
