@@ -2,7 +2,7 @@
 import { getDownloadURL, ref } from "firebase/storage";
 import { getDocs, collection } from "firebase/firestore";
 import { storage, db } from "./firebaseConfig";
-import type { VideoMeta } from "./mediaTypes";
+import type { VideoMeta } from "../types/mediaTypes";
 
 /**
  * Storage layout:

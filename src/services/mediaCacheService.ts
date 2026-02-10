@@ -21,7 +21,7 @@
  */
 
 import type { ImageMeta, PreloadedImage } from "./storageService";
-import type { VideoMeta } from "./mediaTypes";
+import type { VideoMeta } from "../types/mediaTypes";
 
 const DB_NAME = "gallery-cache";
 const DB_VERSION = 1;
