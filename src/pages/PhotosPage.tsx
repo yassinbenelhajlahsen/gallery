@@ -12,7 +12,9 @@ type YearGroup = {
 };
 
 /** How many year-groups ahead/behind the visible one to preload full-res */
-const PRELOAD_GROUPS = 3;
+const isMobile =
+    window.innerWidth < 640 || navigator.connection?.saveData === true;
+const PRELOAD_GROUPS = isMobile ? 1 : 3;
 
 const All: React.FC = () => {
   const { imageMetas, resolveThumbUrl, openModalForImageId } = useGallery();
