@@ -165,5 +165,5 @@ videos/
 
 - The uploader writes both `images/full/` and `images/thumb/` variants for photos, and `videos/full/` + `videos/thumb/` for videos.
 - `storageService.ts` reads from `full/` directories for metadata + download URLs, and resolves `thumb/` URLs as fallbacks.
-- Custom metadata (`date`, `event`, `caption`) is stored on the **full/** file's Firebase metadata.
+- Media metadata (`date`, `event`, `caption`) is stored on Firestore docs (`images` / `videos`) and read by `storageService.ts`.
 - Video thumbnails are generated client-side (first frame extraction) and uploaded as JPEG posters.
