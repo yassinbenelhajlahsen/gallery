@@ -1,7 +1,8 @@
 // src/services/storageService.ts
 import { getDownloadURL, ref } from "firebase/storage";
 import { getDocs, collection } from "firebase/firestore";
-import { storage, db } from "./firebaseConfig";
+import { storage } from "./firebaseStorage";
+import { db } from "./firebaseFirestore";
 import type { VideoMeta } from "../types/mediaTypes";
 
 /**

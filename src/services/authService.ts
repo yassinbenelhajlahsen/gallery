@@ -5,7 +5,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { auth } from "./firebaseConfig";
+import { auth } from "./firebaseAuth";
 import { config } from "../config";
 
 const LOGIN_EMAIL = config.authEmail;
