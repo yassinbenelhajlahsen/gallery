@@ -28,7 +28,7 @@ src/
 │   ├── GalleryGrid.tsx         # Responsive grid of square tiles (reusable)
 │   ├── GalleryModalRenderer.tsx# Mounts mediaModalViewer from GalleryContext
 │   ├── mediaModalViewer.tsx    # Full-screen lightbox that supports images & videos
-│   ├── Navbar.tsx              # Sticky top nav with route links + logout
+│   ├── Navbar.tsx              # Sticky top nav with route links
 │   ├── ScrollToTop.tsx         # Scroll-to-top on route change
 │   ├── TimelineEventItem.tsx   # Single event row for the timeline
 │   └── ui/
@@ -40,9 +40,15 @@ src/
 │   └── ToastContext.tsx         # Toast notification system
 │
 ├── hooks/
-│   ├── useFullResLoader.ts     # On-demand full-res blob URL loader
+│   ├── useFullResLoader.ts     # On-demand full-res download URL loader
 │   ├── useGalleryLoadingProgress.ts  # (Legacy) standalone loading hook
 │   └── usePageReveal.ts        # Fade/slide entrance transition flag
+│
+├── utils/
+│   └── runtime.ts              # Runtime-safe environment helpers
+│
+├── test/
+│   └── setup.ts                # Vitest testing setup
 │
 ├── pages/
 │   ├── HomePage.tsx            # Random photo grid + hero
@@ -59,7 +65,7 @@ src/
     ├── eventsService.ts         # Firestore events: fetch/create operations
     ├── firebaseConfig.ts        # Firebase app init + exports (Auth, Storage, Firestore)
     ├── mediaCacheService.ts     # IndexedDB cache (thumbnails + manifest)
-    └── storageService.ts        # Firebase Storage: metadata fetch + types
+    └── storageService.ts        # Firestore media metadata + Storage URL resolution
 ```
 
 ## Provider Hierarchy
@@ -98,7 +104,7 @@ The router is a flat `createBrowserRouter` array defined in `App.tsx`.
 | `/`         | `ProtectedRoute` | `MainLayout`    | Requires auth + `hasGalleryLoadedOnce`        |
 | `/home`     | (nested)         | `HomePage`      | Random photo grid                             |
 | `/timeline` | (nested)         | `TimelinePage`  | Event list from Firestore `events` collection |
-| `/photos`   | (nested)         | `All`           | All photos grouped by year (route `/photos`)  |
+| `/photos`   | (nested)         | `PhotosPage`    | All photos grouped by year (route `/photos`)  |
 | `/videos`   | (nested)         | `VideosPage`    | Videos gallery (route `/videos`)              |
 | `/upload`   | (nested)         | `UploaderPage`  | Photo upload form + event creation            |
 | `*`         | —                | `NotFoundPage`  | 404 catch-all                                 |

@@ -179,7 +179,7 @@ const { resolveUrl, requestFullRes, hasFullRes } = useFullResLoader();
 const allReady =
   chosenIds.length > 0 && chosenIds.every((id) => hasFullRes(id));
 
-// Show spinner until ready, then render images with full-res blob URLs only
+// Show spinner until ready, then render images with full-res download URLs
 ```
 
 ### Adding a Timeline Event

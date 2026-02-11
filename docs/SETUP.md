@@ -149,3 +149,4 @@ gsutil cors set cors.json gs://your-project.appspot.com
 - [DATA-FLOW.md](DATA-FLOW.md) — caching, loading sequence, memory management
 - [COMPONENTS.md](COMPONENTS.md) — component props and usage
 - [CONVENTIONS.md](CONVENTIONS.md) — code patterns and how-to guides
+- [TESTING.md](TESTING.md) — running smoke tests with Vitest

@@ -19,7 +19,7 @@ React SPA (Vite)
   ├── Firebase Auth         — password-only login, single account
   ├── Firebase Storage      — images (full-res + 480px thumbnails) and videos (original + poster thumbnails), dual-write on upload
   ├── IndexedDB cache       — instant gallery restore for returning visitors
-  └── Blob URL pipeline     — progressive thumb → full-res upgrade, windowed preloading
+  └── Progressive URL loading — cached thumbs + windowed full-res URL resolution
 ```
 
 The app uses a **three-layer provider hierarchy** (Auth → Gallery → Toast) that owns all state. Pages are thin consumers. A single global lightbox is mounted outside the router so it persists across navigations. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full breakdown.
@@ -54,6 +54,7 @@ Detailed documentation lives in [`docs/`](docs/):
 | [**COMPONENTS.md**](docs/COMPONENTS.md)     | Every component and page — props, behavior, usage examples               |
 | [**CONVENTIONS.md**](docs/CONVENTIONS.md)   | Code patterns, styling rules, how-to guides, common pitfalls             |
 | [**SETUP.md**](docs/SETUP.md)               | Cloning, configuring Firebase, and running locally                       |
+| [**TESTING.md**](docs/TESTING.md)           | Test runner setup and smoke test commands                                |
 
 ## Quick Start
 
