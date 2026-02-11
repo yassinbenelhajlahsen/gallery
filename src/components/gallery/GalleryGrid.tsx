@@ -102,11 +102,10 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
     <button
       type="button"
       onClick={tile.onClick}
-      className="group relative aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] touch-manipulation"
-      style={{ willChange: "transform" }}
+      className="group relative isolate aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] touch-manipulation [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden]"
     >
       {/* Inner clipping wrapper for mobile Safari stability: keep rounding and overflow consistent */}
-      <div className="absolute inset-0 rounded-2xl overflow-hidden">
+      <div className="absolute inset-0 rounded-2xl overflow-hidden [contain:paint] [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden]">
         {!thumbLoaded && !hasError && (
           <div className="skeleton-loader absolute inset-0 rounded-2xl" />
         )}
@@ -115,7 +114,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
           ref={thumbRef}
           src={tile.url}
           alt={tile.caption ?? "Gallery image"}
-          className={`cursor-pointer h-full w-full object-cover rounded-2xl ${
+          className={`cursor-pointer absolute inset-0 block h-full w-full object-cover rounded-2xl transition-opacity duration-200 [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden] ${
             thumbLoaded ? "opacity-100" : "opacity-0"
           }`}
           decoding="async"
@@ -129,7 +128,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             ref={fullRef}
             src={tile.fullUrl}
             alt={tile.caption ?? "Gallery image"}
-            className={`cursor-pointer absolute inset-0 h-full w-full object-cover rounded-2xl ${
+            className={`cursor-pointer absolute inset-0 block h-full w-full object-cover rounded-2xl [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden] ${
               fullLoaded ? "opacity-100" : "opacity-0"
             } transition-opacity duration-200`}
             decoding="async"
