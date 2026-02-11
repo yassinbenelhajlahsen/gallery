@@ -7,6 +7,7 @@ import { usePageReveal } from "../hooks/usePageReveal";
 import { useToast } from "../context/ToastContext";
 import { FloatingInput } from "../components/ui/FloatingInput";
 import { addDoc, collection, setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { getVideoExtension, isVideoFile } from "./uploadMediaUtils";
 
 interface UploadProgress {
   fileName: string;
@@ -15,18 +16,6 @@ interface UploadProgress {
   error?: string;
   url?: string;
 }
-
-const isVideoFile = (file: File) => {
-  const name = file.name.toLowerCase();
-  return name.endsWith(".mp4") || name.endsWith(".mov");
-};
-
-const getVideoExtension = (file: File) => {
-  const lower = file.name.toLowerCase();
-  if (lower.endsWith(".mp4")) return "mp4";
-  if (lower.endsWith(".mov")) return "mov";
-  return null;
-};
 
 /**
  * Extracts a poster frame JPEG (quality 0.7, maxEdge 480) from a video file.
@@ -298,7 +287,7 @@ export default function UploaderPage() {
   const handleUpload = async () => {
     if (!files || files.length === 0) return;
     if (!date) {
-      alert("Please choose a date.");
+      toast("Please choose a date.", "error");
       return;
     }
 

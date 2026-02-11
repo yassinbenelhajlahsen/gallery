@@ -10,7 +10,7 @@ import { config } from "../config";
 
 const LOGIN_EMAIL = config.authEmail;
 
-async function signInWithPassword(password: string) {
+export async function signInWithPassword(password: string) {
   if (!password) {
     throw new Error("Password is required");
   }
