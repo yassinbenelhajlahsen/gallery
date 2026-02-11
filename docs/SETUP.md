@@ -128,12 +128,12 @@ The app uses Firestore for timeline events (created via the uploader UI):
 
 ```
 events/
-├── evt-001/    ← event documents
-├── evt-002/
+├── <auto-id-1>/    ← event documents (Firestore-generated IDs)
+├── <auto-id-2>/
 └── ...
 ```
 
-Each event document contains: `{ id, date, title, emojiOrDot?, imageIds? }`. See [DATA-FLOW.md](DATA-FLOW.md) for the events service.
+Each event document contains: `{ date, title, emojiOrDot?, imageIds?, createdAt? }`. The `id` used by the app is the Firestore document ID. See [DATA-FLOW.md](DATA-FLOW.md) for the events service.
 
 ## CORS (Optional)
 
