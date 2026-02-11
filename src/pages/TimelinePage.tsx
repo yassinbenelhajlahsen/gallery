@@ -1,7 +1,7 @@
 // src/pages/TimelinePage.tsx
 import React from "react";
-import TimelineEventItem from "../components/TimelineEventItem";
-import type { TimelineEvent } from "../components/TimelineEventItem";
+import TimelineEventItem from "../components/timeline/TimelineEventItem";
+import type { TimelineEvent } from "../components/timeline/TimelineEventItem";
 import { useGallery } from "../context/GalleryContext";
 import type { ImageMeta } from "../services/storageService";
 import type { MediaMeta, VideoMeta } from "../types/mediaTypes";

@@ -2,7 +2,7 @@
 import React from "react";
 import type { ImageMeta } from "../services/storageService";
 import { useGallery } from "../context/GalleryContext";
-import GalleryGrid from "../components/GalleryGrid";
+import GalleryGrid from "../components/gallery/GalleryGrid";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useFullResLoader } from "../hooks/useFullResLoader";
 import { isLowBandwidthMobileClient } from "../utils/runtime";

@@ -5,7 +5,7 @@ import { useGallery } from "../context/GalleryContext";
 import type { ImageMeta } from "../services/storageService";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useFullResLoader } from "../hooks/useFullResLoader";
-import GalleryGrid from "../components/GalleryGrid";
+import GalleryGrid from "../components/gallery/GalleryGrid";
 import { config } from "../config";
 
 type CloudTile = {

@@ -1,4 +1,4 @@
-// src/components/TimelineEventItem.tsx
+// src/components/timeline/TimelineEventItem.tsx
 import React from "react";
 
 export type TimelineEvent = {

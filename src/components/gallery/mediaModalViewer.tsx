@@ -1,9 +1,9 @@
-// src/components/mediaModalViewer.tsx
+// src/components/gallery/mediaModalViewer.tsx
 import React from "react";
-import type { ImageMeta } from "../services/storageService";
-import type { ImageMediaMeta, MediaMeta, VideoMeta } from "../types/mediaTypes";
-import { getVideoDownloadUrl } from "../services/storageService";
-import { isLowBandwidthMobileClient } from "../utils/runtime";
+import type { ImageMeta } from "../../services/storageService";
+import type { ImageMediaMeta, MediaMeta, VideoMeta } from "../../types/mediaTypes";
+import { getVideoDownloadUrl } from "../../services/storageService";
+import { isLowBandwidthMobileClient } from "../../utils/runtime";
 
 const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
   Boolean(item && (item as VideoMeta).type === "video");
