@@ -290,6 +290,8 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Uploads to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` for photos, `videos/full/` and `videos/thumb/` for videos
 - Writes media metadata to Firestore docs (`images` / `videos`) after successful Storage uploads
 - Event dropdown auto-fills date and event name from events loaded in `GalleryContext`
+- File selection infers date from the first selected file's embedded media metadata (JPEG EXIF `DateTimeOriginal`, MOV/MP4 creation time), then falls back to file `lastModified`
+- If the current date was populated from an event, metadata date inference is skipped and that event date remains the upload date
 - Includes inline event creation form using Firestore-generated document IDs
 - Per-file progress tracking with status: pending → converting → uploading → success/error
 - Uses `useToast` for success notification
