@@ -14,14 +14,15 @@ import PhotosPage from "./pages/PhotosPage";
 import VideosPage from "./pages/VideosPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GalleryProvider, useGallery } from "./context/GalleryContext";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import ScrollToTop from "./components/ScrollToTop";
-import GalleryModalRenderer from "./components/GalleryModalRenderer";
+import Navbar from "./components/layout/Navbar";
+import Footer from "./components/layout/Footer";
+import ScrollToTop from "./components/layout/ScrollToTop";
+import GalleryModalRenderer from "./components/gallery/GalleryModalRenderer";
 import { ToastProvider } from "./context/ToastContext";
-import UploaderPage from "./pages/UploaderPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import { config } from "./config";
+
+const AdminPage = React.lazy(() => import("./pages/AdminPage"));
 const floatingHearts = [
   { id: "h1", className: "left-10 top-16 text-4xl text-[#F7DEE2]" },
   { id: "h2", className: "right-12 top-20 text-5xl text-[#D8ECFF] delay-75" },
@@ -171,7 +172,15 @@ const router = createBrowserRouter([
           { path: "home", element: <HomePage /> },
           { path: "timeline", element: <TimelinePage /> },
           { path: "photos", element: <PhotosPage /> },
-          { path: "upload", element: <UploaderPage /> },
+          { path: "upload", element: <Navigate to="/admin?tab=upload" replace /> },
+          {
+            path: "admin",
+            element: (
+              <React.Suspense fallback={<GateFallback message="Loading admin…" />}>
+                <AdminPage />
+              </React.Suspense>
+            ),
+          },
           { path: "videos", element: <VideosPage /> },
           { path: "*", element: <NotFoundPage /> },
         ],

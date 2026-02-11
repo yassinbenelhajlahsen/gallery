@@ -1,7 +1,7 @@
 // src/services/eventsService.ts
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "./firebaseFirestore";
-import type { TimelineEvent } from "../components/TimelineEventItem";
+import type { TimelineEvent } from "../components/timeline/TimelineEventItem";
 
 const isPermissionDenied = (error: unknown): boolean =>
   typeof error === "object" &&

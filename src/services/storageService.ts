@@ -132,8 +132,7 @@ export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
   try {
     const snap = await getDocs(collection(db, "videos"));
 
-    const videoPromises = snap.docs
-      .map(async (d) => {
+    const videoPromises: Array<Promise<VideoMeta | null>> = snap.docs.map(async (d) => {
         const data = d.data() as Record<string, unknown>;
         const id = (data.id as string) ?? d.id;
 
@@ -155,18 +154,18 @@ export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
 
         return {
           id,
-          type: "video",
+          type: "video" as const,
           date,
           event: typeof data.event === "string" ? data.event : undefined,
           caption: typeof data.caption === "string" ? data.caption : undefined,
           videoPath,
           thumbUrl,
         } satisfies VideoMeta;
-      })
-      .filter(Boolean) as Promise<VideoMeta>[];
+      });
 
     const unsorted = await Promise.all(videoPromises);
-    return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+    const videos = unsorted.filter((item): item is VideoMeta => item !== null);
+    return videos.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   } catch (error) {
     if (isPermissionDenied(error)) {
       throw new Error(
