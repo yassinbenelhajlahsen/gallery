@@ -274,6 +274,7 @@ Images go through multiple resolution stages:
 
 ```
 Upload flow:
+  File selection → infer date from the first selected file (if current date source is event, keep event date; else JPEG EXIF / MOV|MP4 creation time / file lastModified fallback)
   Original file → convertToJpeg() → full-res JPEG (quality 0.9)
                 → generateThumbnail() → 480px thumb JPEG (quality 0.7)
                 → Upload both to Firebase Storage
