@@ -660,22 +660,16 @@ const ModalImage: React.FC<{
 }> = ({ src, alt, isActive, isFullRes, thumbSrc }) => {
   const [thumbLoaded, setThumbLoaded] = React.useState(false);
   const [fullLoaded, setFullLoaded] = React.useState(false);
+  const currentFullSrc = isFullRes ? src : null;
 
-  // Track the thumb src so we know when it changes (new image entirely)
-  const prevThumbSrcRef = React.useRef(thumbSrc);
-  if (prevThumbSrcRef.current !== thumbSrc) {
-    prevThumbSrcRef.current = thumbSrc;
+  React.useEffect(() => {
     setThumbLoaded(false);
     setFullLoaded(false);
-  }
+  }, [thumbSrc]);
 
-  // Reset full-res loaded when the full-res src changes
-  const prevFullSrcRef = React.useRef(isFullRes ? src : null);
-  const currentFullSrc = isFullRes ? src : null;
-  if (prevFullSrcRef.current !== currentFullSrc) {
-    prevFullSrcRef.current = currentFullSrc;
+  React.useEffect(() => {
     setFullLoaded(false);
-  }
+  }, [currentFullSrc]);
 
   // Instantly mark loaded if the browser already decoded the image
   const thumbImgRef = React.useCallback(
