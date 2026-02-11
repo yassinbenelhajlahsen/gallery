@@ -4,14 +4,23 @@ import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore";
 
+const readRequiredEnv = (name: keyof ImportMetaEnv): string => {
+  const value = import.meta.env[name];
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(
+      `[Firebase] Missing required environment variable: ${name}`,
+    );
+  }
+  return value;
+};
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
-  messagingSenderId: import.meta.env
-    .VITE_FIREBASE_MESSAGING_SENDER_ID as string,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
+  apiKey: readRequiredEnv("VITE_FIREBASE_API_KEY"),
+  authDomain: readRequiredEnv("VITE_FIREBASE_AUTH_DOMAIN"),
+  projectId: readRequiredEnv("VITE_FIREBASE_PROJECT_ID"),
+  storageBucket: readRequiredEnv("VITE_FIREBASE_STORAGE_BUCKET"),
+  messagingSenderId: readRequiredEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
+  appId: readRequiredEnv("VITE_FIREBASE_APP_ID"),
 };
 
 // Initialize app safely (avoid duplicate initialization)
