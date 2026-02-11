@@ -38,18 +38,33 @@ export type PreloadedImage = {
   objectUrl: string;
 };
 
-const normalizeDateField = (raw: any): string => {
+type FirestoreTimestampLike = {
+  toDate: () => Date;
+};
+
+const isFirestoreTimestampLike = (
+  value: unknown,
+): value is FirestoreTimestampLike => {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "toDate" in value &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
+  );
+};
+
+const normalizeDateField = (raw: unknown): string => {
   if (!raw) return new Date().toISOString();
   try {
     // Firestore Timestamp support
-    if (typeof raw === "object" && typeof raw.toDate === "function") {
+    if (isFirestoreTimestampLike(raw)) {
       return raw.toDate().toISOString();
     }
     if (typeof raw === "string") {
       const ts = Date.parse(raw);
       if (!Number.isNaN(ts)) return new Date(ts).toISOString();
     }
-  } catch (e) {
+  } catch {
     // fallthrough
   }
   return new Date().toISOString();
