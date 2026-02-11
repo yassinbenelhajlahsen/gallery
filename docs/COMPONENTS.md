@@ -174,14 +174,14 @@ Sticky top navigation bar. Auto-highlights active route.
 
 ```typescript
 const NAV_ITEMS = [
-  { label: "Home", to: "/home", activeClass: "bg-[#F9A1B2]" },
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
   { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
   { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
+  { label: "Upload", to: "/upload", activeClass: "bg-[#C0C0C0]/70" },
 ];
 ```
 
-Each nav item gets a distinct pastel highlight when active. The Navbar no longer contains a logout button — logout was moved into the `Footer` component for a simpler mobile layout.
+Each nav item gets a distinct pastel highlight when active. `Home` routes via the brand link on desktop and a dedicated mobile link. The Navbar no longer contains a logout button — logout was moved into the `Footer` component for a simpler mobile layout.
 
 ---
 
