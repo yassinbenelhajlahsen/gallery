@@ -24,6 +24,9 @@ src/
 │
 │
 ├── components/
+│   ├── admin/
+│   │   ├── AdminDeleteTab.tsx  # Admin delete tools (media + events)
+│   │   └── AdminUploadTab.tsx  # Admin upload + event creation tools
 │   ├── Footer.tsx              # Site-wide footer
 │   ├── GalleryGrid.tsx         # Responsive grid of square tiles (reusable)
 │   ├── GalleryModalRenderer.tsx# Mounts mediaModalViewer from GalleryContext
@@ -58,7 +61,7 @@ src/
 │   ├── PhotosPage.tsx          # Alias/entry for the All photos page (route: /photos)
 │   ├── VideosPage.tsx          # Videos gallery page (groups videos by year)
 │   ├── TimelinePage.tsx        # Chronological event list
-│   └── UploaderPage.tsx        # Client-side JPEG conversion + upload + event creation
+│   └── AdminPage.tsx           # Admin container with Upload/Delete tabs (lazy-loaded route)
 │
 └── services/
     ├── authService.ts           # Firebase Auth wrapper
@@ -106,7 +109,8 @@ The router is a flat `createBrowserRouter` array defined in `App.tsx`.
 | `/timeline` | (nested)         | `TimelinePage`  | Event list from Firestore `events` collection |
 | `/photos`   | (nested)         | `PhotosPage`    | All photos grouped by year (route `/photos`)  |
 | `/videos`   | (nested)         | `VideosPage`    | Videos gallery (route `/videos`)              |
-| `/upload`   | (nested)         | `UploaderPage`  | Photo upload form + event creation            |
+| `/admin`    | (nested)         | `AdminPage`     | Admin tools page with Upload/Delete tabs      |
+| `/upload`   | (nested)         | Redirect        | Legacy path redirect to `/admin?tab=upload`   |
 | `*`         | —                | `NotFoundPage`  | 404 catch-all                                 |
 
 ### Guard Components
@@ -123,7 +127,7 @@ All authenticated pages render inside `MainLayout`, which provides:
 - `<ScrollToTop />` — resets scroll on route change
 - `<Navbar />` — sticky top navigation
 - `<main>` wrapper with max-width container
-- `<Footer />`
+- `<Footer />` — includes the `Admin` entry point (`/admin?tab=upload`) and logout
 
 ## Environment Configuration
 
