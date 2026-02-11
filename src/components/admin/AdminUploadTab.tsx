@@ -14,6 +14,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { getVideoExtension, isVideoFile } from "../../utils/uploadMediaUtils";
+import { inferUploadDateFromMetadata } from "../../utils/uploadDateMetadata";
 
 interface UploadProgress {
   fileName: string;
@@ -188,6 +189,9 @@ async function generateThumbnail(
 export default function AdminUploadPage() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [date, setDate] = useState("");
+  const [dateSource, setDateSource] = useState<"none" | "event" | "metadata" | "manual">(
+    "none",
+  );
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [eventName, setEventName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -203,6 +207,14 @@ export default function AdminUploadPage() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
 
   const { events, refreshEvents, refreshGallery } = useGallery();
+  const selectedEventIdRef = useRef(selectedEventId);
+  const eventNameRef = useRef(eventName);
+  const metadataProbeIdRef = useRef(0);
+  const dateSourceRef = useRef(dateSource);
+
+  selectedEventIdRef.current = selectedEventId;
+  eventNameRef.current = eventName;
+  dateSourceRef.current = dateSource;
 
   // Sort events by date (newest first)
   const sortedEvents = useMemo(() => {
@@ -254,6 +266,7 @@ export default function AdminUploadPage() {
     const event = sortedEvents.find((e) => e.id === eventId);
     if (event) {
       setDate(event.date);
+      setDateSource("event");
       setEventName(event.title);
     }
   };
@@ -261,12 +274,41 @@ export default function AdminUploadPage() {
   // Clear event selection when manually changing date or event name
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
+    setDateSource(newDate ? "manual" : "none");
     setSelectedEventId("");
   };
 
   const handleEventNameChange = (newName: string) => {
     setEventName(newName);
     setSelectedEventId("");
+  };
+
+  const handleFileInputChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFiles = event.target.files;
+    setFiles(selectedFiles);
+
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    // Event selection takes precedence for upload date and should never be
+    // overridden by embedded media metadata.
+    if (dateSourceRef.current === "event") {
+      return;
+    }
+
+    const probeId = metadataProbeIdRef.current + 1;
+    metadataProbeIdRef.current = probeId;
+    const inferredDate = await inferUploadDateFromMetadata(selectedFiles[0]);
+    if (!inferredDate) {
+      return;
+    }
+    if (metadataProbeIdRef.current !== probeId) {
+      return;
+    }
+
+    setDate(() => inferredDate);
+    setDateSource("metadata");
   };
 
   const updateProgress = (
@@ -477,6 +519,7 @@ export default function AdminUploadPage() {
       if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
       setFiles(null);
       setDate("");
+      setDateSource("none");
       setSelectedEventId("");
       setEventName("");
       setUploadProgress([]);
@@ -648,7 +691,7 @@ export default function AdminUploadPage() {
             type="file"
             multiple
             accept="image/*,video/mp4,video/quicktime,.mp4,.mov"
-            onChange={(e) => setFiles(e.target.files)}
+            onChange={handleFileInputChange}
             className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
           />
           {files && files.length > 0 && (
