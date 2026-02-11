@@ -164,44 +164,42 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         const freshMetas = await fetchAllImageMetadata();
         if (cancelled) return;
 
-        if (!freshMetas.length) {
-          setImageMetas([]);
-          setPreloadedImages([]);
-          setHasGalleryLoadedOnce(true);
-          setLoadingProgress(100);
-          return;
-        }
-
-        // Update metas immediately so any new/removed images are reflected
-        setImageMetas(freshMetas);
-
         // If we had no cache, show the initial 20% progress
         if (!cached || !cached.metas.length) {
           setLoadingProgress(20);
         }
 
-        // ── Phase 3: Diff-sync — download only NEW images ──
-        const synced = await syncCache(freshMetas, (loaded, total) => {
-          if (cancelled) return;
-          // If we already showed the gallery from cache, keep progress at 100
-          if (cached && cached.metas.length) return;
-          const progress = 20 + (loaded / total) * 80;
-          setLoadingProgress(progress);
-        });
+        if (!freshMetas.length) {
+          setImageMetas([]);
+          setPreloadedImages((prev) => {
+            releasePreloadedUrls(prev);
+            return [];
+          });
+        } else {
+          // Update metas immediately so any new/removed images are reflected
+          setImageMetas(freshMetas);
 
-        if (cancelled) {
-          // Release any object URLs we just created
-          releasePreloadedUrls(synced);
-          return;
+          // ── Phase 3: Diff-sync — download only NEW images ──
+          const synced = await syncCache(freshMetas, (loaded, total) => {
+            if (cancelled) return;
+            // If we already showed the gallery from cache, keep progress at 100
+            if (cached && cached.metas.length) return;
+            const progress = 20 + (loaded / total) * 80;
+            setLoadingProgress(progress);
+          });
+
+          if (cancelled) {
+            // Release any object URLs we just created
+            releasePreloadedUrls(synced);
+            return;
+          }
+
+          // Release old preloaded URLs before replacing
+          setPreloadedImages((prev) => {
+            releasePreloadedUrls(prev);
+            return synced;
+          });
         }
-
-        // Release old preloaded URLs before replacing
-        setPreloadedImages((prev) => {
-          releasePreloadedUrls(prev);
-          return synced;
-        });
-        setHasGalleryLoadedOnce(true);
-        setLoadingProgress(100);
 
         // ── Phase 4: Fetch video metadata (metadata only; no video bytes) ──
         try {
@@ -214,6 +212,9 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           console.warn("[Gallery] Failed to load video metadata", videoErr);
           if (!cancelled) setVideoMetas([]);
         }
+
+        setHasGalleryLoadedOnce(true);
+        setLoadingProgress(100);
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load gallery", error);
@@ -333,20 +334,21 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       const freshMetas = await fetchAllImageMetadata();
       if (!freshMetas.length) {
         setImageMetas([]);
-        setPreloadedImages([]);
-        setHasGalleryLoadedOnce(true);
-        return;
+        setPreloadedImages((prev) => {
+          releasePreloadedUrls(prev);
+          return [];
+        });
+      } else {
+        // Update metas immediately
+        setImageMetas(freshMetas);
+
+        // Diff-sync cache
+        const synced = await syncCache(freshMetas, () => {});
+        setPreloadedImages((prev) => {
+          releasePreloadedUrls(prev);
+          return synced;
+        });
       }
-
-      // Update metas immediately
-      setImageMetas(freshMetas);
-
-      // Diff-sync cache
-      const synced = await syncCache(freshMetas, () => {});
-      setPreloadedImages((prev) => {
-        releasePreloadedUrls(prev);
-        return synced;
-      });
 
       // Fetch video metadata
       try {
