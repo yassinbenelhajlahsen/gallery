@@ -5,6 +5,12 @@ import { storage } from "./firebaseStorage";
 import { db } from "./firebaseFirestore";
 import type { VideoMeta } from "../types/mediaTypes";
 
+const isPermissionDenied = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code?: unknown }).code === "permission-denied";
+
 /**
  * Storage layout:
  *   images/full/<id>.jpg   — original / full-resolution
@@ -72,35 +78,44 @@ const normalizeDateField = (raw: unknown): string => {
 };
 
 export async function fetchAllImageMetadata(): Promise<ImageMeta[]> {
-  const snap = await getDocs(collection(db, "images"));
+  try {
+    const snap = await getDocs(collection(db, "images"));
 
-  const imagePromises = snap.docs.map(async (d) => {
-    const data = d.data() as Record<string, unknown>;
-    const id = (data.id as string) ?? d.id;
-    const storagePath = (data.fullPath as string) ?? `${FULL_ROOT}/${id}`;
-    const thumbPath = (data.thumbPath as string) ?? `${THUMB_ROOT}/${id}`;
+    const imagePromises = snap.docs.map(async (d) => {
+      const data = d.data() as Record<string, unknown>;
+      const id = (data.id as string) ?? d.id;
+      const storagePath = (data.fullPath as string) ?? `${FULL_ROOT}/${id}`;
+      const thumbPath = (data.thumbPath as string) ?? `${THUMB_ROOT}/${id}`;
 
-    // Build download URLs
-    const downloadUrl = await getDownloadURL(ref(storage, storagePath));
-    const thumbUrl = await getDownloadURL(ref(storage, thumbPath)).catch(
-      () => null,
-    );
+      // Build download URLs
+      const downloadUrl = await getDownloadURL(ref(storage, storagePath));
+      const thumbUrl = await getDownloadURL(ref(storage, thumbPath)).catch(
+        () => null,
+      );
 
-    const date = normalizeDateField(data.date);
+      const date = normalizeDateField(data.date);
 
-    return {
-      id,
-      storagePath,
-      date,
-      event: typeof data.event === "string" ? data.event : undefined,
-      caption: typeof data.caption === "string" ? data.caption : undefined,
-      downloadUrl,
-      thumbUrl: thumbUrl ?? downloadUrl,
-    } satisfies ImageMeta;
-  });
+      return {
+        id,
+        storagePath,
+        date,
+        event: typeof data.event === "string" ? data.event : undefined,
+        caption: typeof data.caption === "string" ? data.caption : undefined,
+        downloadUrl,
+        thumbUrl: thumbUrl ?? downloadUrl,
+      } satisfies ImageMeta;
+    });
 
-  const unsorted = await Promise.all(imagePromises);
-  return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+    const unsorted = await Promise.all(imagePromises);
+    return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  } catch (error) {
+    if (isPermissionDenied(error)) {
+      throw new Error(
+        "Firestore rules denied images access. This app requires /images for the owner account.",
+      );
+    }
+    throw error;
+  }
 }
 
 const hasAllowedVideoExtension = (name: string) =>
@@ -114,51 +129,69 @@ const hasAllowedVideoExtension = (name: string) =>
  * - Can resolve thumb URLs (JPEG only) for display.
  */
 export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
-  const snap = await getDocs(collection(db, "videos"));
+  try {
+    const snap = await getDocs(collection(db, "videos"));
 
-  const videoPromises = snap.docs
-    .map(async (d) => {
-      const data = d.data() as Record<string, unknown>;
-      const id = (data.id as string) ?? d.id;
+    const videoPromises = snap.docs
+      .map(async (d) => {
+        const data = d.data() as Record<string, unknown>;
+        const id = (data.id as string) ?? d.id;
 
-      if (!hasAllowedVideoExtension(id)) return null;
+        if (!hasAllowedVideoExtension(id)) return null;
 
-      const videoPath =
-        (data.videoPath as string) ?? `${VIDEO_FULL_ROOT}/${id}`;
-      const thumbPath =
-        (data.thumbPath as string) ??
-        `${VIDEO_THUMB_ROOT}/${id.replace(/\.[^.]+$/, ".jpg")}`;
+        const videoPath =
+          (data.videoPath as string) ?? `${VIDEO_FULL_ROOT}/${id}`;
+        const thumbPath =
+          (data.thumbPath as string) ??
+          `${VIDEO_THUMB_ROOT}/${id.replace(/\.[^.]+$/, ".jpg")}`;
 
-      // Resolve thumb URL; if missing, fallback to the video's download URL
-      const thumbUrl = await getDownloadURL(ref(storage, thumbPath)).catch(
-        async () =>
-          await getDownloadURL(ref(storage, videoPath)).catch(() => ""),
+        // Resolve thumb URL; if missing, fallback to the video's download URL
+        const thumbUrl = await getDownloadURL(ref(storage, thumbPath)).catch(
+          async () =>
+            await getDownloadURL(ref(storage, videoPath)).catch(() => ""),
+        );
+
+        const date = normalizeDateField(data.date);
+
+        return {
+          id,
+          type: "video",
+          date,
+          event: typeof data.event === "string" ? data.event : undefined,
+          caption: typeof data.caption === "string" ? data.caption : undefined,
+          videoPath,
+          thumbUrl,
+        } satisfies VideoMeta;
+      })
+      .filter(Boolean) as Promise<VideoMeta>[];
+
+    const unsorted = await Promise.all(videoPromises);
+    return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  } catch (error) {
+    if (isPermissionDenied(error)) {
+      throw new Error(
+        "Firestore rules denied videos access. This app requires /videos for the owner account.",
       );
-
-      const date = normalizeDateField(data.date);
-
-      return {
-        id,
-        type: "video",
-        date,
-        event: typeof data.event === "string" ? data.event : undefined,
-        caption: typeof data.caption === "string" ? data.caption : undefined,
-        videoPath,
-        thumbUrl,
-      } satisfies VideoMeta;
-    })
-    .filter(Boolean) as Promise<VideoMeta>[];
-
-  const unsorted = await Promise.all(videoPromises);
-  return unsorted.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+    }
+    throw error;
+  }
 }
 
 /**
  * Get a download URL for a video file. Call this ONLY after a user clicks a video tile.
  */
 export async function getVideoDownloadUrl(videoPath: string): Promise<string> {
-  const videoRef = ref(storage, videoPath);
-  return getDownloadURL(videoRef);
+  try {
+    const videoRef = ref(storage, videoPath);
+    return await getDownloadURL(videoRef);
+  } catch (error) {
+    if (isPermissionDenied(error)) {
+      throw new Error(
+        "Storage rules denied video access. Ensure /videos is owner-readable.",
+      );
+    }
+    throw error;
+  }
 }
 
 export const storageService = {

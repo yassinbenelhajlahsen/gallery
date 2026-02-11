@@ -98,7 +98,7 @@ type TimelineEvent = {
 
 ### `authService.ts`
 
-Thin wrapper around Firebase Auth. Hardcodes the login email from `config.authEmail`.
+Thin wrapper around Firebase Auth. Uses `config.authEmail` for the login identifier.
 
 | Method                       | What it does                                         |
 | ---------------------------- | ---------------------------------------------------- |
@@ -107,6 +107,8 @@ Thin wrapper around Firebase Auth. Hardcodes the login email from `config.authEm
 | `subscribeToAuthChanges(cb)` | `onAuthStateChanged(auth, cb)` — returns unsubscribe |
 
 **Rule:** Never call Firebase Auth directly. Use `useAuth()` hook which wraps `authService`.
+
+Security note: this email value is not a security boundary. Backend protection is provided by Firebase Security Rules.
 
 ### `mediaCacheService.ts`
 

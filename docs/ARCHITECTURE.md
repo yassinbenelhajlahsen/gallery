@@ -141,6 +141,8 @@ VITE_FIREBASE_APP_ID
 VITE_AUTH_EMAIL
 ```
 
+`VITE_AUTH_EMAIL` is used by the login flow only; real data protection is enforced by Firebase Security Rules.
+
 Optional display strings (see `config.ts` for defaults):
 
 ```
