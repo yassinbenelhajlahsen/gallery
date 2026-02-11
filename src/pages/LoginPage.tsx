@@ -85,14 +85,19 @@ const LoginPage: React.FC = () => {
             <h1 className="text-4xl font-semibold leading-tight text-[#333] text-center">
               {config.loginHeading}
             </h1>
+            <img
+              src="/favicon-v2.png"
+              alt="Gallery logo"
+              className="mx-auto mt-2 h-40 w-40 select-none sm:mt-0"
+            />
           </div>
 
           <form
             onSubmit={handleSubmit}
             className="space-y-6 rounded-[28px] bg-white/80 p-8 shadow-xl shadow-[#d1e9ff]/40 ring-1 ring-white/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#fbcdd5]/60"
           >
-            <header className="space-y-1 text-left">
-              <h2 className="text-2xl font-semibold">Enter your password</h2>
+            <header className="space-y-1 text-center sm:text-left">
+              <h2 className="text-2xl font-semibold">Enter password</h2>
             </header>
             <div className="space-y-2">
               <div className="relative">
