@@ -5,21 +5,21 @@ import { useGallery } from "../context/GalleryContext";
 import GalleryGrid from "../components/GalleryGrid";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useFullResLoader } from "../hooks/useFullResLoader";
+import { isLowBandwidthMobileClient } from "../utils/runtime";
 
 type YearGroup = {
   year: string;
   items: ImageMeta[];
 };
 
-/** How many year-groups ahead/behind the visible one to preload full-res */
-const isMobile =
-    window.innerWidth < 640 || navigator.connection?.saveData === true;
-const PRELOAD_GROUPS = isMobile ? 1 : 3;
-
 const All: React.FC = () => {
   const { imageMetas, resolveThumbUrl, openModalForImageId } = useGallery();
   const isVisible = usePageReveal();
   const { resolveUrl, requestFullRes, evict } = useFullResLoader();
+  const preloadGroups = React.useMemo(
+    () => (isLowBandwidthMobileClient() ? 1 : 3),
+    [],
+  );
 
   const yearGroups = React.useMemo<YearGroup[]>(() => {
     if (!imageMetas.length) return [];
@@ -89,7 +89,7 @@ const All: React.FC = () => {
     // Expand visible indices to include ±PRELOAD_GROUPS
     const wantedGroupIndices = new Set<number>();
     visibleIndices.forEach((idx) => {
-      for (let offset = -PRELOAD_GROUPS; offset <= PRELOAD_GROUPS; offset++) {
+      for (let offset = -preloadGroups; offset <= preloadGroups; offset++) {
         const target = idx + offset;
         if (target >= 0 && target < yearGroups.length) {
           wantedGroupIndices.add(target);
@@ -113,7 +113,7 @@ const All: React.FC = () => {
     // Request full-res for wanted, evict the rest
     requestFullRes(wantedMetas);
     evict(wantedIds);
-  }, [visibleIndices, yearGroups, requestFullRes, evict]);
+  }, [visibleIndices, yearGroups, requestFullRes, evict, preloadGroups]);
 
   const handleTileClick = (meta: ImageMeta) => {
     openModalForImageId(meta.id, imageMetas);
