@@ -214,13 +214,16 @@ export default function UploaderPage() {
 
     setIsCreatingEvent(true);
     try {
-      const eventData = {
+      const eventData: Record<string, unknown> = {
         date: newEventDate,
         title: newEventTitle.trim(),
-        emojiOrDot: newEventEmoji.trim() || undefined,
         imageIds: [],
         createdAt: serverTimestamp(),
       };
+      const trimmedEmoji = newEventEmoji.trim();
+      if (trimmedEmoji.length > 0) {
+        eventData.emojiOrDot = trimmedEmoji;
+      }
 
       await addDoc(collection(db, "events"), eventData);
 
