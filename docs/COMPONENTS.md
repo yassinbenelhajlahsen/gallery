@@ -247,9 +247,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Clicking a tile opens the modal with the displayed subset
 - "See All" button navigates to `/photos`
 
-### `All`
+### `PhotosPage`
 
-**File:** `src/pages/All.tsx`
+**File:** `src/pages/PhotosPage.tsx`
 
 - Groups all `imageMetas` by year (newest-first)
 - Each year section uses `GalleryGrid` with `{ base: 1, sm: 2, md: 3, lg: 4 }` columns
@@ -277,9 +277,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Generates both full-res JPEG (quality 0.9) and thumbnail (480px, quality 0.7) for images
 - Generates poster thumbnails for videos (first frame extraction)
 - Uploads to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` for photos, `videos/full/` and `videos/thumb/` for videos
-- Writes `date` and `event` as custom metadata on both files
+- Writes media metadata to Firestore docs (`images` / `videos`) after successful Storage uploads
 - Event dropdown auto-fills date and event name from events loaded in `GalleryContext`
-- Includes inline event creation form with auto-incrementing IDs
+- Includes inline event creation form using Firestore-generated document IDs
 - Per-file progress tracking with status: pending → converting → uploading → success/error
 - Uses `useToast` for success notification
 - Automatically refreshes gallery after successful uploads to show new content immediately

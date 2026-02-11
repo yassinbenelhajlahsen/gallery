@@ -233,23 +233,23 @@ toast(message: string, variant?: "success" | "error" | "logout")
 
 ### `useFullResLoader`
 
-Used by `HomePage` and `All` to load full-resolution images as blob URLs.
+Used by `HomePage` and `PhotosPage` to track and resolve full-resolution download URLs.
 
-- **`HomePage`** fetches full-res for its 6/9 chosen tiles in the background while showing thumbnails immediately (progressive upgrade). A short skeleton is used only while the chosen subset is being selected; the grid and thumbnails render without waiting for all full-res blobs to finish.
-- **`All`** uses it for **progressive upgrade** — thumbnails display immediately, and full-res blobs overlay them as they load.
+- **`HomePage`** requests full-res URLs for its 6/9 chosen tiles while showing thumbnails immediately.
+- **`PhotosPage`** requests full-res URLs for visible year groups and evicts off-screen groups.
 
 ```typescript
 const { resolveUrl, requestFullRes, evict, hasFullRes } = useFullResLoader();
 
-requestFullRes(metas); // Start fetching full-res blobs
-const url = resolveUrl(meta, thumbUrl); // Returns full-res blob URL or fallback
-evict(keepIds); // Release blob URLs not in the keep-set
+requestFullRes(metas); // Mark full-res URLs as wanted for these items
+const url = resolveUrl(meta, thumbUrl); // Returns full-res download URL or fallback
+evict(keepIds); // Remove full-res URLs not in the keep-set
 const ready = hasFullRes(id); // Check if a specific image has full-res loaded
 ```
 
-- Fetches via `fetch(meta.downloadUrl)` → blob → `URL.createObjectURL`
-- Deduplicates in-flight requests via `loadingIdsRef`
-- Revokes all blob URLs on unmount to prevent memory leaks
+- Stores Firebase download URLs in-memory per image ID
+- Deduplicates updates via `loadingIdsRef`
+- Does not fetch image bytes directly; the browser loads bytes via `<img src="downloadUrl">`
 
 ### `usePageReveal`
 
@@ -264,7 +264,7 @@ Every page uses this for entrance animations. **Always apply it to new pages.**
 
 ### `useGalleryLoadingProgress` (legacy)
 
-Standalone hook that fetches metadata + preloads thumbnails. **Not currently used by the main flow** (replaced by `GalleryContext`'s internal loading). May be used by `LoadingScreen` or for reference.
+Standalone hook that fetches metadata + preloads thumbnails. **Not currently used by the main flow** (replaced by `GalleryContext`'s internal loading). Kept for reference.
 
 ## Image Resolution Pipeline
 
