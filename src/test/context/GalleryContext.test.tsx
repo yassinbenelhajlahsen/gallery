@@ -19,32 +19,32 @@ const {
   clearCacheMock: vi.fn(),
   syncVideoThumbCacheMock: vi.fn(),
   authState: {
-    user: { uid: "u-1" },
+    user: { uid: "u-1" } as { uid: string } | null,
     initializing: false,
   },
 }));
 
-vi.mock("./AuthContext", () => ({
+vi.mock("../../context/AuthContext", () => ({
   useAuth: () => authState,
 }));
 
-vi.mock("../services/eventsService", () => ({
+vi.mock("../../services/eventsService", () => ({
   fetchEvents: fetchEventsMock,
 }));
 
-vi.mock("../services/storageService", () => ({
+vi.mock("../../services/storageService", () => ({
   fetchAllImageMetadata: fetchAllImageMetadataMock,
   fetchAllVideoMetadata: fetchAllVideoMetadataMock,
 }));
 
-vi.mock("../services/mediaCacheService", () => ({
+vi.mock("../../services/mediaCacheService", () => ({
   loadFromCache: loadFromCacheMock,
   syncCache: syncCacheMock,
   clearCache: clearCacheMock,
   syncVideoThumbCache: syncVideoThumbCacheMock,
 }));
 
-import { GalleryProvider, useGallery } from "./GalleryContext";
+import { GalleryProvider, useGallery } from "../../context/GalleryContext";
 
 const Probe = () => {
   const { videoMetas, hasGalleryLoadedOnce } = useGallery();
@@ -58,6 +58,8 @@ const Probe = () => {
 
 describe("GalleryProvider smoke flow", () => {
   beforeEach(() => {
+    authState.user = { uid: "u-1" };
+    authState.initializing = false;
     fetchEventsMock.mockReset().mockResolvedValue([]);
     fetchAllImageMetadataMock.mockReset().mockResolvedValue([]);
     fetchAllVideoMetadataMock.mockReset().mockResolvedValue([
@@ -90,5 +92,30 @@ describe("GalleryProvider smoke flow", () => {
     expect(fetchAllVideoMetadataMock).toHaveBeenCalledTimes(1);
     expect(syncCacheMock).not.toHaveBeenCalled();
     expect(screen.getByTestId("video-count")).toHaveTextContent("1");
+  });
+
+  it("clears cached gallery state when auth user becomes null", async () => {
+    const { rerender } = render(
+      <GalleryProvider>
+        <Probe />
+      </GalleryProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("gallery-loaded")).toHaveTextContent("true"),
+    );
+    expect(clearCacheMock).not.toHaveBeenCalled();
+
+    authState.user = null;
+    rerender(
+      <GalleryProvider>
+        <Probe />
+      </GalleryProvider>,
+    );
+
+    await waitFor(() => expect(clearCacheMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId("gallery-loaded")).toHaveTextContent("false"),
+    );
   });
 });
