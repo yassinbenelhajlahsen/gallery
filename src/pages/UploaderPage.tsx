@@ -1,7 +1,8 @@
 // src/pages/UploaderPage.tsx
 import { useState, useMemo, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage, db } from "../services/firebaseConfig";
+import { storage } from "../services/firebaseStorage";
+import { db } from "../services/firebaseFirestore";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useToast } from "../context/ToastContext";
