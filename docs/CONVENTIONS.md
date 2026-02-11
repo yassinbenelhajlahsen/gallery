@@ -184,9 +184,9 @@ const allReady =
 
 ### Adding a Timeline Event
 
-Events are now created through the uploader page UI and stored in Firestore. Use the "Create New Event" form in the uploader:
+Events are now created through the admin upload UI and stored in Firestore. Use the "Create New Event" form in admin upload:
 
-1. Navigate to `/upload`
+1. Navigate to `/admin?tab=upload` (or `/upload`, which redirects to admin upload)
 2. Fill in the event creation form:
    - **Date** (required): Event date in YYYY-MM-DD format
    - **Emoji** (optional): Display emoji for the event
@@ -203,7 +203,7 @@ Events are now created through the uploader page UI and stored in Firestore. Use
 
 ### Uploading Images (Programmatically)
 
-Follow the same pattern as `UploaderPage.tsx`:
+Follow the same pattern as `AdminUploadTab.tsx`:
 
 1. Convert to JPEG client-side (use the `loadImage` → `convertToJpeg` pipeline)
 2. Generate a 480px thumbnail (`generateThumbnail`)

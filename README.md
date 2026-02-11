@@ -24,6 +24,8 @@ React SPA (Vite)
 
 The app uses a **three-layer provider hierarchy** (Auth → Gallery → Toast) that owns all state. Pages are thin consumers. A single global lightbox is mounted outside the router so it persists across navigations. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full breakdown.
 
+Admin upload/delete tools now live under `/admin` (opened from the footer `Admin` button) with tabbed controls for upload and destructive actions.
+
 ## Key Technical Decisions
 
 | Decision                         | Tradeoff                              | Why                                                                                                                 |

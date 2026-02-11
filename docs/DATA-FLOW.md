@@ -93,7 +93,7 @@ type TimelineEvent = {
 
 - Events are stored in Firestore `events` collection
 - Document ID serves as the event `id` field
-- Events can be created/updated via the uploader page
+- Events can be created/updated via the admin upload tab
 - Images link to events via explicit `imageIds` array or matching `event` metadata
 
 ### `authService.ts`

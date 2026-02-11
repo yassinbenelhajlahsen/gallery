@@ -177,11 +177,10 @@ const NAV_ITEMS = [
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
   { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
   { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
-  { label: "Upload", to: "/upload", activeClass: "bg-[#C0C0C0]/70" },
 ];
 ```
 
-Each nav item gets a distinct pastel highlight when active. `Home` routes via the brand link on desktop and a dedicated mobile link. The Navbar no longer contains a logout button — logout was moved into the `Footer` component for a simpler mobile layout.
+Each nav item gets a distinct pastel highlight when active. `Home` routes via the brand link on desktop and a dedicated mobile link. The Navbar no longer contains upload/logout actions; admin access + logout live in `Footer`.
 
 ---
 
@@ -223,7 +222,9 @@ type FloatingInputProps = {
 
 **File:** `src/components/Footer.tsx`
 
-Simple centered footer: `Made with ♥ for {config.coupleDisplay}`.
+Simple centered footer: `Made with ♥ for {config.coupleDisplay}` plus:
+- `Admin` button linking to `/admin?tab=upload`
+- `Logout` button
 
 ### `ScrollToTop`
 
@@ -269,9 +270,19 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Both methods are combined (union, no duplicates)
 - Clicking an event opens the modal with `preloadAll: true` (small image sets)
 
-### `UploaderPage`
+### `AdminPage`
 
-**File:** `src/pages/UploaderPage.tsx`
+**File:** `src/pages/AdminPage.tsx`
+
+- Admin container with `Upload` and `Delete` tabs
+- Tab control uses a sliding segmented-button UI with a moving active pill
+- Tab content also slides between panes
+- Content height animates to the active tab, so inactive tab content doesn't force long page height
+- Admin route and tab panels are lazy-loaded for smaller initial bundle cost
+
+### `AdminUploadTab`
+
+**File:** `src/components/admin/AdminUploadTab.tsx`
 
 - File selection → client-side JPEG conversion → upload to Firebase Storage
 - Generates both full-res JPEG (quality 0.9) and thumbnail (480px, quality 0.7) for images
@@ -283,6 +294,20 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Per-file progress tracking with status: pending → converting → uploading → success/error
 - Uses `useToast` for success notification
 - Automatically refreshes gallery after successful uploads to show new content immediately
+
+### `AdminDeleteTab`
+
+**File:** `src/components/admin/AdminDeleteTab.tsx`
+
+- Delete tools for images, videos, and timeline events
+- Two-step inline confirmation (`Delete` → `Confirm Delete`) without modal
+- Image/video delete removes:
+  - Firebase Storage `full` + `thumb` objects
+  - Firestore metadata docs (`images` / `videos`)
+- Event delete removes:
+  - Firestore event doc (`events`)
+  - Related media `event` fields (set to `null`)
+- Lists render single-column on mobile and 2-column on larger screens
 
 ### `LoginPage`
 
