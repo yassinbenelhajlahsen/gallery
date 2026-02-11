@@ -10,7 +10,7 @@ vi.mock("firebase/auth", () => ({
   signOut: vi.fn(),
 }));
 
-vi.mock("./firebaseConfig", () => ({
+vi.mock("./firebaseAuth", () => ({
   auth: { mocked: true },
 }));
 
