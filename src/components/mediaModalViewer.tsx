@@ -3,6 +3,7 @@ import React from "react";
 import type { ImageMeta } from "../services/storageService";
 import type { ImageMediaMeta, MediaMeta, VideoMeta } from "../types/mediaTypes";
 import { getVideoDownloadUrl } from "../services/storageService";
+import { isLowBandwidthMobileClient } from "../utils/runtime";
 
 const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
   Boolean(item && (item as VideoMeta).type === "video");
@@ -105,8 +106,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
     setActiveVideoUrl(null);
   }, []);
 
-  const isMobile =
-    window.innerWidth < 640 || navigator.connection?.saveData === true;
+  const isMobile = isLowBandwidthMobileClient();
 
   const PRELOAD_AHEAD = isMobile ? 3 : 10;
   const PRELOAD_BEHIND = isMobile ? 2 : 5;
