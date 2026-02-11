@@ -85,17 +85,10 @@ const GateFallback: React.FC<{ message?: string }> = ({ message }) => (
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
-  requireGalleryLoaded?: boolean;
-  redirectIfGalleryReadyTo?: string;
 };
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  children,
-  requireGalleryLoaded,
-  redirectIfGalleryReadyTo,
-}) => {
+const RequireAuth: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, initializing } = useAuth();
-  const { hasGalleryLoadedOnce } = useGallery();
 
   if (initializing) {
     return <GateFallback />;
@@ -105,35 +98,48 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" replace />;
   }
 
-  if (requireGalleryLoaded && !hasGalleryLoadedOnce) {
-    return <Navigate to="/loading" replace />;
-  }
-
-  if (
-    !requireGalleryLoaded &&
-    redirectIfGalleryReadyTo &&
-    hasGalleryLoadedOnce
-  ) {
-    return <Navigate to={redirectIfGalleryReadyTo} replace />;
-  }
-
   return <>{children}</>;
 };
 
 const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, initializing } = useAuth();
-  const { hasGalleryLoadedOnce } = useGallery();
 
   if (initializing) {
     return <GateFallback message="Checking your session…" />;
   }
 
   if (user) {
-    const destination = hasGalleryLoadedOnce ? "/home" : "/loading";
-    return <Navigate to={destination} replace />;
+    return <Navigate to="/loading" replace />;
   }
 
   return <>{children}</>;
+};
+
+const GalleryAppShell: React.FC = () => (
+  <GalleryProvider>
+    <Outlet />
+    <GalleryModalRenderer />
+  </GalleryProvider>
+);
+
+const RequireGalleryLoaded: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { hasGalleryLoadedOnce } = useGallery();
+
+  if (!hasGalleryLoadedOnce) {
+    return <Navigate to="/loading" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const LoadingRoute: React.FC = () => {
+  const { hasGalleryLoadedOnce } = useGallery();
+  if (hasGalleryLoadedOnce) {
+    return <Navigate to="/home" replace />;
+  }
+  return <LoadingScreen />;
 };
 
 const router = createBrowserRouter([
@@ -146,28 +152,30 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: "/loading",
-    element: (
-      <ProtectedRoute redirectIfGalleryReadyTo="/home">
-        <LoadingScreen />
-      </ProtectedRoute>
-    ),
-  },
-  {
     path: "/",
     element: (
-      <ProtectedRoute requireGalleryLoaded>
-        <MainLayout />
-      </ProtectedRoute>
+      <RequireAuth>
+        <GalleryAppShell />
+      </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/home" replace /> },
-      { path: "home", element: <HomePage /> },
-      { path: "timeline", element: <TimelinePage /> },
-      { path: "photos", element: <PhotosPage /> },
-      { path: "upload", element: <UploaderPage /> },
-      { path: "videos", element: <VideosPage /> },
-      { path: "*", element: <NotFoundPage /> },
+      { path: "loading", element: <LoadingRoute /> },
+      {
+        element: (
+          <RequireGalleryLoaded>
+            <MainLayout />
+          </RequireGalleryLoaded>
+        ),
+        children: [
+          { index: true, element: <Navigate to="/home" replace /> },
+          { path: "home", element: <HomePage /> },
+          { path: "timeline", element: <TimelinePage /> },
+          { path: "photos", element: <PhotosPage /> },
+          { path: "upload", element: <UploaderPage /> },
+          { path: "videos", element: <VideosPage /> },
+          { path: "*", element: <NotFoundPage /> },
+        ],
+      },
     ],
   },
 ]);
@@ -180,14 +188,11 @@ function App() {
 
   return (
     <AuthProvider>
-      <GalleryProvider>
-        <ToastProvider>
-          <RomanticBackdrop>
-            <RouterProvider router={router} />
-            <GalleryModalRenderer />
-          </RomanticBackdrop>
-        </ToastProvider>
-      </GalleryProvider>
+      <ToastProvider>
+        <RomanticBackdrop>
+          <RouterProvider router={router} />
+        </RomanticBackdrop>
+      </ToastProvider>
     </AuthProvider>
   );
 }
