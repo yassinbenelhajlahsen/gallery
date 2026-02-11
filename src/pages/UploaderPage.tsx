@@ -6,7 +6,7 @@ import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useToast } from "../context/ToastContext";
 import { FloatingInput } from "../components/ui/FloatingInput";
-import { setDoc, doc, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, setDoc, doc, serverTimestamp } from "firebase/firestore";
 
 interface UploadProgress {
   fileName: string;
@@ -215,15 +215,6 @@ export default function UploaderPage() {
     return [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   }, [events]);
 
-  // Generate next event id by finding the max number and incrementing
-  const generateNextEventId = () => {
-    const maxNum = events.reduce((max, event) => {
-      const num = parseInt(event.id.split("-")[1] || "0", 10);
-      return Math.max(max, num);
-    }, 0);
-    return `evt-${String(maxNum + 1).padStart(3, "0")}`;
-  };
-
   // Handle creating a new event
   const handleCreateEvent = async () => {
     if (!newEventDate || !newEventTitle.trim()) {
@@ -233,16 +224,15 @@ export default function UploaderPage() {
 
     setIsCreatingEvent(true);
     try {
-      const newId = generateNextEventId();
       const eventData = {
-        id: newId,
         date: newEventDate,
         title: newEventTitle.trim(),
         emojiOrDot: newEventEmoji.trim() || undefined,
         imageIds: [],
+        createdAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, "events", newId), eventData);
+      await addDoc(collection(db, "events"), eventData);
 
       // Refresh events to include the new one
       await refreshEvents();
