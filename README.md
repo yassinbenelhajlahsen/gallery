@@ -10,7 +10,7 @@ I built this to solve a real problem: a private, fast, and beautiful way to brow
 
 ## Privacy by Design
 
-This repo is public, but the app is private. Every user-facing string (names, titles, messages) is injected via environment variables at build time — the codebase contains **zero personal information**. Firebase credentials, auth emails, and display names all live in a git-ignored `.env` file. The app itself is gated behind Firebase Auth with a single hardcoded email, so access requires knowing the password.
+This repo is public, but the app is private. Every user-facing string (names, titles, messages) is injected via environment variables at build time — the codebase contains **zero personal information**. Firebase credentials and display names live in a git-ignored `.env` file. Access control is enforced by Firebase Security Rules locked to a single owner identity (UID), and login uses Firebase Auth email/password.
 
 ## Architecture at a Glance
 

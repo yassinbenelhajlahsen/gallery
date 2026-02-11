@@ -21,49 +21,62 @@ npm install
 2. **Authentication** → Sign-in method → Enable **Email/Password**
 3. **Authentication** → Users → Add a user (email + password — this is your login)
 4. **Storage** → Get started → Create default bucket
-5. **Storage** → Rules → Set read/write to require auth:
+5. **Storage** → Rules → lock access to your owner UID:
 
-   ```
-    rules_version = '2';
-    service firebase.storage {
-      match /b/{bucket}/o {
-
-        match /images/{allPaths=**} {
-          allow read, write: if request.auth != null;
-        }
-
-        match /videos/{allPaths=**} {
-          allow read, write: if request.auth != null;
-        }
-
-      }
-    }
-   ```
-
-6. **Firestore** → Get started → Create database → Start in **test mode** (you can secure it later)
-7. **Firestore** → Rules → Set read/write to require auth:
    ```
    rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
+   service firebase.storage {
+     match /b/{bucket}/o {
+       function isOwner() {
+         return request.auth != null
+           && request.auth.uid == "YOUR_OWNER_UID";
+       }
 
-    // Timeline events
-    match /events/{eventId} {
-      allow read, write: if request.auth != null;
-    }
+       match /images/{allPaths=**} {
+         allow read, write: if isOwner();
+       }
 
-    // Image metadata (Firestore is source of truth)
-    match /images/{imageId} {
-      allow read, write: if request.auth != null;
-    }
+       match /videos/{allPaths=**} {
+         allow read, write: if isOwner();
+       }
 
-    // Video metadata (Firestore is source of truth)
-    match /videos/{videoId} {
-      allow read, write: if request.auth != null;
-    }
+       match /{allPaths=**} {
+         allow read, write: if false;
+       }
+     }
+   }
+   ```
 
-  }
-}
+6. **Firestore** → Get started → Create database
+7. **Firestore** → Rules → lock access to your owner UID:
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       function isOwner() {
+         return request.auth != null
+           && request.auth.uid == "YOUR_OWNER_UID";
+       }
+
+       match /events/{eventId} {
+         allow read, write: if isOwner();
+       }
+
+       // Required by this app for gallery metadata
+       match /images/{imageId} {
+         allow read, write: if isOwner();
+       }
+
+       // Required by this app for video metadata
+       match /videos/{videoId} {
+         allow read, write: if isOwner();
+       }
+
+       match /{document=**} {
+         allow read, write: if false;
+       }
+     }
+   }
 
    ```
 8. **Project Settings** → Your apps → Add a **Web app** → Copy the config values
@@ -85,7 +98,7 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 
-# Required — must match the user you created in Firebase Auth
+# Required for login UX (not the security boundary)
 VITE_AUTH_EMAIL=your-login@example.com
 
 # Optional — display strings (sensible defaults exist)
