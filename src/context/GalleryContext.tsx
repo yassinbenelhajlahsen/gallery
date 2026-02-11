@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { ImageMeta, PreloadedImage } from "../services/storageService";
 import type { MediaMeta, VideoMeta } from "../types/mediaTypes";
-import type { TimelineEvent } from "../components/TimelineEventItem";
+import type { TimelineEvent } from "../components/timeline/TimelineEventItem";
 import { fetchEvents } from "../services/eventsService";
 import {
   fetchAllImageMetadata,

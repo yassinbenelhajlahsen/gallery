@@ -1,12 +1,11 @@
-// src/components/Navbar.tsx
+// src/components/layout/Navbar.tsx
 import { NavLink } from "react-router-dom";
-import { config } from "../config";
+import { config } from "../../config";
 
 const NAV_ITEMS = [
   { label: "Timeline", to: "/timeline", activeClass: "bg-[#D8ECFF]" },
   { label: "Photos", to: "/photos", activeClass: "bg-[#FFE39F]" },
   { label: "Videos", to: "/videos", activeClass: "bg-[#F3D0D6]" },
-  { label: "Upload", to: "/upload", activeClass: "bg-[#C0C0C0]/70" },
 ];
 
 const Navbar = () => {
@@ -42,7 +41,7 @@ const Navbar = () => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-full px-2.5 py-2 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
+                `rounded-full px-5.5 py-2 sm:px-4 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
                   isActive
                     ? `${item.activeClass} text-[#222] shadow-sm scale-105`
                     : "bg-white/40 text-[#666] hover:bg-white/70 hover:text-[#222] hover:scale-105"

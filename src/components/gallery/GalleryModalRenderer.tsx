@@ -1,7 +1,7 @@
-// src/components/GalleryModalRenderer.tsx
+// src/components/gallery/GalleryModalRenderer.tsx
 import React from "react";
 import ImageModalViewer from "./mediaModalViewer";
-import { useGallery } from "../context/GalleryContext";
+import { useGallery } from "../../context/GalleryContext";
 
 const GalleryModalRenderer: React.FC = () => {
   const {
