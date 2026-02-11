@@ -1,14 +1,19 @@
-// src/pages/UploaderPage.tsx
+// src/components/admin/AdminUploadPage.tsx
 import { useState, useMemo, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../services/firebaseStorage";
-import { db } from "../services/firebaseFirestore";
-import { useGallery } from "../context/GalleryContext";
-import { usePageReveal } from "../hooks/usePageReveal";
-import { useToast } from "../context/ToastContext";
-import { FloatingInput } from "../components/ui/FloatingInput";
-import { addDoc, collection, setDoc, doc, serverTimestamp } from "firebase/firestore";
-import { getVideoExtension, isVideoFile } from "./uploadMediaUtils";
+import { storage } from "../../services/firebaseStorage";
+import { db } from "../../services/firebaseFirestore";
+import { useGallery } from "../../context/GalleryContext";
+import { useToast } from "../../context/ToastContext";
+import { FloatingInput } from "../ui/FloatingInput";
+import {
+  addDoc,
+  collection,
+  setDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { getVideoExtension, isVideoFile } from "../../utils/uploadMediaUtils";
 
 interface UploadProgress {
   fileName: string;
@@ -180,7 +185,7 @@ async function generateThumbnail(
   return canvasToJpeg(img, thumbW, thumbH, 0.7);
 }
 
-export default function UploaderPage() {
+export default function AdminUploadPage() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [date, setDate] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<string>("");
@@ -188,7 +193,6 @@ export default function UploaderPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const isVisible = usePageReveal();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -487,38 +491,32 @@ export default function UploaderPage() {
   };
 
   return (
-    <section className="flex w-full justify-center px-4 py-8">
-      <div className="mx-auto w-full sm:max-w-full max-w-2xl space-y-6 rounded-4xl bg-white/90 p-8 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl">
-        <div
-          className={`space-y-6 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-        >
-          <header className="space-y-2 text-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#C0C0C0]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em] text-[#3f3f3f]">
-              Upload
-            </span>
-            <h1 className="text-3xl font-bold text-[#333]">
-              Add New Photos/Videos
-            </h1>
-            <p className="text-sm text-[#666]">
-              Upload images or videos and link them to a timeline event
-            </p>
-          </header>
+    <div className="space-y-6">
+      <header className="space-y-2 text-center">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#C0C0C0]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-[#3f3f3f]">
+          Upload
+        </span>
+        <h2 className="text-2xl font-bold text-[#333]">
+          Add New Media & Events
+        </h2>
+        <p className="text-sm text-[#666]">
+          Upload images or videos and link them to a timeline event
+        </p>
+      </header>
 
-          {/* Create New Event */}
-          <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
-            <h2 className="text-lg font-semibold text-[#333]">
-              Create New Event
-            </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#333]">
-                  Date<span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                  className="
+      {/* Create New Event */}
+      <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
+        <h2 className="text-lg font-semibold text-[#333]">Create New Event</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-[#333]">
+              Date<span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={newEventDate}
+              onChange={(e) => setNewEventDate(e.target.value)}
+              className="
                     pt-4.5
                     pb-4.5
                     w-full
@@ -537,162 +535,156 @@ export default function UploaderPage() {
                     focus:outline-none
                     focus:ring-2 focus:ring-[#F7DEE2]/30
                   "
-                />
-              </div>
-              <div className="space-y-2 mt-7">
-                <FloatingInput
-                  id="new-event-title"
-                  type="text"
-                  label="Title*"
-                  className="w-full"
-                  value={newEventTitle}
-                  onChange={(e) => setNewEventTitle(e.target.value)}
-                  focusColor="#F7DEE2"
-                  borderColor="#F0F0F0"
-                  labelColor="#333"
-                />
-              </div>
-              <div className="space-y-2 mt-7">
-                <FloatingInput
-                  id="new-event-emoji"
-                  type="text"
-                  label="Emoji"
-                  className="w-full"
-                  value={newEventEmoji}
-                  onChange={(e) => setNewEventEmoji(e.target.value)}
-                  focusColor="#F7DEE2"
-                  borderColor="#F0F0F0"
-                  labelColor="#333"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleCreateEvent}
-              disabled={
-                isCreatingEvent || !newEventDate || !newEventTitle.trim()
-              }
-              className="cursor-pointer w-full rounded-xl mt-3 bg-[#F7DEE2] py-3 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
-            >
-              {isCreatingEvent ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="h-5 w-5 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Creating…
-                </span>
-              ) : (
-                "Create Event"
-              )}
-            </button>
+            />
           </div>
-
-          <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
-
-          {/* Event Selection Dropdown */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
-              Link to Timeline Event
-            </label>
-            <select
-              value={selectedEventId}
-              onChange={(e) => handleEventSelect(e.target.value)}
-              className="cursor-pointer pt-4.5 pb-4.5 w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
-            >
-              <option value="">Select an event (optional)</option>
-              {sortedEvents.map((event) => {
-                // Parse date as local time to avoid timezone offset issues
-                const [year, month, day] = event.date.split("-").map(Number);
-                const eventDate = new Date(
-                  year ?? 0,
-                  (month ?? 1) - 1,
-                  day ?? 1,
-                );
-                const formattedDate = eventDate.toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                });
-                return (
-                  <option key={event.id} value={event.id}>
-                    {event.title} - {formattedDate}
-                  </option>
-                );
-              })}
-            </select>
-            <p className="text-xs text-[#888]">
-              Select an event to automatically fill date and event name, or
-              enter custom details below
-            </p>
-          </div>
-
-          <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
-
-          {/* File Input */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
-              Select Media (Images / Videos)
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,video/mp4,video/quicktime,.mp4,.mov"
-                onChange={(e) => setFiles(e.target.files)}
-                className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
-              />
-              {files && files.length > 0 && (
-                <p className="mt-2 text-xs text-[#888]">
-                  {files.length} file{files.length === 1 ? "" : "s"} selected
-                </p>
-              )}
-            </div>
-          </div>
-          {/* Event Name */}
-          <div className="space-y-2">
+          <div className="space-y-2 mt-7">
             <FloatingInput
-              id="event-name"
+              id="new-event-title"
               type="text"
-              label="Event Name"
+              label="Title*"
               className="w-full"
-              value={eventName}
-              onChange={(e) => handleEventNameChange(e.target.value)}
+              value={newEventTitle}
+              onChange={(e) => setNewEventTitle(e.target.value)}
               focusColor="#F7DEE2"
               borderColor="#F0F0F0"
               labelColor="#333"
             />
-            <p className="text-xs text-[#888]">
-              Used to link media to timeline events
-            </p>
           </div>
-          {/* Date Input */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
-              Date<span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => handleDateChange(e.target.value)}
-              className="
+          <div className="space-y-2 mt-7">
+            <FloatingInput
+              id="new-event-emoji"
+              type="text"
+              label="Emoji"
+              className="w-full"
+              value={newEventEmoji}
+              onChange={(e) => setNewEventEmoji(e.target.value)}
+              focusColor="#F7DEE2"
+              borderColor="#F0F0F0"
+              labelColor="#333"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleCreateEvent}
+          disabled={isCreatingEvent || !newEventDate || !newEventTitle.trim()}
+          className="cursor-pointer w-full rounded-xl mt-3 bg-[#F7DEE2] py-3 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
+        >
+          {isCreatingEvent ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg
+                className="h-5 w-5 animate-spin"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Creating…
+            </span>
+          ) : (
+            "Create Event"
+          )}
+        </button>
+      </div>
+
+      <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
+
+      {/* Event Selection Dropdown */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-[#333]">
+          Link to Timeline Event
+        </label>
+        <select
+          value={selectedEventId}
+          onChange={(e) => handleEventSelect(e.target.value)}
+          className="cursor-pointer pt-4.5 pb-4.5 w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
+        >
+          <option value="">Select an event (optional)</option>
+          {sortedEvents.map((event) => {
+            // Parse date as local time to avoid timezone offset issues
+            const [year, month, day] = event.date.split("-").map(Number);
+            const eventDate = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+            const formattedDate = eventDate.toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            });
+            return (
+              <option key={event.id} value={event.id}>
+                {event.title} - {formattedDate}
+              </option>
+            );
+          })}
+        </select>
+        <p className="text-xs text-[#888]">
+          Select an event to automatically fill date and event name, or enter
+          custom details below
+        </p>
+      </div>
+
+      <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
+
+      {/* File Input */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-[#333]">
+          Select Media (Images / Videos)
+          <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/mp4,video/quicktime,.mp4,.mov"
+            onChange={(e) => setFiles(e.target.files)}
+            className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
+          />
+          {files && files.length > 0 && (
+            <p className="mt-2 text-xs text-[#888]">
+              {files.length} file{files.length === 1 ? "" : "s"} selected
+            </p>
+          )}
+        </div>
+      </div>
+      {/* Event Name */}
+      <div className="space-y-2">
+        <FloatingInput
+          id="event-name"
+          type="text"
+          label="Event Name"
+          className="w-full"
+          value={eventName}
+          onChange={(e) => handleEventNameChange(e.target.value)}
+          focusColor="#F7DEE2"
+          borderColor="#F0F0F0"
+          labelColor="#333"
+        />
+        <p className="text-xs text-[#888]">
+          Used to link media to timeline events
+        </p>
+      </div>
+      {/* Date Input */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-[#333]">
+          Date<span className="text-red-500">*</span>
+        </label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => handleDateChange(e.target.value)}
+          className="
                 pt-4.5
                 pb-4.5
                 w-full
@@ -711,133 +703,131 @@ export default function UploaderPage() {
                 focus:outline-none
                 focus:ring-2 focus:ring-[#F7DEE2]/30
               "
-            />
+        />
+      </div>
+
+      {/* Upload Button */}
+      <button
+        onClick={handleUpload}
+        disabled={isUploading || !files || files.length === 0 || !date}
+        className="cursor-pointer w-full rounded-xl bg-[#F7DEE2] py-4 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
+      >
+        {isUploading ? (
+          <span className="flex items-center justify-center gap-2">
+            <svg
+              className="h-5 w-5 animate-spin"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            Converting & Uploading…
+          </span>
+        ) : (
+          "Upload Media"
+        )}
+      </button>
+
+      {/* Error Alert */}
+      {error && (
+        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div className="flex-1">
+              <p className="font-semibold text-red-800">Upload Failed</p>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Progress */}
+      {uploadProgress.length > 0 && (
+        <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-[#333]">
+              Upload Progress
+            </h2>
+            <span className="rounded-full bg-[#D8ECFF]/70 px-2.5 py-0.5 text-xs font-semibold text-[#333]">
+              {uploadProgress.filter((p) => p.status === "success").length} /{" "}
+              {uploadProgress.length}
+            </span>
           </div>
 
-          {/* Upload Button */}
-          <button
-            onClick={handleUpload}
-            disabled={isUploading || !files || files.length === 0 || !date}
-            className="cursor-pointer w-full rounded-xl bg-[#F7DEE2] py-4 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
-          >
-            {isUploading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg
-                  className="h-5 w-5 animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Converting & Uploading…
-              </span>
-            ) : (
-              "Upload Media"
-            )}
-          </button>
+          <div className="space-y-3">
+            {uploadProgress.map((item) => (
+              <div
+                key={item.fileName}
+                className="space-y-2 rounded-lg bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="flex-1 truncate text-sm font-medium text-[#333]">
+                    {item.fileName}
+                  </p>
+                  <span
+                    className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${
+                      item.status === "success"
+                        ? "bg-green-100 text-green-800"
+                        : item.status === "error"
+                          ? "bg-red-100 text-red-800"
+                          : item.status === "uploading"
+                            ? "bg-blue-100 text-blue-800"
+                            : item.status === "converting"
+                              ? "bg-purple-100 text-purple-800"
+                              : "bg-yellow-100 text-yellow-800"
+                    }`}
+                  >
+                    {item.status === "success" && "✓ Done"}
+                    {item.status === "error" && "✗ Failed"}
+                    {item.status === "uploading" && "⬆ Uploading"}
+                    {item.status === "converting" && "⚙ Converting"}
+                    {item.status === "pending" && "⏳ Pending"}
+                  </span>
+                </div>
 
-          {/* Error Alert */}
-          {error && (
-            <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">⚠️</span>
-                <div className="flex-1">
-                  <p className="font-semibold text-red-800">Upload Failed</p>
-                  <p className="mt-1 text-sm text-red-700">{error}</p>
+                {/* Progress Bar */}
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      item.status === "success"
+                        ? "bg-green-500"
+                        : item.status === "error"
+                          ? "bg-red-500"
+                          : "bg-blue-500"
+                    }`}
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </div>
+
+                {/* Progress Text and Error */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-600">
+                    {item.progress}%
+                  </p>
+                  {item.error && (
+                    <p className="text-xs font-medium text-red-600">
+                      {item.error}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Upload Progress */}
-          {uploadProgress.length > 0 && (
-            <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold text-[#333]">
-                  Upload Progress
-                </h2>
-                <span className="rounded-full bg-[#D8ECFF]/70 px-2.5 py-0.5 text-xs font-semibold text-[#333]">
-                  {uploadProgress.filter((p) => p.status === "success").length}{" "}
-                  / {uploadProgress.length}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {uploadProgress.map((item) => (
-                  <div
-                    key={item.fileName}
-                    className="space-y-2 rounded-lg bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="flex-1 truncate text-sm font-medium text-[#333]">
-                        {item.fileName}
-                      </p>
-                      <span
-                        className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${
-                          item.status === "success"
-                            ? "bg-green-100 text-green-800"
-                            : item.status === "error"
-                              ? "bg-red-100 text-red-800"
-                              : item.status === "uploading"
-                                ? "bg-blue-100 text-blue-800"
-                                : item.status === "converting"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {item.status === "success" && "✓ Done"}
-                        {item.status === "error" && "✗ Failed"}
-                        {item.status === "uploading" && "⬆ Uploading"}
-                        {item.status === "converting" && "⚙ Converting"}
-                        {item.status === "pending" && "⏳ Pending"}
-                      </span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          item.status === "success"
-                            ? "bg-green-500"
-                            : item.status === "error"
-                              ? "bg-red-500"
-                              : "bg-blue-500"
-                        }`}
-                        style={{ width: `${item.progress}%` }}
-                      />
-                    </div>
-
-                    {/* Progress Text and Error */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-gray-600">
-                        {item.progress}%
-                      </p>
-                      {item.error && (
-                        <p className="text-xs font-medium text-red-600">
-                          {item.error}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }
