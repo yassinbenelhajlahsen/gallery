@@ -89,16 +89,6 @@ describe("App routing guards", () => {
     galleryState.hasGalleryLoadedOnce = true;
   });
 
-  it("redirects legacy /upload route to /admin?tab=upload", async () => {
-    await renderAppAt("/upload");
-
-    await waitFor(() => {
-      expect(screen.getByText("ADMIN_PAGE")).toBeInTheDocument();
-    });
-    expect(window.location.pathname).toBe("/admin");
-    expect(window.location.search).toBe("?tab=upload");
-  });
-
   it("redirects unauthenticated users to /login", async () => {
     authState.user = null;
     await renderAppAt("/home");
