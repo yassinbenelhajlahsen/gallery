@@ -1,6 +1,6 @@
 // src/components/admin/AdminUploadPage.tsx
 import { useState, useMemo, useRef } from "react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, getMetadata } from "firebase/storage";
 import { storage } from "../../services/firebaseStorage";
 import { db } from "../../services/firebaseFirestore";
 import { useGallery } from "../../context/GalleryContext";
@@ -11,6 +11,7 @@ import {
   collection,
   setDoc,
   doc,
+  getDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { getVideoExtension, isVideoFile } from "../../utils/uploadMediaUtils";
@@ -184,6 +185,81 @@ async function generateThumbnail(
   const thumbW = Math.round(img.width * scale);
   const thumbH = Math.round(img.height * scale);
   return canvasToJpeg(img, thumbW, thumbH, 0.7);
+}
+
+function firebaseErrorCode(error: unknown): string | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    return (error as { code: string }).code;
+  }
+  return null;
+}
+
+async function storageObjectExists(path: string): Promise<boolean> {
+  try {
+    await getMetadata(ref(storage, path));
+    return true;
+  } catch (error) {
+    if (firebaseErrorCode(error) === "storage/object-not-found") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function mediaCandidateExists(
+  collectionName: "images" | "videos",
+  id: string,
+  fullPath: string,
+  thumbPath: string,
+): Promise<boolean> {
+  const [docSnap, fullExists, thumbExists] = await Promise.all([
+    getDoc(doc(db, collectionName, id)),
+    storageObjectExists(fullPath),
+    storageObjectExists(thumbPath),
+  ]);
+  return docSnap.exists() || fullExists || thumbExists;
+}
+
+async function resolveUniqueImageName(cleanName: string): Promise<string> {
+  const baseName = cleanName.trim() || "upload";
+  let suffix = 0;
+  while (true) {
+    const jpgName = suffix === 0 ? `${baseName}.jpg` : `${baseName}-${suffix}.jpg`;
+    const exists = await mediaCandidateExists(
+      "images",
+      jpgName,
+      `images/full/${jpgName}`,
+      `images/thumb/${jpgName}`,
+    );
+    if (!exists) return jpgName;
+    suffix += 1;
+  }
+}
+
+async function resolveUniqueVideoNames(
+  cleanName: string,
+  ext: string,
+): Promise<{ videoId: string; thumbName: string }> {
+  const baseName = cleanName.trim() || "upload";
+  let suffix = 0;
+  while (true) {
+    const candidateBase = suffix === 0 ? baseName : `${baseName}-${suffix}`;
+    const videoId = `${candidateBase}.${ext}`;
+    const thumbName = `${candidateBase}.jpg`;
+    const exists = await mediaCandidateExists(
+      "videos",
+      videoId,
+      `videos/full/${videoId}`,
+      `videos/thumb/${thumbName}`,
+    );
+    if (!exists) return { videoId, thumbName };
+    suffix += 1;
+  }
 }
 
 export default function AdminUploadPage() {
@@ -373,8 +449,10 @@ export default function AdminUploadPage() {
             const posterBlob = await extractVideoPoster(originalFile);
             updateProgress(fileName, { progress: 40 });
 
-            const videoId = `${cleanName}.${ext}`;
-            const thumbName = `${cleanName}.jpg`;
+            const { videoId, thumbName } = await resolveUniqueVideoNames(
+              cleanName,
+              ext,
+            );
 
             const fullRef = ref(storage, `videos/full/${videoId}`);
             const thumbRef = ref(storage, `videos/thumb/${thumbName}`);
@@ -441,7 +519,7 @@ export default function AdminUploadPage() {
             ]);
             updateProgress(fileName, { progress: 50 });
 
-            const jpgName = `${cleanName}.jpg`;
+            const jpgName = await resolveUniqueImageName(cleanName);
 
             const fullRef = ref(storage, `images/full/${jpgName}`);
             const thumbRef = ref(storage, `images/thumb/${jpgName}`);
@@ -777,7 +855,7 @@ export default function AdminUploadPage() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            Converting & Uploading…
+            Uploading…
           </span>
         ) : (
           "Upload Media"
