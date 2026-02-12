@@ -14,8 +14,13 @@ const Navbar = () => {
       <div className="flex w-full items-center justify-center gap-3 px-2 py-3 sm:px-4 sm:justify-between">
         <NavLink
           to="/home"
-          className="hidden sm:block shrink-0 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base rounded-full px-2.5 py-2 transition-all duration-150 active:scale-95 touch-manipulation hover:scale-105"
+          className="hidden sm:flex shrink-0 items-center gap-2 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base rounded-full px-2.5 py-2 transition-all duration-150 active:scale-95 touch-manipulation hover:scale-105"
         >
+          <img
+            src="/favicon-v2.png"
+            alt="Gallery logo"
+            className="h-8 w-8 select-none"
+          />
           {config.coupleDisplay}
         </NavLink>
         <nav
