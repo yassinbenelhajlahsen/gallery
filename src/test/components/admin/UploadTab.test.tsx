@@ -1,5 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const {
   addDocMock,
@@ -183,7 +192,11 @@ afterAll(() => {
 });
 
 describe("UploadTab", () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
     galleryState.events = [
       {
         id: "event-1",
@@ -223,6 +236,10 @@ describe("UploadTab", () => {
     refreshEventsMock.mockReset().mockResolvedValue(undefined);
     refreshGalleryMock.mockReset().mockResolvedValue(undefined);
     inferUploadDateFromMetadataMock.mockReset().mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   it("creates a timeline event and refreshes events", async () => {

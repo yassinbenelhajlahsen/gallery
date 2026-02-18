@@ -94,6 +94,12 @@ const buildSearchIndex = (...parts: Array<string | undefined>): string =>
 const matchesTokens = (index: string, tokens: string[]) =>
   tokens.every((token) => index.includes(token));
 
+const normalizeImageSrc = (src: string | null | undefined): string | null => {
+  if (typeof src !== "string") return null;
+  const trimmed = src.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 export default function DeleteTab() {
   const {
     imageMetas,
@@ -392,6 +398,7 @@ export default function DeleteTab() {
           ) : (
             filteredImageMetas.map((meta, index) => {
               const key = `image:${meta.id}`;
+              const thumbSrc = normalizeImageSrc(resolveThumbUrl(meta));
               const isOddTail =
                 filteredImageMetas.length % 2 === 1 &&
                 index === filteredImageMetas.length - 1;
@@ -400,11 +407,18 @@ export default function DeleteTab() {
                   key={meta.id}
                   className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
-                  <img
-                    src={resolveThumbUrl(meta)}
-                    alt={meta.caption ?? meta.event ?? meta.id}
-                    className="h-12 w-12 rounded-lg object-cover"
-                  />
+                  {thumbSrc ? (
+                    <img
+                      src={thumbSrc}
+                      alt={meta.caption ?? meta.event ?? meta.id}
+                      className="h-12 w-12 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="h-12 w-12 rounded-lg bg-[#f5f5f5]"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-[#333]">
                       {meta.id}
@@ -451,6 +465,9 @@ export default function DeleteTab() {
           ) : (
             filteredVideoMetas.map((meta, index) => {
               const key = `video:${meta.id}`;
+              const thumbSrc = normalizeImageSrc(
+                resolveVideoThumbUrl(meta) || meta.thumbUrl,
+              );
               const isOddTail =
                 filteredVideoMetas.length % 2 === 1 &&
                 index === filteredVideoMetas.length - 1;
@@ -459,11 +476,18 @@ export default function DeleteTab() {
                   key={meta.id}
                   className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
-                  <img
-                    src={resolveVideoThumbUrl(meta)}
-                    alt={meta.caption ?? meta.event ?? meta.id}
-                    className="h-12 w-12 rounded-lg object-cover"
-                  />
+                  {thumbSrc ? (
+                    <img
+                      src={thumbSrc}
+                      alt={meta.caption ?? meta.event ?? meta.id}
+                      className="h-12 w-12 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="h-12 w-12 rounded-lg bg-[#f5f5f5]"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-[#333]">
                       {meta.id}
