@@ -324,3 +324,7 @@ img {
     transform: translateY(16px) scale(0.96);
   }
 }
+
+  input[type="search"]::-webkit-search-cancel-button {
+    cursor: pointer;
+  }

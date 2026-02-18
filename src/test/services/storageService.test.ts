@@ -77,8 +77,34 @@ describe("storageService", () => {
     const result = await fetchAllImageMetadata();
 
     expect(result.map((item) => item.id)).toEqual(["newer.jpg", "older.jpg"]);
+    expect(result[0]?.date).toBe("2024-01-01");
+    expect(result[1]?.date).toBe("2023-01-01");
     expect(result[0]?.thumbUrl).toBe("https://thumb/newer");
     expect(result[1]?.thumbUrl).toBe("https://full/older");
+  });
+
+  it("normalizes ISO datetime strings to stable date-only values", async () => {
+    getDocsMock.mockResolvedValue({
+      docs: [
+        {
+          id: "iso.jpg",
+          data: () => ({
+            date: "2024-01-01T00:00:00.000Z",
+            fullPath: "images/full/iso.jpg",
+            thumbPath: "images/thumb/iso.jpg",
+          }),
+        },
+      ],
+    });
+
+    getDownloadURLMock.mockImplementation(async ({ path }: { path: string }) => {
+      if (path === "images/full/iso.jpg") return "https://full/iso";
+      if (path === "images/thumb/iso.jpg") return "https://thumb/iso";
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    const result = await fetchAllImageMetadata();
+    expect(result[0]?.date).toBe("2024-01-01");
   });
 
   it("fetchAllVideoMetadata filters unsupported ids and falls back to full video URL", async () => {
