@@ -158,6 +158,7 @@ Includes:
 ### `UploadTab`
 
 - File: `src/components/admin/UploadTab.tsx`
+- Service dependency: `src/services/uploadService.ts`
 
 Capabilities:
 
@@ -166,6 +167,7 @@ Capabilities:
 - upload images and videos in one flow
 - date inference from first file metadata unless event date is selected
 - per-file progress and status
+- delegates upload/event create operations to `uploadService` helpers
 
 Upload pipeline:
 
@@ -175,13 +177,16 @@ Upload pipeline:
 ### `DeleteTab`
 
 - File: `src/components/admin/DeleteTab.tsx`
+- Service dependency: `src/services/deleteService.ts`
 
 Capabilities:
 
 - search across images, videos, events
-- two-step confirm delete (`Delete` -> `Confirm Delete`)
+- metadata editing via `EditMetadataModal`
+- confirmation modal delete flow (`Delete` -> modal `Confirm Delete`)
 - media delete removes Storage + Firestore metadata + event id references
 - event delete clears linked media `event` field and removes event doc
+- delegates metadata update + destructive operations to `deleteService` helpers
 
 ### `NotFoundPage`
 

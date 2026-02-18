@@ -43,6 +43,11 @@ Core data/storage model:
 
 Admin tools live at `/admin` (upload + delete tabs).
 
+Admin implementation is modular:
+
+- `src/components/admin/UploadTab.tsx` handles form UX/progress and delegates upload/event writes to `src/services/uploadService.ts`.
+- `src/components/admin/DeleteTab.tsx` handles search/edit/delete UI and delegates destructive/update operations to `src/services/deleteService.ts`.
+
 ## Key Technical Decisions
 
 | Decision | Tradeoff | Why |

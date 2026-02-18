@@ -57,14 +57,16 @@ Global setup file: `src/test/setup.ts`
 - image upload success path (Storage + Firestore + gallery refresh)
 - duplicate-name collision suffix behavior
 - fatal upload path when all files fail
+- covers `UploadTab` integration with `src/services/uploadService.ts`
 
 ### `src/test/components/admin/DeleteTab.test.tsx`
 
-- two-step confirm delete flow
+- confirmation modal delete flow
 - storage + Firestore delete wiring (image/video)
 - event delete path including linked media field cleanup
 - object-not-found tolerance for storage deletes
 - search filtering behavior
+- covers `DeleteTab` integration with `src/services/deleteService.ts`
 
 ### `src/test/components/gallery/mediaModalViewer.test.tsx`
 
@@ -176,4 +178,3 @@ Global setup file: `src/test/setup.ts`
 - JPEG EXIF date extraction
 - QuickTime/MP4 creation date extraction
 - `lastModified` fallback
-
