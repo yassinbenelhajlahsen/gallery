@@ -63,13 +63,16 @@ const Probe = () => {
     modalPreloadAll,
     modalMedia,
     openModalWithImages,
+    openModalWithMedia,
     openModalForImageId,
     closeModal,
     refreshEvents,
     refreshGallery,
+    resolveThumbUrl,
   } = useGallery();
 
   const firstVideoThumb = videoMetas[0] ? resolveVideoThumbUrl(videoMetas[0]) : "";
+  const firstImageThumb = imageMetas[0] ? resolveThumbUrl(imageMetas[0]) : "";
 
   return (
     <div>
@@ -80,6 +83,7 @@ const Probe = () => {
       <span data-testid="gallery-loading">{String(isGalleryLoading)}</span>
       <span data-testid="load-error">{loadError ?? ""}</span>
       <span data-testid="video-thumb-url">{firstVideoThumb}</span>
+      <span data-testid="image-thumb-url">{firstImageThumb}</span>
       <span data-testid="modal-open">{String(isModalOpen)}</span>
       <span data-testid="modal-index">{String(modalInitialIndex)}</span>
       <span data-testid="modal-preload">{String(modalPreloadAll)}</span>
@@ -96,6 +100,22 @@ const Probe = () => {
         }
       >
         open-images
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          openModalWithMedia(
+            [
+              ...(imageMetas.map((meta) => ({ ...meta, type: "image" as const })) ?? []),
+              ...(videoMetas ?? []),
+            ],
+            {
+              initialIndex: 99,
+            },
+          )
+        }
+      >
+        open-mixed
       </button>
       <button type="button" onClick={() => openModalForImageId("img-2.jpg")}>open-by-id</button>
       <button type="button" onClick={closeModal}>close-modal</button>
@@ -316,5 +336,49 @@ describe("GalleryProvider", () => {
     });
 
     expect(screen.getByTestId("video-count")).toHaveTextContent("0");
+  });
+
+  it("resolves cached image thumb URLs when syncCache returns preloaded blobs", async () => {
+    syncCacheMock.mockResolvedValueOnce([
+      {
+        meta: defaultImageMetas[0],
+        blob: new Blob(["x"], { type: "image/jpeg" }),
+        objectUrl: "blob:cached-image-1",
+      },
+    ]);
+
+    render(
+      <GalleryProvider>
+        <Probe />
+      </GalleryProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("gallery-loaded")).toHaveTextContent("true");
+    });
+
+    expect(screen.getByTestId("image-thumb-url")).toHaveTextContent(
+      "blob:cached-image-1",
+    );
+  });
+
+  it("clamps openModalWithMedia index to last item when initial index is too large", async () => {
+    render(
+      <GalleryProvider>
+        <Probe />
+      </GalleryProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("gallery-loaded")).toHaveTextContent("true"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "open-mixed" }));
+
+    expect(screen.getByTestId("modal-open")).toHaveTextContent("true");
+    expect(screen.getByTestId("modal-index")).toHaveTextContent("2");
+    expect(screen.getByTestId("modal-ids")).toHaveTextContent(
+      "img-1.jpg,img-2.jpg,v1.mp4",
+    );
   });
 });

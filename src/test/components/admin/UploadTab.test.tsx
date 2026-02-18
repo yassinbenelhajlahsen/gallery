@@ -258,6 +258,26 @@ describe("UploadTab", () => {
     expect(toastMock).toHaveBeenCalledWith("Event created successfully!", "success");
   });
 
+  it("shows error toast when event creation fails", async () => {
+    addDocMock.mockRejectedValueOnce(new Error("firestore down"));
+    render(<UploadTab />);
+
+    const dateInputs = getDateInputs();
+    fireEvent.change(dateInputs[0], { target: { value: "2024-10-01" } });
+    fireEvent.change(screen.getByLabelText(/Title/i), {
+      target: { value: "Broken Event" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Event" }));
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(
+        "Failed to create event. Please try again.",
+        "error",
+      );
+    });
+  });
+
   it("does not infer metadata date when an event is selected", async () => {
     render(<UploadTab />);
 
@@ -376,5 +396,25 @@ describe("UploadTab", () => {
       expect.objectContaining({ id: "beach-1.jpg" }),
       { merge: true },
     );
+  });
+
+  it("shows fatal upload error when every file fails metadata write", async () => {
+    setDocMock.mockRejectedValueOnce(new Error("firestore write failed"));
+    render(<UploadTab />);
+
+    const dateInputs = getDateInputs();
+    fireEvent.change(dateInputs[1], { target: { value: "2024-09-20" } });
+
+    const fileInput = getFileInput();
+    const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload Media" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Upload Failed")).toBeInTheDocument();
+    });
+    expect(screen.getByText("No files were successfully uploaded")).toBeInTheDocument();
+    expect(refreshGalleryMock).not.toHaveBeenCalled();
   });
 });
