@@ -108,4 +108,25 @@ describe("App routing guards", () => {
     });
     expect(window.location.pathname).toBe("/loading");
   });
+
+  it("redirects authenticated users away from /login to /loading", async () => {
+    galleryState.hasGalleryLoadedOnce = false;
+    await renderAppAt("/login");
+
+    await waitFor(() => {
+      expect(screen.getByText("LOADING_PAGE")).toBeInTheDocument();
+    });
+    expect(window.location.pathname).toBe("/loading");
+  });
+
+  it("redirects /loading to /home once gallery has loaded", async () => {
+    galleryState.hasGalleryLoadedOnce = true;
+    await renderAppAt("/loading");
+
+    await waitFor(() => {
+      expect(screen.getByText("HOME_PAGE")).toBeInTheDocument();
+    });
+    expect(window.location.pathname).toBe("/home");
+  });
+
 });
