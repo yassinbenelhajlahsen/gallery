@@ -164,6 +164,7 @@ const videoTile = {
   url: resolveVideoThumbUrl(videoMeta),
   caption: videoMeta.caption,
   mediaType: "video" as const,
+  durationSeconds: videoMeta.durationSeconds,
   onClick: () => openModalWithMedia(videoCollection, { imageId: videoMeta.id }),
 };
 

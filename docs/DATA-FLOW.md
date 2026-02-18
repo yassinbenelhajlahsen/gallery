@@ -52,6 +52,7 @@ type VideoMeta = {
   caption?: string; // from Firestore doc
   videoPath: string; // Storage path like "videos/full/video1.mp4"
   thumbUrl: string; // poster thumbnail URL (resolves from thumbPath or falls back)
+  durationSeconds?: number; // whole seconds from Firestore metadata
 };
 ```
 
@@ -60,14 +61,16 @@ type VideoMeta = {
 1. `getDocs(collection(db, "images"))` / `getDocs(collection(db, "videos"))` to load Firestore docs
 2. For each doc, read the storage paths (`fullPath` / `videoPath` and `thumbPath`) and build signed URLs with `getDownloadURL(ref(storage, path))`
 3. Normalize `date` from the Firestore field (supports ISO string or Firestore Timestamp). If missing/invalid, fall back to `new Date().toISOString()`
-4. If a thumb download fails, fall back to the full download URL (maintains existing fallback behavior)
-5. Return results sorted **newest-first** by date
+4. For videos, normalize `durationSeconds` from Firestore to a whole-number second value when present
+5. If a thumb download fails, fall back to the full download URL (maintains existing fallback behavior)
+6. Return results sorted **newest-first** by date
 
 **Key details:**
 
 - Metadata now comes from Firestore documents (`images` / `videos`). Do not rely on Storage object `customMetadata`.
-- If a thumbnail doesn't exist in `images/videos/thumb/`, the service falls back to the full-res URL
+- If a thumbnail doesn't exist in `images/thumb/` or `videos/thumb/`, the service falls back to the full-res URL
 - Date parsing is defensive — supports Firestore Timestamp objects and ISO strings, otherwise falls back to `new Date().toISOString()`
+- Video duration is read from Firestore (`durationSeconds`) rather than probed during metadata fetch.
 
 ### `eventsService.ts`
 
@@ -278,6 +281,9 @@ Upload flow:
   Original file → convertToJpeg() → full-res JPEG (quality 0.9)
                 → generateThumbnail() → 480px thumb JPEG (quality 0.7)
                 → Upload both to Firebase Storage
+  Video file → extractVideoPoster() → poster JPEG + durationSeconds
+             → Upload video + poster to Firebase Storage
+             → Write Firestore video metadata including durationSeconds
 
 Display flow:
   1. IndexedDB cache → thumbnail blob URL (instant, ~50ms)
