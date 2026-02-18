@@ -40,7 +40,11 @@ class FakeTransaction {
   public onerror: null | (() => void) = null;
   private completeScheduled = false;
 
-  constructor(private readonly store: Map<string, unknown>) {}
+  private readonly store: Map<string, unknown>;
+
+  constructor(store: Map<string, unknown>) {
+    this.store = store;
+  }
 
   private scheduleComplete() {
     if (this.completeScheduled) return;
@@ -183,8 +187,8 @@ describe("mediaCacheService", () => {
     Object.defineProperty(globalThis, "fetch", {
       configurable: true,
       writable: true,
-      value: vi.fn(async (_url: string) => {
-        return new Response(new Blob(["thumb"]), { status: 200 });
+      value: vi.fn(async () => {
+        return new Response("thumb", { status: 200 });
       }),
     });
   });
