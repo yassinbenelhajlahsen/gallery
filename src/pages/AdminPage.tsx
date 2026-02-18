@@ -7,8 +7,8 @@ type AdminTab = "upload" | "delete";
 const getTabFromParams = (tabParam: string | null): AdminTab =>
   tabParam === "delete" ? "delete" : "upload";
 
-const AdminUploadTab = lazy(() => import("../components/admin/AdminUploadTab"));
-const AdminDeleteTab = lazy(() => import("../components/admin/AdminDeleteTab"));
+const UploadTab = lazy(() => import("../components/admin/UploadTab"));
+const DeleteTab = lazy(() => import("../components/admin/DeleteTab"));
 
 export default function AdminPage() {
   const isVisible = usePageReveal();
@@ -49,7 +49,9 @@ export default function AdminPage() {
 
     const observer = new ResizeObserver(() => {
       const activePanel =
-        activeTab === "upload" ? uploadPanelRef.current : deletePanelRef.current;
+        activeTab === "upload"
+          ? uploadPanelRef.current
+          : deletePanelRef.current;
       if (!activePanel) return;
       setPanelHeight(activePanel.scrollHeight);
     });
@@ -118,8 +120,16 @@ export default function AdminPage() {
                     : "pointer-events-none absolute inset-0 -translate-x-full opacity-0"
                 }`}
               >
-                <Suspense fallback={<div className="py-10 text-center text-sm text-[#777]">Loading upload tools…</div>}>
-                  {loadedTabs.upload || activeTab === "upload" ? <AdminUploadTab /> : null}
+                <Suspense
+                  fallback={
+                    <div className="py-10 text-center text-sm text-[#777]">
+                      Loading upload tools…
+                    </div>
+                  }
+                >
+                  {loadedTabs.upload || activeTab === "upload" ? (
+                    <UploadTab />
+                  ) : null}
                 </Suspense>
               </div>
               <div
@@ -130,8 +140,16 @@ export default function AdminPage() {
                     : "pointer-events-none absolute inset-0 translate-x-full opacity-0"
                 }`}
               >
-                <Suspense fallback={<div className="py-10 text-center text-sm text-[#777]">Loading delete tools…</div>}>
-                  {loadedTabs.delete || activeTab === "delete" ? <AdminDeleteTab /> : null}
+                <Suspense
+                  fallback={
+                    <div className="py-10 text-center text-sm text-[#777]">
+                      Loading delete tools…
+                    </div>
+                  }
+                >
+                  {loadedTabs.delete || activeTab === "delete" ? (
+                    <DeleteTab />
+                  ) : null}
                 </Suspense>
               </div>
             </div>

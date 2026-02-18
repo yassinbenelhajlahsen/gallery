@@ -225,6 +225,7 @@ type FloatingInputProps = {
 **File:** `src/components/Footer.tsx`
 
 Simple centered footer: `Made with ♥ for {config.coupleDisplay}` plus:
+
 - `Admin` button linking to `/admin?tab=upload`
 - `Logout` button
 
@@ -282,9 +283,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Content height animates to the active tab, so inactive tab content doesn't force long page height
 - Admin route and tab panels are lazy-loaded for smaller initial bundle cost
 
-### `AdminUploadTab`
+### `UploadTab`
 
-**File:** `src/components/admin/AdminUploadTab.tsx`
+**File:** `src/components/admin/UploadTab.tsx`
 
 - File selection → client-side JPEG conversion → upload to Firebase Storage
 - Generates both full-res JPEG (quality 0.9) and thumbnail (480px, quality 0.7) for images
@@ -299,9 +300,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 - Uses `useToast` for success notification
 - Automatically refreshes gallery after successful uploads to show new content immediately
 
-### `AdminDeleteTab`
+### `DeleteTab`
 
-**File:** `src/components/admin/AdminDeleteTab.tsx`
+**File:** `src/components/admin/DeleteTab.tsx`
 
 - Delete tools for images, videos, and timeline events
 - Two-step inline confirmation (`Delete` → `Confirm Delete`) without modal

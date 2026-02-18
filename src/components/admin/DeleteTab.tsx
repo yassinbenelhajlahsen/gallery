@@ -46,7 +46,7 @@ const toDateLabel = (dateValue: string) => {
   return dateValue;
 };
 
-export default function AdminDeleteTab() {
+export default function DeleteTab() {
   const {
     imageMetas,
     videoMetas,
@@ -75,7 +75,10 @@ export default function AdminDeleteTab() {
 
   const removeMediaFromEventRefs = async (mediaId: string) => {
     const eventsWithMedia = await getDocs(
-      query(collection(db, "events"), where("imageIds", "array-contains", mediaId)),
+      query(
+        collection(db, "events"),
+        where("imageIds", "array-contains", mediaId),
+      ),
     );
 
     await Promise.all(
@@ -87,11 +90,17 @@ export default function AdminDeleteTab() {
     );
   };
 
-  const clearEventFromLinkedMedia = async (eventTitle: string, mediaIds: string[]) => {
+  const clearEventFromLinkedMedia = async (
+    eventTitle: string,
+    mediaIds: string[],
+  ) => {
     const batch = writeBatch(db);
     const queuedRefs = new Set<string>();
 
-    const queueClearEvent = (collectionName: "images" | "videos", id: string) => {
+    const queueClearEvent = (
+      collectionName: "images" | "videos",
+      id: string,
+    ) => {
       const key = `${collectionName}:${id}`;
       if (queuedRefs.has(key)) return;
       queuedRefs.add(key);
@@ -99,12 +108,20 @@ export default function AdminDeleteTab() {
     };
 
     const [imagesByEvent, videosByEvent] = await Promise.all([
-      getDocs(query(collection(db, "images"), where("event", "==", eventTitle))),
-      getDocs(query(collection(db, "videos"), where("event", "==", eventTitle))),
+      getDocs(
+        query(collection(db, "images"), where("event", "==", eventTitle)),
+      ),
+      getDocs(
+        query(collection(db, "videos"), where("event", "==", eventTitle)),
+      ),
     ]);
 
-    imagesByEvent.docs.forEach((imageDoc) => queueClearEvent("images", imageDoc.id));
-    videosByEvent.docs.forEach((videoDoc) => queueClearEvent("videos", videoDoc.id));
+    imagesByEvent.docs.forEach((imageDoc) =>
+      queueClearEvent("images", imageDoc.id),
+    );
+    videosByEvent.docs.forEach((videoDoc) =>
+      queueClearEvent("videos", videoDoc.id),
+    );
 
     await Promise.all(
       mediaIds.map(async (mediaId) => {
@@ -139,14 +156,19 @@ export default function AdminDeleteTab() {
     }
   };
 
-  const deleteImage = async (id: string, fullPath: string, thumbPath: string) => {
+  const deleteImage = async (
+    id: string,
+    fullPath: string,
+    thumbPath: string,
+  ) => {
     await performDelete(`image:${id}`, async () => {
       const [fullResult, thumbResult] = await Promise.allSettled([
         deleteObject(ref(storage, fullPath)),
         deleteObject(ref(storage, thumbPath)),
       ]);
 
-      const fullError = fullResult.status === "rejected" ? fullResult.reason : null;
+      const fullError =
+        fullResult.status === "rejected" ? fullResult.reason : null;
       const thumbError =
         thumbResult.status === "rejected" ? thumbResult.reason : null;
 
@@ -164,14 +186,19 @@ export default function AdminDeleteTab() {
     });
   };
 
-  const deleteVideo = async (id: string, fullPath: string, thumbPath: string) => {
+  const deleteVideo = async (
+    id: string,
+    fullPath: string,
+    thumbPath: string,
+  ) => {
     await performDelete(`video:${id}`, async () => {
       const [fullResult, thumbResult] = await Promise.allSettled([
         deleteObject(ref(storage, fullPath)),
         deleteObject(ref(storage, thumbPath)),
       ]);
 
-      const fullError = fullResult.status === "rejected" ? fullResult.reason : null;
+      const fullError =
+        fullResult.status === "rejected" ? fullResult.reason : null;
       const thumbError =
         thumbResult.status === "rejected" ? thumbResult.reason : null;
 
@@ -189,7 +216,11 @@ export default function AdminDeleteTab() {
     });
   };
 
-  const deleteEvent = async (eventId: string, eventTitle: string, mediaIds: string[]) => {
+  const deleteEvent = async (
+    eventId: string,
+    eventTitle: string,
+    mediaIds: string[],
+  ) => {
     await performDelete(`event:${eventId}`, async () => {
       await clearEventFromLinkedMedia(eventTitle, mediaIds);
       await deleteDoc(doc(db, "events", eventId));
@@ -214,7 +245,9 @@ export default function AdminDeleteTab() {
         <span className="inline-flex items-center gap-2 rounded-full bg-[#D24A4A]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-[#7d1f1f]">
           Delete
         </span>
-        <h2 className="text-2xl font-bold text-[#333]">Delete Media & Events</h2>
+        <h2 className="text-2xl font-bold text-[#333]">
+          Delete Media & Events
+        </h2>
         <p className="text-sm text-[#666]">
           Click delete once, then click again to confirm.
         </p>
@@ -244,14 +277,22 @@ export default function AdminDeleteTab() {
                     className="h-12 w-12 rounded-lg object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#333]">{meta.id}</p>
-                    <p className="text-xs text-[#777]">{toDateLabel(meta.date)}</p>
+                    <p className="truncate text-sm font-medium text-[#333]">
+                      {meta.id}
+                    </p>
+                    <p className="text-xs text-[#777]">
+                      {toDateLabel(meta.date)}
+                    </p>
                   </div>
                   <button
                     type="button"
                     disabled={Boolean(busyKey)}
                     onClick={() =>
-                      deleteImage(meta.id, meta.storagePath, `images/thumb/${meta.id}`)
+                      deleteImage(
+                        meta.id,
+                        meta.storagePath,
+                        `images/thumb/${meta.id}`,
+                      )
                     }
                     className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -288,8 +329,12 @@ export default function AdminDeleteTab() {
                     className="h-12 w-12 rounded-lg object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#333]">{meta.id}</p>
-                    <p className="text-xs text-[#777]">{toDateLabel(meta.date)}</p>
+                    <p className="truncate text-sm font-medium text-[#333]">
+                      {meta.id}
+                    </p>
+                    <p className="text-xs text-[#777]">
+                      {toDateLabel(meta.date)}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -314,7 +359,9 @@ export default function AdminDeleteTab() {
 
       <section className="space-y-3 rounded-2xl border border-[#f1dada] bg-white/80 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-[#333]">Timeline Events</h3>
+          <h3 className="text-base font-semibold text-[#333]">
+            Timeline Events
+          </h3>
           <span className="rounded-full bg-[#ffe8e8] px-3 py-1 text-xs font-semibold text-[#7d1f1f]">
             {sortedEvents.length}
           </span>
@@ -334,8 +381,12 @@ export default function AdminDeleteTab() {
                     {event.emojiOrDot ?? "•"}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#333]">{event.title}</p>
-                    <p className="text-xs text-[#777]">{toDateLabel(event.date)}</p>
+                    <p className="truncate text-sm font-medium text-[#333]">
+                      {event.title}
+                    </p>
+                    <p className="text-xs text-[#777]">
+                      {toDateLabel(event.date)}
+                    </p>
                   </div>
                   <button
                     type="button"
