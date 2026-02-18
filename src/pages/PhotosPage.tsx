@@ -175,7 +175,7 @@ const All: React.FC = () => {
                       onClick: () => handleTileClick(meta),
                     };
                   })}
-                  columns={{ base: 1, sm: 2, md: 3, lg: 4 }}
+                  columns={{ base: 3, sm: 2, md: 3, lg: 4 }}
                 />
               </div>
             </section>
