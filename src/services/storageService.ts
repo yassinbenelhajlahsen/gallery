@@ -219,7 +219,6 @@ export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
           type: "video" as const,
           date,
           event: typeof data.event === "string" ? data.event : undefined,
-          caption: typeof data.caption === "string" ? data.caption : undefined,
           videoPath,
           thumbUrl,
           durationSeconds: normalizeDurationSeconds(data.durationSeconds),

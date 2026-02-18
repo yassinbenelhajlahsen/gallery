@@ -431,7 +431,6 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
 
   const hasMultipleItems = media.length > 1;
   const eventLabel = currentItem?.event ?? "";
-  const captionLabel = currentItem?.caption;
   const dateLabel = currentItem
     ? toLocalDate(currentItem.date).toLocaleDateString(undefined, {
         year: "numeric",
@@ -553,7 +552,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
                         <ModalImage
                           src={imgUrl}
                           thumbSrc={thumbUrl}
-                          alt={image.caption ?? image.event ?? "Gallery image"}
+                          alt={image.event ?? "Gallery image"}
                           isActive={isActiveSlide}
                           isFullRes={isFullRes}
                         />
@@ -601,9 +600,6 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
             className="metadata-fade-up transition-opacity duration-200"
           >
             <p className="text-base font-semibold text-white">{eventLabel}</p>
-            {captionLabel && (
-              <p className="leading-relaxed text-white/80">{captionLabel}</p>
-            )}
             {dateLabel && <p className="text-xs text-white/60">{dateLabel}</p>}
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
