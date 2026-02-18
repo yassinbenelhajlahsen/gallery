@@ -8,7 +8,6 @@ export type BaseMediaMeta = {
   type: MediaType;
   date: string;
   event?: string;
-  caption?: string;
 };
 
 export type VideoMeta = BaseMediaMeta & {

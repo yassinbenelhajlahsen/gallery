@@ -122,7 +122,7 @@ const VideosPage: React.FC = () => {
                       tiles={monthGroup.items.map((meta) => ({
                         id: meta.id,
                         url: resolveVideoThumbUrl(meta),
-                        caption: meta.caption ?? meta.event,
+                        caption: meta.event,
                         mediaType: "video" as const,
                         durationSeconds: meta.durationSeconds,
                         onClick: () => handleTileClick(meta),
