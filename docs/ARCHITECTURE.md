@@ -1,181 +1,222 @@
 # Architecture Overview
 
-> Quick-reference for agents and developers to understand the app's structure, provider hierarchy, routing, and file organization.
+> Reference for how the app is actually wired today: provider boundaries, route guards, directory layout, and data contracts.
 
 ## Tech Stack
 
-| Layer     | Technology                                                    |
-| --------- | ------------------------------------------------------------- |
-| Framework | React 19 + TypeScript                                         |
-| Routing   | react-router-dom v7 (`createBrowserRouter`)                   |
-| Styling   | Tailwind CSS v4 (PostCSS plugin)                              |
-| Backend   | Firebase Auth (email/password) + Firebase Storage + Firestore |
-| Caching   | IndexedDB via custom `mediaCacheService`                      |
-| Build     | Vite + `tsc -b` (see `npm run build`)                         |
+| Layer | Technology |
+| --- | --- |
+| UI | React 19 + TypeScript |
+| Routing | `react-router-dom` v7 (`createBrowserRouter`) |
+| Styling | Tailwind CSS v4 (PostCSS plugin) |
+| Backend | Firebase Auth + Firestore + Storage |
+| Caching | IndexedDB via `mediaCacheService` |
+| Build | Vite + TypeScript project references (`tsc -b`) |
+| Test | Vitest + Testing Library + jsdom |
 
 ## Directory Map
 
-```
+```text
 src/
-├── App.tsx                     # Root: provider tree + router + backdrop
-├── config.ts                   # All env-driven strings (VITE_*)
-├── main.tsx                    # ReactDOM entry
-├── index.css                   # Tailwind directives + global styles
-│
+├── App.tsx
+├── main.tsx
+├── config.ts
+├── index.css
 │
 ├── components/
 │   ├── admin/
-│   │   ├── DeleteTab.tsx  # Admin delete tools (media + events)
-│   │   └── UploadTab.tsx  # Admin upload + event creation tools
-│   ├── Footer.tsx              # Site-wide footer
-│   ├── GalleryGrid.tsx         # Responsive grid of square tiles (reusable)
-│   ├── GalleryModalRenderer.tsx# Mounts mediaModalViewer from GalleryContext
-│   ├── mediaModalViewer.tsx    # Full-screen lightbox that supports images & videos
-│   ├── Navbar.tsx              # Sticky top nav with route links
-│   ├── ScrollToTop.tsx         # Scroll-to-top on route change
-│   ├── TimelineEventItem.tsx   # Single event row for the timeline
+│   │   ├── UploadTab.tsx
+│   │   └── DeleteTab.tsx
+│   ├── gallery/
+│   │   ├── GalleryGrid.tsx
+│   │   ├── GalleryModalRenderer.tsx
+│   │   └── mediaModalViewer.tsx
+│   ├── layout/
+│   │   ├── Navbar.tsx
+│   │   ├── Footer.tsx
+│   │   └── ScrollToTop.tsx
+│   ├── timeline/
+│   │   └── TimelineEventItem.tsx
 │   └── ui/
-│       └── FloatingInput.tsx   # Reusable floating-label input
+│       └── FloatingInput.tsx
 │
 ├── context/
-│   ├── AuthContext.tsx          # Auth state + login/logout
-│   ├── GalleryContext.tsx       # Image metas, events, preloading, modal state
-│   └── ToastContext.tsx         # Toast notification system
+│   ├── AuthContext.tsx
+│   ├── GalleryContext.tsx
+│   └── ToastContext.tsx
 │
 ├── hooks/
-│   ├── useFullResLoader.ts     # On-demand full-res download URL loader
-│   ├── useGalleryLoadingProgress.ts  # (Legacy) standalone loading hook
-│   └── usePageReveal.ts        # Fade/slide entrance transition flag
-│
-├── utils/
-│   └── runtime.ts              # Runtime-safe environment helpers
-│
-├── test/
-│   └── setup.ts                # Vitest testing setup
+│   ├── useFullResLoader.ts
+│   ├── usePageReveal.ts
+│   └── useGalleryLoadingProgress.ts   # legacy / not used by main app shell
 │
 ├── pages/
-│   ├── HomePage.tsx            # Random photo grid + hero
-│   ├── LoadingScreen.tsx       # Shown until gallery first loads
-│   ├── LoginPage.tsx           # Password-only login
-│   ├── NotFoundPage.tsx        # 404 page
-│   ├── PhotosPage.tsx          # Alias/entry for the All photos page (route: /photos)
-│   ├── VideosPage.tsx          # Videos gallery page (groups videos by year)
-│   ├── TimelinePage.tsx        # Chronological event list
-│   └── AdminPage.tsx           # Admin container with Upload/Delete tabs (lazy-loaded route)
+│   ├── LoginPage.tsx
+│   ├── LoadingScreen.tsx
+│   ├── HomePage.tsx
+│   ├── TimelinePage.tsx
+│   ├── PhotosPage.tsx
+│   ├── VideosPage.tsx
+│   ├── AdminPage.tsx
+│   └── NotFoundPage.tsx
 │
-└── services/
-    ├── authService.ts           # Firebase Auth wrapper
-    ├── eventsService.ts         # Firestore events: fetch/create operations
-    ├── firebaseConfig.ts        # Firebase app init + exports (Auth, Storage, Firestore)
-    ├── mediaCacheService.ts     # IndexedDB cache (thumbnails + manifest)
-    └── storageService.ts        # Firestore media metadata + Storage URL resolution
+├── services/
+│   ├── authService.ts
+│   ├── eventsService.ts
+│   ├── storageService.ts
+│   ├── mediaCacheService.ts
+│   ├── firebaseApp.ts
+│   ├── firebaseAuth.ts
+│   ├── firebaseFirestore.ts
+│   ├── firebaseStorage.ts
+│   └── firebaseConfig.ts   # compatibility barrel
+│
+├── types/
+│   ├── mediaTypes.ts
+│   └── network-information.d.ts
+│
+└── utils/
+    ├── uploadDateMetadata.ts
+    ├── uploadMediaUtils.ts
+    ├── durationFormat.ts
+    └── runtime.ts
 ```
 
-## Provider Hierarchy
+## Provider and Route Shell Hierarchy
 
-Providers wrap the entire app in `App.tsx`. **Order matters** — inner providers can consume outer ones.
+`App.tsx` mounts only global app wrappers:
 
-```
-<AuthProvider>                   ← Firebase Auth state
-  <GalleryProvider>              ← Image data, preloading, modal state (consumes useAuth)
-    <ToastProvider>              ← Toast notifications
-      <RomanticBackdrop>         ← Visual wrapper (floating hearts, gradients)
-        <RouterProvider />       ← Route tree
-        <GalleryModalRenderer /> ← Global lightbox (reads GalleryContext)
-      </RomanticBackdrop>
-    </ToastProvider>
-  </GalleryProvider>
+```text
+<AuthProvider>
+  <ToastProvider>
+    <RomanticBackdrop>
+      <RouterProvider />
+    </RomanticBackdrop>
+  </ToastProvider>
 </AuthProvider>
 ```
 
-### Key Implications
+`GalleryProvider` is route-scoped, not global. It is mounted only after auth is satisfied:
 
-- `GalleryProvider` subscribes to `useAuth()`. When the user logs out, it calls `resetState()` which clears all image data **and** wipes the IndexedDB cache.
-- `GalleryModalRenderer` is mounted **outside** the router so the lightbox persists across route transitions.
-- Pages assume all three providers are already mounted — never mount providers inside a page.
+```text
+RequireAuth
+  -> GalleryAppShell
+     -> <GalleryProvider>
+          <Outlet />
+          <GalleryModalRenderer />
+```
 
-## Routing & Auth Guards
+Why this matters:
 
-The router is a flat `createBrowserRouter` array defined in `App.tsx`.
+- Gallery state/caching logic does not run on `/login`.
+- The modal renderer is global inside the authenticated shell (persists across nested route changes).
+- `ToastProvider` is available on both login and authenticated routes.
 
-### Route Table
+## Routing and Guards
 
-| Path        | Guard            | Component       | Notes                                         |
-| ----------- | ---------------- | --------------- | --------------------------------------------- |
-| `/login`    | `GuestRoute`     | `LoginPage`     | Redirects to `/home` or `/loading` if authed  |
-| `/loading`  | `ProtectedRoute` | `LoadingScreen` | Redirects to `/home` once gallery loads       |
-| `/`         | `ProtectedRoute` | `MainLayout`    | Requires auth + `hasGalleryLoadedOnce`        |
-| `/home`     | (nested)         | `HomePage`      | Random photo grid                             |
-| `/timeline` | (nested)         | `TimelinePage`  | Event list from Firestore `events` collection |
-| `/photos`   | (nested)         | `PhotosPage`    | All photos grouped by year (route `/photos`)  |
-| `/videos`   | (nested)         | `VideosPage`    | Videos gallery (route `/videos`)              |
-| `/admin`    | (nested)         | `AdminPage`     | Admin tools page with Upload/Delete tabs      |
-| `/upload`   | (nested)         | Redirect        | Legacy path redirect to `/admin?tab=upload`   |
-| `*`         | —                | `NotFoundPage`  | 404 catch-all                                 |
+Router is defined in `src/App.tsx`.
 
-### Guard Components
+| Path | Guard | Component | Notes |
+| --- | --- | --- | --- |
+| `/login` | `GuestRoute` | `LoginPage` | Authenticated users are redirected to `/loading` |
+| `/` | `RequireAuth` + `GalleryAppShell` | shell | Parent for all authenticated routes |
+| `/loading` | auth-only shell child | `LoadingRoute` -> `LoadingScreen` | Redirects to `/home` once gallery load flag is true |
+| `/home` | `RequireGalleryLoaded` + `MainLayout` | `HomePage` | Main landing page |
+| `/timeline` | same as above | `TimelinePage` | Firestore events + mixed-media modal launch |
+| `/photos` | same as above | `PhotosPage` | Photos grouped by year/month |
+| `/videos` | same as above | `VideosPage` | Videos grouped by year/month |
+| `/admin` | same as above | lazy `AdminPage` | Tab via query string (`?tab=upload|delete`) |
+| `/upload` | same as above | redirect | Legacy redirect to `/admin?tab=upload` |
+| `*` | same as above | `NotFoundPage` | Catch-all |
 
-- **`ProtectedRoute`** — Requires `user` from `useAuth()`. Optional props:
-  - `requireGalleryLoaded` — if true, redirects to `/loading` until `hasGalleryLoadedOnce` is true.
-  - `redirectIfGalleryReadyTo` — if set and gallery IS loaded, redirects (used by `/loading` to bounce to `/home`).
-- **`GuestRoute`** — Requires NO `user`. If authed, redirects to `/home` (or `/loading` if gallery not ready).
+Guard behavior summary:
 
-### MainLayout
+- `RequireAuth`: blocks unauthenticated users.
+- `GuestRoute`: blocks authenticated users from login page.
+- `RequireGalleryLoaded`: forces authenticated users through loading route before main pages.
 
-All authenticated pages render inside `MainLayout`, which provides:
+## Main Layout
 
-- `<ScrollToTop />` — resets scroll on route change
-- `<Navbar />` — sticky top navigation
-- `<main>` wrapper with max-width container
-- `<Footer />` — includes the `Admin` entry point (`/admin?tab=upload`) and logout
+Authenticated content pages render inside `MainLayout`, which provides:
+
+- `ScrollToTop`
+- `Navbar`
+- centered `<main>` container
+- `Footer` (admin entry + logout)
 
 ## Environment Configuration
 
-All user-visible strings live in `src/config.ts`, sourced from `VITE_*` env vars. Firebase credentials are also env-driven via `src/services/firebaseConfig.ts`.
+Firebase credentials are required and read in `src/services/firebaseApp.ts`:
 
-Required env vars for Firebase:
-
-```
+```text
 VITE_FIREBASE_API_KEY
 VITE_FIREBASE_AUTH_DOMAIN
 VITE_FIREBASE_PROJECT_ID
 VITE_FIREBASE_STORAGE_BUCKET
 VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
+```
+
+Auth UX also requires:
+
+```text
 VITE_AUTH_EMAIL
 ```
 
-`VITE_AUTH_EMAIL` is used by the login flow only; real data protection is enforced by Firebase Security Rules.
+User-facing text defaults are in `src/config.ts` and can be overridden with:
 
-Optional display strings (see `config.ts` for defaults):
-
-```
-VITE_COUPLE_DISPLAY, VITE_SITE_TITLE, VITE_SITE_DESCRIPTION,
-VITE_LOGIN_HEADING, VITE_LOGOUT_TOAST,
+```text
+VITE_COUPLE_DISPLAY
+VITE_SITE_TITLE
+VITE_SITE_DESCRIPTION
+VITE_LOGIN_HEADING
+VITE_LOGOUT_TOAST
 VITE_NOT_FOUND_TEXT
 ```
 
-## Firebase Storage Layout
+Note: `.env.example` also includes `measurementId`, but it is currently unused by app code.
 
-```
-images/
-├── full/    ← Original/full-resolution JPEGs
-│   ├── photo1.jpg
-│   └── photo2.jpg
-└── thumb/   ← 480px thumbnails (generated client-side on upload)
-    ├── photo1.jpg
-    └── photo2.jpg
+## Data Model (Firestore + Storage)
 
-videos/
-├── full/    ← Original video files
-│   ├── video1.mp4
-│   └── video2.mov
-└── thumb/   ← Generated poster JPEGs (first frame or custom)
-    ├── video1.jpg
-    └── video2.jpg
+### Storage paths
+
+```text
+images/full/<id>.jpg
+images/thumb/<id>.jpg
+videos/full/<id>.mp4|.mov
+videos/thumb/<basename>.jpg
 ```
 
-- The uploader writes both `images/full/` and `images/thumb/` variants for photos, and `videos/full/` + `videos/thumb/` for videos.
-- `storageService.ts` reads from `full/` directories for metadata + download URLs, and resolves `thumb/` URLs as fallbacks.
-- Media metadata (`date`, `event`, `caption`) is stored on Firestore docs (`images` / `videos`) and read by `storageService.ts`; video docs also include `durationSeconds`.
-- Video thumbnails are generated client-side (first frame extraction) and uploaded as JPEG posters, and duration is extracted during upload and saved to Firestore.
+### Firestore collections
+
+`images/<id>`
+
+- `id`
+- `type: "image"`
+- `date` (normalized to date-like string)
+- `event?`, `caption?`
+- `fullPath`, `thumbPath`
+- `createdAt`
+
+`videos/<id>`
+
+- `id`
+- `type: "video"`
+- `date`
+- `event?`, `caption?`
+- `videoPath`, `thumbPath`
+- `durationSeconds?`
+- `createdAt`
+
+`events/<docId>`
+
+- `date` (`YYYY-MM-DD` expected)
+- `title`
+- `emojiOrDot?`
+- `imageIds?` (can include image ids and video ids)
+- `createdAt?`
+
+## Agent-Critical Notes
+
+- Prefer direct Firebase modules (`firebaseApp/firebaseAuth/firebaseFirestore/firebaseStorage`) over `firebaseConfig.ts` in new code.
+- `GalleryContext.resetState()` currently clears images/videos/modal/cache but does **not** clear `events` state; treat this as a known behavior gap when debugging logout edge cases.

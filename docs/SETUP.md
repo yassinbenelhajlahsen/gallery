@@ -1,11 +1,15 @@
 # Setup Guide
 
-> Clone, configure, and run the gallery locally.
+> Local setup for the current Firebase-backed gallery.
 
 ## Prerequisites
 
-- **Node.js 18+** and npm
-- A **Firebase project** with Authentication (Email/Password), Storage, and Firestore enabled
+- Node.js 18+
+- npm
+- Firebase project with:
+  - Authentication (Email/Password)
+  - Cloud Firestore
+  - Cloud Storage
 
 ## 1. Clone & Install
 
@@ -15,151 +19,154 @@ cd gallery
 npm install
 ```
 
-## 2. Firebase Setup
+## 2. Firebase Project Setup
 
-1. Go to the [Firebase Console](https://console.firebase.google.com/) and create a project (or use an existing one)
-2. **Authentication** → Sign-in method → Enable **Email/Password**
-3. **Authentication** → Users → Add a user (email + password — this is your login)
-4. **Storage** → Get started → Create default bucket
-5. **Storage** → Rules → lock access to your owner UID:
+1. Create/select project in Firebase Console.
+2. Enable **Authentication -> Email/Password**.
+3. Create owner user (email + password).
+4. Enable **Cloud Firestore**.
+5. Enable **Cloud Storage**.
 
-   ```
-   rules_version = '2';
-   service firebase.storage {
-     match /b/{bucket}/o {
-       function isOwner() {
-         return request.auth != null
-           && request.auth.uid == "YOUR_OWNER_UID";
-       }
+## 3. Security Rules (owner-only)
 
-       match /images/{allPaths=**} {
-         allow read, write: if isOwner();
-       }
+Replace `YOUR_OWNER_UID` in both rule sets.
 
-       match /videos/{allPaths=**} {
-         allow read, write: if isOwner();
-       }
+### Storage rules
 
-       match /{allPaths=**} {
-         allow read, write: if false;
-       }
-     }
-   }
-   ```
+```txt
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isOwner() {
+      return request.auth != null && request.auth.uid == "YOUR_OWNER_UID";
+    }
 
-6. **Firestore** → Get started → Create database
-7. **Firestore** → Rules → lock access to your owner UID:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       function isOwner() {
-         return request.auth != null
-           && request.auth.uid == "YOUR_OWNER_UID";
-       }
+    match /images/{allPaths=**} {
+      allow read, write: if isOwner();
+    }
 
-       match /events/{eventId} {
-         allow read, write: if isOwner();
-       }
+    match /videos/{allPaths=**} {
+      allow read, write: if isOwner();
+    }
 
-       // Required by this app for gallery metadata
-       match /images/{imageId} {
-         allow read, write: if isOwner();
-       }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
 
-       // Required by this app for video metadata
-       match /videos/{videoId} {
-         allow read, write: if isOwner();
-       }
+### Firestore rules
 
-       match /{document=**} {
-         allow read, write: if false;
-       }
-     }
-   }
+```txt
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null && request.auth.uid == "YOUR_OWNER_UID";
+    }
 
-   ```
-8. **Project Settings** → Your apps → Add a **Web app** → Copy the config values
+    match /events/{eventId} {
+      allow read, write: if isOwner();
+    }
 
-## 3. Environment Variables
+    match /images/{imageId} {
+      allow read, write: if isOwner();
+    }
+
+    match /videos/{videoId} {
+      allow read, write: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+## 4. Web App Credentials
+
+In Firebase project settings, create a web app and copy config values.
+
+## 5. Environment Variables
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in your Firebase credentials and display strings:
+Required in `.env`:
+
+```txt
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_AUTH_EMAIL=
+```
+
+Optional branding text vars (defaults exist):
+
+```txt
+VITE_SITE_TITLE=
+VITE_COUPLE_DISPLAY=
+VITE_SITE_DESCRIPTION=
+VITE_LOGIN_HEADING=
+VITE_LOGOUT_TOAST=
+VITE_NOT_FOUND_TEXT=
+```
+
+Note: `.env.example` contains `measurementId`, but the app does not currently consume it.
+
+## 6. Run
 
 ```bash
-# Required — Firebase
-VITE_FIREBASE_API_KEY=AIza...
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project
-VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-VITE_FIREBASE_APP_ID=1:123456789:web:abc123
-
-# Required for login UX (not the security boundary)
-VITE_AUTH_EMAIL=your-login@example.com
-
-# Optional — display strings (sensible defaults exist)
-VITE_SITE_TITLE=My Gallery
-VITE_COUPLE_DISPLAY=Partner A & Partner B
+npm run dev
 ```
 
-## 4. Run
+## 7. Build & Test
 
 ```bash
-npm run dev        # Vite dev server at http://localhost:5173
+npm run lint
+npm run test
+npm run build
+npm run preview
 ```
 
-## 5. Build & Preview
+## Expected Backend Structure
+
+### Storage
+
+```txt
+images/full/<id>.jpg
+images/thumb/<id>.jpg
+videos/full/<id>.mp4|.mov
+videos/thumb/<basename>.jpg
+```
+
+### Firestore
+
+```txt
+events/<docId>
+images/<id>
+videos/<id>
+```
+
+`UploadTab` creates these documents/paths.
+
+## Optional: CORS for Local Development
+
+If Storage fetches are blocked in local environments:
 
 ```bash
-npm run build      # TypeScript check + production build
-npm run preview    # Serve the build locally
+gsutil cors set cors.json gs://<your-storage-bucket>
 ```
 
-## Storage Structure
+## Related Docs
 
-The app expects this layout in Firebase Storage (created automatically on first upload):
-
-```
-images/
-├── full/    ← original JPEGs
-└── thumb/   ← 480px thumbnails
-
-videos/
-├── full/    ← original videos
-└── thumb/   ← poster JPEGs
-```
-
-Both are written by the uploader. See [DATA-FLOW.md](DATA-FLOW.md) for the full pipeline.
-
-## Database Structure
-
-The app uses Firestore for timeline events (created via the uploader UI):
-
-```
-events/
-├── <auto-id-1>/    ← event documents (Firestore-generated IDs)
-├── <auto-id-2>/
-└── ...
-```
-
-Each event document contains: `{ date, title, emojiOrDot?, imageIds?, createdAt? }`. The `id` used by the app is the Firestore document ID. See [DATA-FLOW.md](DATA-FLOW.md) for the events service.
-
-## CORS (Optional)
-
-If thumbnail downloads fail locally, deploy the CORS config:
-
-```bash
-gsutil cors set cors.json gs://your-project.appspot.com
-```
-
-## Further Reading
-
-- [ARCHITECTURE.md](ARCHITECTURE.md) — provider hierarchy, routing, file map
-- [DATA-FLOW.md](DATA-FLOW.md) — caching, loading sequence, memory management
-- [COMPONENTS.md](COMPONENTS.md) — component props and usage
-- [CONVENTIONS.md](CONVENTIONS.md) — code patterns and how-to guides
-- [TESTING.md](TESTING.md) — running smoke tests with Vitest
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [DATA-FLOW.md](DATA-FLOW.md)
+- [COMPONENTS.md](COMPONENTS.md)
+- [TESTING.md](TESTING.md)

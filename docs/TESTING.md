@@ -1,8 +1,8 @@
 # Testing
 
-> Minimal reference for running tests in this repo.
+> Current automated test setup and what it covers.
 
-## Test Stack
+## Stack
 
 - Vitest
 - jsdom
@@ -11,53 +11,75 @@
 ## Commands
 
 ```bash
-npm run test        # run all tests once
-npm run test:watch  # watch mode
+npm run test
+npm run test:watch
 ```
+
+## Test Setup
+
+Global setup file: `src/test/setup.ts`
+
+- enables `jest-dom` matchers
+- runs `cleanup()` after each test
 
 ## Test Layout
 
-Tests are centralized under `src/test/`:
+- `src/test/app/` -> routing/guard behavior
+- `src/test/components/` -> component-level behavior
+- `src/test/context/` -> provider lifecycle/state flows
+- `src/test/services/` -> service-layer logic
+- `src/test/pages/` -> page-adjacent utility behavior
+- `src/test/utils/` -> standalone utility logic
 
-- `src/test/app/` — route/guard coverage
-- `src/test/components/` — focused component behavior
-- `src/test/context/` — provider/context flows
-- `src/test/pages/` — page helper utilities
-- `src/test/services/` — service-layer logic
+## Current Coverage Snapshot
 
-Global test setup is in `src/test/setup.ts`:
+### `src/test/app/AppRouting.test.tsx`
 
-- `@testing-library/jest-dom` matchers
-- automatic `cleanup()` after each test
+- unauthenticated users are redirected to `/login`
+- authenticated users with unloaded gallery are redirected to `/loading`
 
-## Current Coverage
+### `src/test/services/authService.test.ts`
 
-- `src/test/app/AppRouting.test.tsx`
-  - `/upload` redirects to `/admin?tab=upload`
-  - unauthenticated users are redirected to `/login`
-  - authenticated users with unloaded gallery are redirected to `/loading`
+- empty password validation
+- sign-in call wiring to configured auth email
+- auth state subscription delegation
+- sign-out delegation
 
-- `src/test/services/authService.test.ts`
-  - empty password rejection
-  - sign-in wiring with configured auth email
-  - auth state subscription delegation
-  - sign-out delegation
+### `src/test/services/storageService.test.ts`
 
-- `src/test/services/storageService.test.ts`
-  - image metadata sorting and thumb fallback behavior
-  - video metadata filtering, thumb fallback, and `durationSeconds` normalization
-  - Firestore/Storage permission-denied error mapping
+- image metadata sort + thumb fallback
+- ISO/timestamp date normalization
+- video metadata filtering + thumb fallback + duration normalization
+- permission-denied error mapping
 
-- `src/test/context/GalleryContext.test.tsx`
-  - gallery loads videos even when image metadata is empty
-  - cache/state reset when auth user logs out
+### `src/test/context/GalleryContext.test.tsx`
 
-- `src/test/components/admin/DeleteTab.test.tsx`
-  - image delete two-step confirm flow
-  - storage + metadata delete wiring
-  - refresh/toast side effects
+- videos load even when image metadata is empty
+- state/cache reset behavior when auth user becomes null
 
-- `src/test/pages/uploadMediaUtils.test.ts`
-  - file extension detection (`.mp4`, `.mov`)
-  - unsupported extension handling
-  - multi-dot filename edge cases
+### `src/test/components/admin/DeleteTab.test.tsx`
+
+- two-step delete confirm flow
+- storage + Firestore delete wiring
+- search filtering behavior
+
+### `src/test/pages/uploadMediaUtils.test.ts`
+
+- video extension detection and normalization
+- unsupported extension handling
+- multi-dot filename support
+
+### `src/test/utils/durationFormat.test.ts`
+
+- `MM:SS` formatting behavior
+- invalid input handling
+
+### `src/test/utils/uploadDateMetadata.test.ts`
+
+- JPEG EXIF date extraction
+- QuickTime/MP4 creation date extraction
+- `lastModified` fallback
+
+## Known Gaps
+
+- No end-to-end browser tests yet (upload/login/modal flows are not fully exercised as user journeys).

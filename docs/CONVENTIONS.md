@@ -1,273 +1,121 @@
-# Conventions & How-To Guides
+# Conventions & How-To
 
-> Patterns, rules, and step-by-step recipes for common development tasks. Follow these to keep the codebase consistent.
+> Project conventions and implementation recipes that match the current codebase.
 
 ## Code Conventions
 
 ### TypeScript
 
-- Strict mode enabled (`tsconfig.app.json`)
-- Use `type` imports: `import type { ImageMeta } from "../services/storageService"`
-- Prefer `satisfies` over `as` for type-safe object literals
-- All components use `React.FC<Props>` or plain function signatures
-- No `any` — use `unknown` and narrow
+- `strict` mode enabled.
+- Prefer explicit types and `type` imports.
+- Avoid `any`; use narrowing from `unknown`.
+- Use `satisfies` where object literal contracts matter.
 
-### React Patterns
+### React
 
-- **Functional components only** — no class components
-- **`useCallback` / `useMemo`** for all non-trivial values passed to children or used in dependency arrays
-- **Cleanup in effects** — always return a cleanup function if the effect creates subscriptions, timers, or blob URLs
-- **Cancellation flags** in async effects: `let cancelled = false; ... return () => { cancelled = true; }`
-- **`useRef`** for mutable values that shouldn't trigger re-renders (e.g., `loadingIdsRef`, `mountedRef`)
+- Functional components only.
+- Use `useMemo` / `useCallback` for derived values and callback props passed down.
+- Effects with subscriptions/timers/object URLs must clean up.
+- Async effect flows should include cancellation guards when race conditions are possible.
 
 ### Styling
 
-- **Tailwind-first** — no CSS modules or styled-components
-- Pastel color palette — see palette below
-- Use Tailwind utility classes directly in JSX `className`
-- For responsive breakpoints: `sm:`, `md:`, `lg:` (mobile-first)
-- Animations use `transition-all duration-200` or `duration-400` with `ease-out`
-- Interactive elements get `touch-manipulation` for mobile tap delay removal
-- Hover effects: `hover:scale-[1.03]` / `active:scale-[0.98]` pattern
-
-**Core color palette:**
-| Token | Hex | Usage |
-| ------------- | ----------- | ------------------------------ |
-| Background | `#FAFAF7` | Page background |
-| Text primary | `#333` | Body text |
-| Text muted | `#777` | Secondary text |
-| Pink pastel | `#F7DEE2` | Home nav active, accents |
-| Blue pastel | `#D8ECFF` | Timeline nav active, accents |
-| Gold pastel | `#FFE39F` | Gallery nav active, badges |
-| Card bg | `white/80` | Card backgrounds (with blur) |
-| Border | `#EDEDED` | Subtle borders |
-| Heart pink | `#F7889D` | Heart accent color |
-
-**Card pattern:**
-
-```
-rounded-[36px] bg-white/80 p-10 shadow-[0_35px_120px_rgba(248,180,196,0.35)]
-ring-1 ring-white/60 backdrop-blur-2xl
-```
+- Tailwind-first.
+- Existing UI language is soft pastel, rounded cards, blur/ring overlays.
+- Keep interaction affordances (`hover` / `active` / keyboard focus) consistent.
+- Respect `prefers-reduced-motion` patterns used in `src/index.css`.
 
 ### File Organization
 
-- **Pages** → `src/pages/` — full-page components, assume providers are mounted
-- **Components** → `src/components/` — reusable presentational pieces
-- **UI primitives** → `src/components/ui/` — low-level form elements
-- **Hooks** → `src/hooks/` — custom React hooks
-- **Context** → `src/context/` — React context providers
-- **Services** → `src/services/` — Firebase / external API wrappers
-- **Assets** → `src/assets/` — static JSON data, images
+- Pages: `src/pages`
+- Reusable feature components: `src/components/*`
+- UI primitives: `src/components/ui`
+- State providers: `src/context`
+- Backend wrappers: `src/services`
+- Shared logic: `src/hooks`, `src/utils`, `src/types`
 
----
+## Implementation Recipes
 
-## How-To Guides
+### Add a New Authenticated Page
 
-### Adding a New Page
+1. Create page in `src/pages/NewPage.tsx`.
+2. Use `usePageReveal()` for route entrance motion (same pattern as current pages).
+3. Register route in `src/App.tsx` inside `RequireGalleryLoaded` branch (under `MainLayout` children).
+4. Add navbar entry only if it should be globally navigable.
 
-1. **Create the page component** in `src/pages/NewPage.tsx`:
+### Open the Global Modal
 
-   ```tsx
-   import React from "react";
-   import { usePageReveal } from "../hooks/usePageReveal";
-
-   const NewPage: React.FC = () => {
-     const isVisible = usePageReveal();
-
-     return (
-       <section className="flex w-full justify-center">
-         <div
-           className={`mx-auto w-full max-w-5xl space-y-10 rounded-[36px] bg-white/80 p-10
-             shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl
-             transition-all duration-400 ease-out
-             ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-         >
-           {/* Page content */}
-         </div>
-       </section>
-     );
-   };
-
-   export default NewPage;
-   ```
-
-2. **Add the route** in `src/App.tsx` inside the `children` array of the `"/"` layout route:
-
-   ```tsx
-   { path: "new-page", element: <NewPage /> },
-   ```
-
-3. **(Optional) Add nav link** in `src/components/Navbar.tsx`:
-
-   ```tsx
-   { label: "New", to: "/new-page", activeClass: "bg-[#D8ECFF]" },
-   ```
-
-4. **Key rules:**
-   - Always use `usePageReveal()` for entrance animation
-   - Page renders inside `MainLayout` — Navbar, Footer, ScrollToTop are automatic
-   - Access data via `useGallery()`, `useAuth()`, `useToast()` — never import providers
-
-### Opening the media modal
-
-Never mount the `mediaModalViewer` directly. Use the global instance via context helpers exposed by `GalleryContext`:
+Use `useGallery()` helpers:
 
 ```tsx
-const { openModalWithImages, openModalWithMedia, openModalForImageId } =
-  useGallery();
+const { openModalWithImages, openModalWithMedia, openModalForImageId } = useGallery();
 
-// Open with a subset of images
-openModalWithImages(someImages, { initialIndex: 0 });
-
-// Open with a mixed media array (images + videos)
-openModalWithMedia(mixedMediaArray, { initialIndex: 0 });
-
-// Open at a specific image (searches imageMetas or provided collection)
-openModalForImageId("photo1.jpg");
-
-// Open with full preloading (for small sets, like timeline events)
-openModalWithImages(eventImages, { preloadAll: true });
+openModalWithImages(images, { initialIndex: 0 });
+openModalWithMedia(mixedMedia, { preloadAll: true });
+openModalForImageId("photo-1.jpg", imageSubset);
 ```
 
-### Displaying Images in a Grid
+Do not mount modal directly in pages.
 
-Use `GalleryGrid` for any image grid. For progressive full-res loading (used by `All`):
+### Build Gallery Tiles
 
-```tsx
-import { useFullResLoader } from "../hooks/useFullResLoader";
-import { useGallery } from "../context/GalleryContext";
-import GalleryGrid from "../components/GalleryGrid";
+Use `GalleryGrid` and compose tile data from context + `useFullResLoader`:
 
-const { imageMetas, resolveThumbUrl } = useGallery();
-const { resolveUrl, requestFullRes } = useFullResLoader();
+- image tiles: `url` = thumb (cached or network), `fullUrl` = resolved full URL
+- video tiles: `url` = poster thumb, set `mediaType: "video"`, `durationSeconds`
 
-// Start loading full-res for visible images
-useEffect(() => {
-  requestFullRes(visibleMetas);
-}, [visibleMetas]);
+### Upload Media Programmatically
 
-// Build tiles (images)
-const tiles = metas.map((meta) => {
-  const thumbUrl = resolveThumbUrl(meta);
-  return {
-    id: meta.id,
-    url: thumbUrl,
-    fullUrl: resolveUrl(meta, thumbUrl),
-    onClick: () => openModalForImageId(meta.id),
-  };
-});
+Mirror `UploadTab` behavior:
 
-// Example video tile — set `mediaType: 'video'` and use the video poster as the URL
-const videoTile = {
-  id: videoMeta.id,
-  url: resolveVideoThumbUrl(videoMeta),
-  caption: videoMeta.caption,
-  mediaType: "video" as const,
-  durationSeconds: videoMeta.durationSeconds,
-  onClick: () => openModalWithMedia(videoCollection, { imageId: videoMeta.id }),
-};
+1. Generate/upload image full + thumb OR video + poster.
+2. Write Firestore metadata doc (`images` or `videos`) with storage paths and app metadata.
+3. Keep metadata in Firestore, not Storage custom metadata.
+4. Refresh gallery state after successful writes (`refreshGallery`).
 
-<GalleryGrid tiles={tiles} columns={{ base: 2, sm: 3, md: 4 }} />;
-```
+### Create Timeline Events
 
-For **full-res-only rendering** (used by `HomePage`), gate the UI behind `hasFullRes`:
+Use Firestore `addDoc(collection(db, "events"), ...)` with:
 
-```tsx
-const { resolveUrl, requestFullRes, hasFullRes } = useFullResLoader();
+- `date` (`YYYY-MM-DD`)
+- `title`
+- optional `emojiOrDot`
+- optional `imageIds` (defaults empty)
 
-// Check all images are loaded before showing any content
-const allReady =
-  chosenIds.length > 0 && chosenIds.every((id) => hasFullRes(id));
-
-// Show spinner until ready, then render images with full-res download URLs
-```
-
-### Adding a Timeline Event
-
-Events are now created through the admin upload UI and stored in Firestore. Use the "Create New Event" form in admin upload:
-
-1. Navigate to `/admin?tab=upload` (or `/upload`, which redirects to admin upload)
-2. Fill in the event creation form:
-   - **Date** (required): Event date in YYYY-MM-DD format
-   - **Emoji** (optional): Display emoji for the event
-   - **Title** (required): Event name/title
-3. Click "Create Event"
-
-**Rules:**
-
-- Event document IDs are generated by Firestore (`addDoc`)
-- `date` must be `YYYY-MM-DD` format
-- `imageIds` start empty — images link by matching the `event` field on the image/video Firestore doc to the event `title` (case-insensitive)
-- Events auto-sort newest-first in `TimelinePage`
-- Events are stored in Firestore `events` collection with auth-protected access
-
-### Uploading Images (Programmatically)
-
-Follow the same pattern as `UploadTab.tsx`:
-
-1. Convert to JPEG client-side (use the `loadImage` → `convertToJpeg` pipeline)
-2. Generate a 480px thumbnail (`generateThumbnail`)
-3. Upload both to `images/full/<name>.jpg` and `images/thumb/<name>.jpg`
-4. Do NOT store app fields in Storage object metadata. Instead, after successful uploads write or update a Firestore doc in the `images` collection with the JSON metadata: `{ id, type: "image", date, event?, caption?, fullPath, thumbPath, createdAt: serverTimestamp() }`. Use `setDoc(doc(db, "images", id), payload, { merge: true })` so retries are safe.
-5. Gallery auto-refreshes on next auth-triggered load; you can also call `refreshGallery()` after upload to immediately surface new items.
-
-### Adding a Toast Notification
-
-```tsx
-import { useToast } from "../context/ToastContext";
-
-const { toast } = useToast();
-
-toast("Upload complete!", "success"); // green
-toast("Something went wrong", "error"); // red
-toast("See you soon ♥", "logout"); // blue (default)
-```
-
-Auto-dismisses after 1.5s. Three variants: `success`, `error`, `logout`.
-
----
+Events are displayed newest-first.
 
 ## Common Pitfalls
 
-### ❌ Storing gallery data outside GalleryContext
+### Direct Firebase calls from pages/components
 
-The context resets all data on logout. If you cache `imageMetas` in local component state, it will go stale after logout/re-login.
+Use service/context entrypoints so normalization, caching, and error handling remain centralized.
 
-### ❌ Mounting another media modal instance
+### Wrong date parsing
 
-There's already one global `mediaModalViewer` instance mounted via `GalleryModalRenderer`. Mounting a second instance will cause a duplicate backdrop and broken modal state.
+Avoid naive UTC-shifting display bugs. Follow existing local-date parsing helpers used in pages/modal.
 
-### ❌ Calling Firebase directly
+### Duplicate modal instances
 
-Always go through the service layer (`authService`, `storageService`) or context hooks (`useAuth`, `useGallery`). Direct Firebase calls bypass caching, normalization, and state management.
+Only one global modal is expected (`GalleryModalRenderer`).
 
-### ❌ Forgetting blob URL cleanup
+### Blob URL leaks
 
-Every `URL.createObjectURL` must have a matching `URL.revokeObjectURL`. Follow the existing pattern: revoke in effect cleanup or when replacing state.
+Any `URL.createObjectURL` must be paired with revoke logic.
 
-### ❌ Using `new Date(isoString)` for display dates
+### Assuming logout resets every gallery field
 
-ISO strings get UTC-shifted when parsed with `new Date()`. Use the `getLocalDate()` / `toLocalDate()` helpers that parse `YYYY-MM-DD` into local midnight to avoid off-by-one-day bugs.
+Current implementation clears media/cache/modal state on logout, but `events` is not cleared in `resetState()` (known behavior gap).
 
-### ❌ Hardcoding user-visible strings
+### Hardcoded personal strings
 
-All display strings should go through `src/config.ts` so the repo stays name-free for public visibility.
+Put user-visible strings behind `src/config.ts` / `VITE_*`.
 
-### ❌ Skipping `usePageReveal` on new pages
-
-Every page should use the `usePageReveal` hook + the opacity/translate transition pattern for a consistent feel.
-
----
-
-## Build & Development
+## Build & Run
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Start Vite dev server
-npm run build        # TypeScript check + Vite production build
-npm run lint         # ESLint check
-npm run preview      # Preview production build locally
+npm install
+npm run dev
+npm run lint
+npm run test
+npm run build
 ```
-
-Required: Node 18+, `.env` file with Firebase credentials.

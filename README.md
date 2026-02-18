@@ -1,62 +1,78 @@
 # Gallery
 
-A private, password-protected photo and video gallery built as a gift — and as a real engineering project.
+A private, password-protected photo and video gallery built with React + Firebase.
 
-React 19 · TypeScript · Firebase · Tailwind CSS · Vite
+React 19 · TypeScript · Firebase Auth/Firestore/Storage · Tailwind CSS v4 · Vite
 
 ## Why This Exists
 
-I built this to solve a real problem: a private, fast, and beautiful way to browse and upload shared photos and videos — without relying on Google Photos or iCloud shared albums. It also gave me an excuse to dig into performance patterns (IndexedDB caching, progressive image loading, blob URL lifecycle management) that don't come up in typical CRUD apps.
+This project is a real-world private gallery app focused on:
+
+- owner-only access with Firebase Auth + security rules
+- fast return visits via IndexedDB thumbnail caching
+- progressive image loading with memory-aware modal preloading
+- no personal strings checked into source (env-driven branding)
 
 ## Privacy by Design
 
-This repo is public, but the app is private. Every user-facing string (names, titles, messages) is injected via environment variables at build time — the codebase contains **zero personal information**. Firebase credentials and display names live in a git-ignored `.env` file. Access control is enforced by Firebase Security Rules locked to a single owner identity (UID), and login uses Firebase Auth email/password.
+- User-facing strings are read from `VITE_*` env vars via `src/config.ts`.
+- Firebase credentials and display values live in `.env` (git-ignored).
+- Real protection is enforced by Firebase Security Rules (owner UID), not frontend checks.
 
 ## Architecture at a Glance
 
-```
-React SPA (Vite)
-  ├── Firebase Auth         — password-only login, single account
-  ├── Firebase Storage      — images (full-res + 480px thumbnails) and videos (original + poster thumbnails), dual-write on upload
-  ├── IndexedDB cache       — instant gallery restore for returning visitors
-  └── Progressive URL loading — cached thumbs + windowed full-res URL resolution
+```text
+AuthProvider
+  └─ ToastProvider
+      └─ RomanticBackdrop
+          └─ RouterProvider
+
+Route shell (authenticated only):
+RequireAuth -> GalleryProvider -> Outlet + global GalleryModalRenderer
 ```
 
-The app uses a **three-layer provider hierarchy** (Auth → Gallery → Toast) that owns all state. Pages are thin consumers. A single global lightbox is mounted outside the router so it persists across navigations. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full breakdown.
+Core data/storage model:
 
-Admin upload/delete tools now live under `/admin` (opened from the footer `Admin` button) with tabbed controls for upload and destructive actions.
+- Firestore `images` / `videos` docs are the source of media metadata.
+- Storage stores media bytes under:
+  - `images/full/*` + `images/thumb/*`
+  - `videos/full/*` + `videos/thumb/*`
+- IndexedDB (`mediaCacheService`) caches:
+  - image thumbs as blobs keyed by image id
+  - video poster thumbs as blobs keyed by `video:<id>`
+
+Admin tools live at `/admin` (upload + delete tabs, lazy-loaded).
 
 ## Key Technical Decisions
 
-| Decision                         | Tradeoff                              | Why                                                                                                                 |
-| -------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Client-side JPEG conversion**  | Adds ~200ms per upload vs raw upload  | Normalizes formats (HEIC, PNG) and generates thumbnails without a backend                                           |
-| **IndexedDB thumbnail cache**    | ~5MB storage per 200 photos           | Instant gallery restore (<50ms) vs re-downloading every thumbnail on revisit                                        |
-| **Windowed full-res preloading** | More complex than loading all at once | Keeps memory bounded in the modal — only ±10 ahead / ±5 behind are in memory (images only; videos stream on-demand) |
-| **Blob URLs over data URIs**     | Must track and revoke to avoid leaks  | Much faster to create/render; the codebase has explicit cleanup in every effect                                     |
-| **No backend / serverless**      | Limited to Firebase's capabilities    | Zero infrastructure to maintain — Firebase handles auth, storage, and CDN                                           |
-| **Env-driven display strings**   | Extra config step for contributors    | Keeps the repo safe for public visibility without any personal data                                                 |
+| Decision | Tradeoff | Why |
+| --- | --- | --- |
+| Firestore-backed media metadata | Extra write during upload | Strong typed metadata queries + easier evolution than Storage customMetadata |
+| Client-side image conversion + thumb generation | CPU on upload | Normalized JPEG outputs + consistent thumbnail quality without backend jobs |
+| IndexedDB thumbnail cache | Browser storage usage | Instant gallery restore for returning sessions |
+| Signed URL strategy for full-res | Requires URL bookkeeping in memory | Browser handles loading/caching directly; no manual full-res blob lifecycle |
+| On-demand video playback in modal | First video open has URL fetch | Avoids prefetching heavy video bytes during gallery bootstrap |
 
-## What I'd Build Next
+## Current Product Shape
 
-- **Server-side thumbnailing** — Cloud Function triggered on upload to generate thumbnails, removing the client-side step
-- **Shared albums / multi-user** — Firestore metadata layer with per-album access control
-- **Search & filtering** — Full-text search across event names, captions, and dates
-- **Optimistic UI for uploads** — Show the image in the gallery immediately, sync in background
-- **E2E tests** — Playwright flows for login → upload → gallery → modal interactions
+- `/home`: random 9-photo hero grid (stable selection per dataset)
+- `/photos`: images grouped by year -> month
+- `/videos`: videos grouped by year -> month with duration badges
+- `/timeline`: events from Firestore; event opens mixed media modal (images + videos)
+- `/admin?tab=upload|delete`: upload and destructive management tools
 
 ## Docs
 
-Detailed documentation lives in [`docs/`](docs/):
+Detailed docs live in [`docs/`](docs/):
 
-| Doc                                         | What it covers                                                           |
-| ------------------------------------------- | ------------------------------------------------------------------------ |
-| [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) | Provider hierarchy, routing, guards, file map, env config                |
-| [**DATA-FLOW.md**](docs/DATA-FLOW.md)       | Firebase → cache → context pipeline, loading sequence, memory management |
-| [**COMPONENTS.md**](docs/COMPONENTS.md)     | Every component and page — props, behavior, usage examples               |
-| [**CONVENTIONS.md**](docs/CONVENTIONS.md)   | Code patterns, styling rules, how-to guides, common pitfalls             |
-| [**SETUP.md**](docs/SETUP.md)               | Cloning, configuring Firebase, and running locally                       |
-| [**TESTING.md**](docs/TESTING.md)           | Test runner setup and smoke test commands                                |
+| Doc | What it covers |
+| --- | --- |
+| [**ARCHITECTURE.md**](docs/ARCHITECTURE.md) | Provider boundaries, routing, directory map, env + data schemas |
+| [**DATA-FLOW.md**](docs/DATA-FLOW.md) | Service contracts, GalleryContext lifecycle, cache and modal flow |
+| [**COMPONENTS.md**](docs/COMPONENTS.md) | Component/page behavior and interaction patterns |
+| [**CONVENTIONS.md**](docs/CONVENTIONS.md) | Coding/UI conventions and implementation recipes |
+| [**SETUP.md**](docs/SETUP.md) | Firebase setup, rules, env config, local run |
+| [**TESTING.md**](docs/TESTING.md) | Vitest setup and covered behavior |
 
 ## Quick Start
 
@@ -64,8 +80,8 @@ Detailed documentation lives in [`docs/`](docs/):
 git clone https://github.com/yassinbenelhajlahsen/gallery.git
 cd gallery
 npm install
-cp .env.example .env   # fill in Firebase creds
+cp .env.example .env
 npm run dev
 ```
 
-Full setup instructions → [docs/SETUP.md](docs/SETUP.md)
+Then fill required Firebase vars in `.env` (see `docs/SETUP.md`).
