@@ -40,6 +40,8 @@ type GalleryContextValue = {
   refreshGallery: () => Promise<void>;
   imageMetas: ImageMeta[];
   videoMetas: VideoMeta[];
+  /** True once video metadata fetch has completed (success or failure). */
+  isVideoMetadataReady: boolean;
   preloadedImages: PreloadedImage[];
   isGalleryLoading: boolean;
   hasGalleryLoadedOnce: boolean;
@@ -95,6 +97,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const { user, initializing } = useAuth();
   const [imageMetas, setImageMetas] = useState<ImageMeta[]>([]);
   const [videoMetas, setVideoMetas] = useState<VideoMeta[]>([]);
+  const [isVideoMetadataReady, setIsVideoMetadataReady] = useState(false);
   const [preloadedImages, setPreloadedImages] = useState<PreloadedImage[]>([]);
   const [videoThumbUrls, setVideoThumbUrls] = useState<Map<string, string>>(
     new Map(),
@@ -124,6 +127,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const resetState = useCallback(() => {
     setImageMetas([]);
     setVideoMetas([]);
+    setIsVideoMetadataReady(false);
     setPreloadedImages([]);
     setVideoThumbUrls((prev) => {
       releaseCachedUrlMap(prev);
@@ -171,6 +175,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         }
       })();
       setIsGalleryLoading(true);
+      setIsVideoMetadataReady(false);
       setLoadError(null);
       setLoadingProgress(0);
 
@@ -231,6 +236,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           const freshVideoMetas = await fetchAllVideoMetadata();
           if (cancelled) return;
           setVideoMetas(freshVideoMetas);
+          setIsVideoMetadataReady(true);
 
           // Hydrate any already-cached video thumbs for immediate use.
           const cachedThumbUrls = await loadVideoThumbUrlsFromCache(
@@ -264,6 +270,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           console.warn("[Gallery] Failed to load video metadata", videoErr);
           if (!cancelled) {
             setVideoMetas([]);
+            setIsVideoMetadataReady(true);
             setVideoThumbUrls((prev) => {
               releaseCachedUrlMap(prev);
               return new Map();
@@ -280,6 +287,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
             error instanceof Error ? error.message : "Failed to load gallery",
           );
           setHasGalleryLoadedOnce(true);
+          setIsVideoMetadataReady(true);
           setLoadingProgress(100);
         }
       } finally {
@@ -383,6 +391,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const refreshGallery = useCallback(async () => {
     try {
       setIsGalleryLoading(true);
+      setIsVideoMetadataReady(false);
       setLoadError(null);
 
       // Fetch fresh metadata from Firebase
@@ -409,6 +418,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       try {
         const freshVideoMetas = await fetchAllVideoMetadata();
         setVideoMetas(freshVideoMetas);
+        setIsVideoMetadataReady(true);
         const cachedThumbUrls = await loadVideoThumbUrlsFromCache(freshVideoMetas);
         setVideoThumbUrls((prev) => {
           releaseCachedUrlMap(prev);
@@ -425,6 +435,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       } catch (videoErr) {
         console.warn("[Gallery] Failed to load video metadata", videoErr);
         setVideoMetas([]);
+        setIsVideoMetadataReady(true);
         setVideoThumbUrls((prev) => {
           releaseCachedUrlMap(prev);
           return new Map();
@@ -449,6 +460,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       refreshGallery,
       imageMetas,
       videoMetas,
+      isVideoMetadataReady,
       preloadedImages,
       isGalleryLoading,
       hasGalleryLoadedOnce,
@@ -472,6 +484,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       refreshGallery,
       imageMetas,
       videoMetas,
+      isVideoMetadataReady,
       preloadedImages,
       isGalleryLoading,
       hasGalleryLoadedOnce,

@@ -18,15 +18,17 @@ export type TimelineEventItemProps = {
   event: TimelineEvent;
   onSelect: (event: TimelineEvent) => void;
   mediaCounts?: MediaCounts;
+  isMediaLoading?: boolean;
 };
 
 const TimelineEventItem: React.FC<TimelineEventItemProps> = ({
   event,
   onSelect,
   mediaCounts,
+  isMediaLoading = false,
 }) => {
   const { imageCount = 0, videoCount = 0 } = mediaCounts ?? {};
-  const hasImages = imageCount > 0 || videoCount > 0;
+  const hasImages = !isMediaLoading && (imageCount > 0 || videoCount > 0);
   const toLocalDate = (isoDate: string) => {
     const [year, month, day] = isoDate.split("-").map(Number);
     return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
@@ -58,7 +60,9 @@ const TimelineEventItem: React.FC<TimelineEventItemProps> = ({
           })}
         </p>
         <p className="text-lg font-semibold text-[#333]">{event.title}</p>
-        {hasImages ? (
+        {isMediaLoading ? (
+          <p className="text-sm text-[#9a9898]">Loading media...</p>
+        ) : hasImages ? (
           <p className="text-sm text-[#5e5e5e]">
             {(() => {
               const parts: string[] = [];

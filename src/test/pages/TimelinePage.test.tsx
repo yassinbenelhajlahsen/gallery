@@ -30,6 +30,7 @@ const { openModalWithMediaMock, galleryState } = vi.hoisted(() => ({
       imageIds?: string[];
       emojiOrDot?: string;
     }>,
+    isVideoMetadataReady: true,
   },
 }));
 
@@ -38,6 +39,7 @@ vi.mock("../../context/GalleryContext", () => ({
     imageMetas: galleryState.imageMetas,
     videoMetas: galleryState.videoMetas,
     events: galleryState.events,
+    isVideoMetadataReady: galleryState.isVideoMetadataReady,
     openModalWithMedia: openModalWithMediaMock,
   }),
 }));
@@ -90,6 +92,7 @@ describe("TimelinePage", () => {
     ];
 
     openModalWithMediaMock.mockReset();
+    galleryState.isVideoMetadataReady = true;
   });
 
   it("unions explicit IDs + title matches, dedupes media, and opens mixed modal", () => {
@@ -109,5 +112,16 @@ describe("TimelinePage", () => {
       "img-1.jpg",
     ]);
     expect(optionsArg).toEqual({ preloadAll: true });
+  });
+
+  it("waits for video metadata before showing counts and opening mixed modal", () => {
+    galleryState.isVideoMetadataReady = false;
+    render(<TimelinePage />);
+
+    expect(screen.getByText("Loading media...")).toBeInTheDocument();
+    expect(screen.queryByText("2 photos • 1 video")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /trip's day/i }));
+    expect(openModalWithMediaMock).not.toHaveBeenCalled();
   });
 });

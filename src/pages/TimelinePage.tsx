@@ -20,10 +20,12 @@ const normalize = (value?: string | null) => {
 };
 
 const TimelinePage: React.FC = () => {
-  const { imageMetas, videoMetas, openModalWithMedia } = useGallery();
+  const { imageMetas, videoMetas, openModalWithMedia, isVideoMetadataReady } =
+    useGallery();
   const isVisible = usePageReveal();
 
   const { events: timelineEvents } = useGallery();
+  const areCountsReady = isVideoMetadataReady ?? true;
 
   const eventMediaMap = React.useMemo(() => {
     const map = new Map<string, MediaMeta[]>();
@@ -93,12 +95,13 @@ const TimelinePage: React.FC = () => {
 
   const handleEventSelect = React.useCallback(
     (event: TimelineEvent) => {
+      if (!areCountsReady) return;
       const matches = eventMediaMap.get(event.id) ?? [];
       if (!matches.length) return;
       // Timeline is the ONLY place where mixed image+video navigation is allowed.
       openModalWithMedia(matches, { preloadAll: true });
     },
-    [eventMediaMap, openModalWithMedia],
+    [areCountsReady, eventMediaMap, openModalWithMedia],
   );
 
   return (
@@ -130,7 +133,8 @@ const TimelinePage: React.FC = () => {
                   <TimelineEventItem
                     event={event}
                     onSelect={handleEventSelect}
-                    mediaCounts={mediaCounts}
+                    mediaCounts={areCountsReady ? mediaCounts : undefined}
+                    isMediaLoading={!areCountsReady}
                   />
                 </li>
               );
