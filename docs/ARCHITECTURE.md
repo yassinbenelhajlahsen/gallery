@@ -126,7 +126,6 @@ Router is defined in `src/App.tsx`.
 | `/photos` | same as above | `PhotosPage` | Photos grouped by year/month |
 | `/videos` | same as above | `VideosPage` | Videos grouped by year/month |
 | `/admin` | same as above | lazy `AdminPage` | Tab via query string (`?tab=upload|delete`) |
-| `/upload` | same as above | redirect | Legacy redirect to `/admin?tab=upload` |
 | `*` | same as above | `NotFoundPage` | Catch-all |
 
 Guard behavior summary:
