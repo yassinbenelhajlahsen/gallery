@@ -35,7 +35,3 @@ npm run lint
 npm run test
 npm run build
 ```
-
-## Known Behavior Gap
-
-`GalleryContext.resetState()` clears media/cache/modal state but currently does not clear `events`. Keep this in mind for logout edge-case debugging.
