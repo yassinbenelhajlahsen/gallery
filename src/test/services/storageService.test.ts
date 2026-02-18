@@ -91,6 +91,7 @@ describe("storageService", () => {
             date: "2024-02-01",
             videoPath: "videos/full/clip.mp4",
             thumbPath: "videos/thumb/clip.jpg",
+            durationSeconds: 125.4,
           }),
         },
         {
@@ -111,6 +112,7 @@ describe("storageService", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe("clip.mp4");
     expect(result[0]?.thumbUrl).toBe("https://video/clip");
+    expect(result[0]?.durationSeconds).toBe(125);
   });
 
   it("maps permission-denied when fetching image metadata", async () => {

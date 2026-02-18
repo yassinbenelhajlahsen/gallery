@@ -84,6 +84,7 @@ const VideosPage: React.FC = () => {
                   url: resolveVideoThumbUrl(meta),
                   caption: meta.caption ?? meta.event,
                   mediaType: "video" as const,
+                  durationSeconds: meta.durationSeconds,
                   onClick: () => handleTileClick(meta),
                 }))}
                 columns={{ base: 2, sm: 2, md: 3, lg: 4 }}
