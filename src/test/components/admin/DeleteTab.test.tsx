@@ -1,6 +1,15 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ImageMeta } from "../../../services/storageService";
+import type { VideoMeta } from "../../../types/mediaTypes";
+import type { TimelineEvent } from "../../../components/timeline/TimelineEventItem";
+
+type GalleryState = {
+  imageMetas: ImageMeta[];
+  videoMetas: VideoMeta[];
+  events: TimelineEvent[];
+};
 
 const {
   deleteObjectMock,
@@ -49,7 +58,7 @@ const {
     ],
     videoMetas: [],
     events: [],
-  },
+  } as GalleryState,
 }));
 
 vi.mock("firebase/storage", () => ({
