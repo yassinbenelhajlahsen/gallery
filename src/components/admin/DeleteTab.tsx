@@ -287,7 +287,7 @@ export default function DeleteTab() {
           Edit & Delete Media & Events
         </h2>
         <p className="text-sm text-[#666]">
-          Use Edit to update metadata, or Delete to remove items after confirmation.
+          Use Edit to update or Delete to remove items.
         </p>
       </header>
 
