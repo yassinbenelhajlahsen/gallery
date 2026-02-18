@@ -311,3 +311,39 @@ export async function syncVideoThumbCache(
 
   db.close();
 }
+
+/**
+ * Load cached video thumbnail object URLs for the provided videos.
+ *
+ * Returned keys are raw video IDs (without the `video:` prefix).
+ */
+export async function loadVideoThumbUrlsFromCache(
+  videoMetas: VideoMeta[],
+): Promise<Map<string, string>> {
+  if (!videoMetas.length) return new Map();
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    return new Map();
+  }
+
+  let db: IDBDatabase | null = null;
+  try {
+    db = await openDB();
+    const database = db;
+    const pairs = await Promise.all(
+      videoMetas.map(async (meta) => {
+        const blob = await idbGet<Blob>(database, BLOB_STORE, videoKey(meta.id));
+        if (!blob) return null;
+        return [meta.id, URL.createObjectURL(blob)] as [string, string];
+      }),
+    );
+
+    return new Map(
+      pairs.filter((pair): pair is [string, string] => pair !== null),
+    );
+  } catch (err) {
+    console.warn("[ImageCache] Failed to load cached video thumbs:", err);
+    return new Map();
+  } finally {
+    db?.close();
+  }
+}

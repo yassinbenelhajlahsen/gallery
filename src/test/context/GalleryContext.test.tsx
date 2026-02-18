@@ -9,6 +9,7 @@ const {
   syncCacheMock,
   clearCacheMock,
   syncVideoThumbCacheMock,
+  loadVideoThumbUrlsFromCacheMock,
   authState,
 } = vi.hoisted(() => ({
   fetchEventsMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   syncCacheMock: vi.fn(),
   clearCacheMock: vi.fn(),
   syncVideoThumbCacheMock: vi.fn(),
+  loadVideoThumbUrlsFromCacheMock: vi.fn(),
   authState: {
     user: { uid: "u-1" } as { uid: string } | null,
     initializing: false,
@@ -42,16 +44,19 @@ vi.mock("../../services/mediaCacheService", () => ({
   syncCache: syncCacheMock,
   clearCache: clearCacheMock,
   syncVideoThumbCache: syncVideoThumbCacheMock,
+  loadVideoThumbUrlsFromCache: loadVideoThumbUrlsFromCacheMock,
 }));
 
 import { GalleryProvider, useGallery } from "../../context/GalleryContext";
 
 const Probe = () => {
-  const { videoMetas, hasGalleryLoadedOnce } = useGallery();
+  const { videoMetas, hasGalleryLoadedOnce, resolveVideoThumbUrl } = useGallery();
+  const firstVideoThumb = videoMetas[0] ? resolveVideoThumbUrl(videoMetas[0]) : "";
   return (
     <div>
       <span data-testid="video-count">{videoMetas.length}</span>
       <span data-testid="gallery-loaded">{String(hasGalleryLoadedOnce)}</span>
+      <span data-testid="video-thumb-url">{firstVideoThumb}</span>
     </div>
   );
 };
@@ -75,6 +80,9 @@ describe("GalleryProvider smoke flow", () => {
     syncCacheMock.mockReset().mockResolvedValue([]);
     clearCacheMock.mockReset().mockResolvedValue(undefined);
     syncVideoThumbCacheMock.mockReset().mockResolvedValue(undefined);
+    loadVideoThumbUrlsFromCacheMock.mockReset().mockImplementation(async () => {
+      return new Map([["v1.mp4", "blob:cached-v1"]]);
+    });
   });
 
   it("loads videos even when image metadata is empty", async () => {
@@ -92,6 +100,9 @@ describe("GalleryProvider smoke flow", () => {
     expect(fetchAllVideoMetadataMock).toHaveBeenCalledTimes(1);
     expect(syncCacheMock).not.toHaveBeenCalled();
     expect(screen.getByTestId("video-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("video-thumb-url")).toHaveTextContent(
+      "blob:cached-v1",
+    );
   });
 
   it("clears cached gallery state when auth user becomes null", async () => {

@@ -22,6 +22,7 @@ import {
   syncCache,
   clearCache,
   syncVideoThumbCache,
+  loadVideoThumbUrlsFromCache,
 } from "../services/mediaCacheService";
 import { useAuth } from "./AuthContext";
 
@@ -79,11 +80,25 @@ const releasePreloadedUrls = (items: PreloadedImage[]) => {
   });
 };
 
+const releaseCachedUrlMap = (items: Map<string, string>) => {
+  if (typeof URL === "undefined" || typeof URL.revokeObjectURL !== "function") {
+    return;
+  }
+  items.forEach((url) => {
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+    }
+  });
+};
+
 export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const { user, initializing } = useAuth();
   const [imageMetas, setImageMetas] = useState<ImageMeta[]>([]);
   const [videoMetas, setVideoMetas] = useState<VideoMeta[]>([]);
   const [preloadedImages, setPreloadedImages] = useState<PreloadedImage[]>([]);
+  const [videoThumbUrls, setVideoThumbUrls] = useState<Map<string, string>>(
+    new Map(),
+  );
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
   const [hasGalleryLoadedOnce, setHasGalleryLoadedOnce] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,10 +115,20 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     };
   }, [preloadedImages]);
 
+  useEffect(() => {
+    return () => {
+      releaseCachedUrlMap(videoThumbUrls);
+    };
+  }, [videoThumbUrls]);
+
   const resetState = useCallback(() => {
     setImageMetas([]);
     setVideoMetas([]);
     setPreloadedImages([]);
+    setVideoThumbUrls((prev) => {
+      releaseCachedUrlMap(prev);
+      return new Map();
+    });
     setHasGalleryLoadedOnce(false);
     setIsGalleryLoading(false);
     setLoadError(null);
@@ -206,11 +231,44 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           const freshVideoMetas = await fetchAllVideoMetadata();
           if (cancelled) return;
           setVideoMetas(freshVideoMetas);
-          // Cache ONLY video thumbnail JPEGs
+
+          // Hydrate any already-cached video thumbs for immediate use.
+          const cachedThumbUrls = await loadVideoThumbUrlsFromCache(
+            freshVideoMetas,
+          );
+          if (cancelled) {
+            releaseCachedUrlMap(cachedThumbUrls);
+            return;
+          }
+          setVideoThumbUrls((prev) => {
+            releaseCachedUrlMap(prev);
+            return cachedThumbUrls;
+          });
+
+          // Cache ONLY video thumbnail JPEGs, then re-hydrate so newly cached
+          // entries are available in state.
           await syncVideoThumbCache(freshVideoMetas);
+          if (cancelled) return;
+          const syncedThumbUrls = await loadVideoThumbUrlsFromCache(
+            freshVideoMetas,
+          );
+          if (cancelled) {
+            releaseCachedUrlMap(syncedThumbUrls);
+            return;
+          }
+          setVideoThumbUrls((prev) => {
+            releaseCachedUrlMap(prev);
+            return syncedThumbUrls;
+          });
         } catch (videoErr) {
           console.warn("[Gallery] Failed to load video metadata", videoErr);
-          if (!cancelled) setVideoMetas([]);
+          if (!cancelled) {
+            setVideoMetas([]);
+            setVideoThumbUrls((prev) => {
+              releaseCachedUrlMap(prev);
+              return new Map();
+            });
+          }
         }
 
         setHasGalleryLoadedOnce(true);
@@ -246,11 +304,8 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   );
 
   const resolveVideoThumbUrl = useCallback((meta: VideoMeta) => {
-    // For now, we intentionally don't restore cached video thumbs into React state.
-    // We still return the network URL which browser may cache, but we avoid any
-    // explicit in-memory retention in app-owned state.
-    return meta.thumbUrl;
-  }, []);
+    return videoThumbUrls.get(meta.id) ?? meta.thumbUrl;
+  }, [videoThumbUrls]);
 
   const openModalWithImages = useCallback(
     (images: ImageMeta[], options?: OpenModalOptions) => {
@@ -354,10 +409,26 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       try {
         const freshVideoMetas = await fetchAllVideoMetadata();
         setVideoMetas(freshVideoMetas);
+        const cachedThumbUrls = await loadVideoThumbUrlsFromCache(freshVideoMetas);
+        setVideoThumbUrls((prev) => {
+          releaseCachedUrlMap(prev);
+          return cachedThumbUrls;
+        });
         await syncVideoThumbCache(freshVideoMetas);
+        const syncedThumbUrls = await loadVideoThumbUrlsFromCache(
+          freshVideoMetas,
+        );
+        setVideoThumbUrls((prev) => {
+          releaseCachedUrlMap(prev);
+          return syncedThumbUrls;
+        });
       } catch (videoErr) {
         console.warn("[Gallery] Failed to load video metadata", videoErr);
         setVideoMetas([]);
+        setVideoThumbUrls((prev) => {
+          releaseCachedUrlMap(prev);
+          return new Map();
+        });
       }
 
       setHasGalleryLoadedOnce(true);
