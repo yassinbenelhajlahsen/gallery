@@ -8,7 +8,7 @@
 
 **File:** `src/components/GalleryGrid.tsx`
 
-Responsive tile grid for displaying images. Used by `All` and can be reused anywhere a photo grid is needed.
+Responsive tile grid for displaying image and video thumbnails. Used by gallery pages and reusable for mixed media grids.
 
 **Props:**
 
@@ -29,6 +29,7 @@ type GalleryGridTile = {
   fullUrl?: string; // Full-res URL (overlaid when loaded)
   /** Optional media discriminator for UI only */
   mediaType?: "image" | "video";
+  durationSeconds?: number; // Optional video duration used for MM:SS overlay
   caption?: string;
   onClick?: () => void;
 };
@@ -39,6 +40,7 @@ type GalleryGridTile = {
 - Renders a CSS grid with configurable responsive breakpoints
 - Each tile is a `<button>` with aspect-square ratio
 - Implements progressive image loading: shows thumbnail, overlays full-res when `fullUrl` loads
+- Video tiles show a center play indicator and a bottom-left `MM:SS` duration badge when `durationSeconds` is available
 - Shows empty state placeholder when `tiles` is empty
 - Internal `TileItem` component manages per-tile loading state
 
@@ -286,9 +288,9 @@ Utility component mounted inside `MainLayout`. Scrolls to top on every pathname 
 
 - File selection → client-side JPEG conversion → upload to Firebase Storage
 - Generates both full-res JPEG (quality 0.9) and thumbnail (480px, quality 0.7) for images
-- Generates poster thumbnails for videos (first frame extraction)
+- Generates poster thumbnails for videos (first frame extraction) and reads video duration from metadata
 - Uploads to `images/full/<name>.jpg` and `images/thumb/<name>.jpg` for photos, `videos/full/` and `videos/thumb/` for videos
-- Writes media metadata to Firestore docs (`images` / `videos`) after successful Storage uploads
+- Writes media metadata to Firestore docs (`images` / `videos`) after successful Storage uploads, including `durationSeconds` for videos
 - Event dropdown auto-fills date and event name from events loaded in `GalleryContext`
 - File selection infers date from the first selected file's embedded media metadata (JPEG EXIF `DateTimeOriginal`, MOV/MP4 creation time), then falls back to file `lastModified`
 - If the current date was populated from an event, metadata date inference is skipped and that event date remains the upload date

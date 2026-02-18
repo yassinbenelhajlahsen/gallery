@@ -45,7 +45,7 @@ Global test setup is in `src/test/setup.ts`:
 
 - `src/test/services/storageService.test.ts`
   - image metadata sorting and thumb fallback behavior
-  - video metadata filtering and thumb fallback behavior
+  - video metadata filtering, thumb fallback, and `durationSeconds` normalization
   - Firestore/Storage permission-denied error mapping
 
 - `src/test/context/GalleryContext.test.tsx`
