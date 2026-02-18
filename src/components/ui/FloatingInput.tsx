@@ -120,7 +120,7 @@ export function FloatingInput({
         {/* Render label text and style a trailing '*' red when present */}
         {label?.endsWith("*") ? (
           <>
-            {label.slice(0, -1)}
+            {label.slice(0, -1).trimEnd()}{" "}
             <span className="text-red-500">*</span>
           </>
         ) : (

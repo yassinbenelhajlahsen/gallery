@@ -671,7 +671,8 @@ export default function AdminUploadPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-[#333]">
-              Date<span className="text-red-500">*</span>
+              Date{" "}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -839,7 +840,8 @@ export default function AdminUploadPage() {
       {/* Date Input */}
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-[#333]">
-          Date<span className="text-red-500">*</span>
+          Date{" "}
+          <span className="text-red-500">*</span>
         </label>
         <input
           type="date"
