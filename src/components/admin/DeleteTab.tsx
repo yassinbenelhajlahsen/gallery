@@ -24,27 +24,75 @@ const isStorageObjectMissing = (error: unknown): boolean => {
   return code === "storage/object-not-found";
 };
 
-const toDateLabel = (dateValue: string) => {
-  const [year, month, day] = dateValue.split("-").map(Number);
-  if (year && month && day) {
-    return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+const parseLocalDateLike = (dateValue: string): Date | null => {
+  const trimmed = dateValue.trim();
+  if (!trimmed) return null;
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, yearRaw, monthRaw, dayRaw] = isoMatch;
+    const year = Number(yearRaw);
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    if (year && month && day) {
+      return new Date(year, month - 1, day);
+    }
   }
 
-  const parsed = Date.parse(dateValue);
-  if (!Number.isNaN(parsed)) {
-    return new Date(parsed).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [month, day, year] = trimmed.split("/").map(Number);
+    if (year && month && day) {
+      return new Date(year, month - 1, day);
+    }
   }
 
-  return dateValue;
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed);
 };
+
+const toDateLabel = (dateValue: string) => {
+  const parsed = parseLocalDateLike(dateValue);
+  if (!parsed) return dateValue;
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const normalizeText = (value: string) => value.trim().toLowerCase();
+
+const toDateSearchTokens = (dateValue: string): string[] => {
+  const trimmed = dateValue.trim();
+  if (!trimmed) return [];
+
+  const tokens = new Set<string>([trimmed.toLowerCase()]);
+
+  const parsed = parseLocalDateLike(trimmed);
+  if (parsed) {
+    const year = parsed.getFullYear();
+    const month = parsed.getMonth() + 1;
+    const day = parsed.getDate();
+    const mm = String(month).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    tokens.add(`${year}-${mm}-${dd}`);
+    tokens.add(`${mm}/${dd}/${year}`);
+    tokens.add(`${month}/${day}/${year}`);
+  }
+
+  tokens.add(toDateLabel(trimmed).toLowerCase());
+  return Array.from(tokens);
+};
+
+const buildSearchIndex = (...parts: Array<string | undefined>): string =>
+  parts
+    .filter((part): part is string => Boolean(part))
+    .map((part) => part.toLowerCase())
+    .join(" ");
+
+const matchesTokens = (index: string, tokens: string[]) =>
+  tokens.every((token) => index.includes(token));
 
 export default function DeleteTab() {
   const {
@@ -59,6 +107,7 @@ export default function DeleteTab() {
   const { toast } = useToast();
   const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (!confirmKey) return;
@@ -72,6 +121,55 @@ export default function DeleteTab() {
     () => [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
     [events],
   );
+
+  const searchTokens = useMemo(() => {
+    const normalized = normalizeText(searchQuery);
+    if (!normalized) return [];
+    return normalized.split(/\s+/).filter(Boolean);
+  }, [searchQuery]);
+  const hasActiveSearch = searchTokens.length > 0;
+
+  const filteredImageMetas = useMemo(() => {
+    if (!hasActiveSearch) return imageMetas;
+    return imageMetas.filter((meta) => {
+      const index = buildSearchIndex(
+        meta.id,
+        meta.event,
+        meta.caption,
+        ...toDateSearchTokens(meta.date),
+      );
+      return matchesTokens(index, searchTokens);
+    });
+  }, [hasActiveSearch, imageMetas, searchTokens]);
+
+  const filteredVideoMetas = useMemo(() => {
+    if (!hasActiveSearch) return videoMetas;
+    return videoMetas.filter((meta) => {
+      const index = buildSearchIndex(
+        meta.id,
+        meta.event,
+        meta.caption,
+        ...toDateSearchTokens(meta.date),
+      );
+      return matchesTokens(index, searchTokens);
+    });
+  }, [hasActiveSearch, searchTokens, videoMetas]);
+
+  const filteredEvents = useMemo(() => {
+    if (!hasActiveSearch) return sortedEvents;
+    return sortedEvents.filter((event) => {
+      const index = buildSearchIndex(
+        event.title,
+        ...toDateSearchTokens(event.date),
+        ...(event.imageIds ?? []),
+      );
+      return matchesTokens(index, searchTokens);
+    });
+  }, [hasActiveSearch, searchTokens, sortedEvents]);
+
+  const totalMatches =
+    filteredImageMetas.length + filteredVideoMetas.length + filteredEvents.length;
+  const totalItems = imageMetas.length + videoMetas.length + sortedEvents.length;
 
   const removeMediaFromEventRefs = async (mediaId: string) => {
     const eventsWithMedia = await getDocs(
@@ -253,23 +351,54 @@ export default function DeleteTab() {
         </p>
       </header>
 
+      <section className="space-y-3 rounded-2xl border border-[#f1dada] bg-white/85 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <label
+            htmlFor="delete-search"
+            className="text-sm font-semibold text-[#333]"
+          >
+            Search media and events
+          </label>
+          <span className="rounded-full bg-[#ffe8e8] px-3 py-1 text-xs font-semibold text-[#7d1f1f]">
+            {hasActiveSearch ? totalMatches : totalItems}
+          </span>
+        </div>
+        <div className="relative">
+          <input
+            id="delete-search"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by date, event or file name"
+            className="w-full rounded-xl border border-[#ecd6d6] bg-white px-4 py-2.5 text-sm text-[#333] shadow-sm transition-all duration-200 focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/35"
+          />
+        </div>
+      </section>
+
       <section className="space-y-3 rounded-2xl border border-[#f1dada] bg-white/80 p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-[#333]">Images</h3>
           <span className="rounded-full bg-[#ffe8e8] px-3 py-1 text-xs font-semibold text-[#7d1f1f]">
-            {imageMetas.length}
+            {filteredImageMetas.length}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          {imageMetas.length === 0 ? (
-            <p className="text-sm text-[#888]">No images found.</p>
+          {filteredImageMetas.length === 0 ? (
+            <p className="text-sm text-[#888]">
+              {hasActiveSearch
+                ? "No images match your search."
+                : "No images found."}
+            </p>
           ) : (
-            imageMetas.map((meta) => {
+            filteredImageMetas.map((meta, index) => {
               const key = `image:${meta.id}`;
+              const isOddTail =
+                filteredImageMetas.length % 2 === 1 &&
+                index === filteredImageMetas.length - 1;
               return (
                 <div
                   key={meta.id}
-                  className="flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2"
+                  className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
                   <img
                     src={resolveThumbUrl(meta)}
@@ -309,19 +438,26 @@ export default function DeleteTab() {
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold text-[#333]">Videos</h3>
           <span className="rounded-full bg-[#ffe8e8] px-3 py-1 text-xs font-semibold text-[#7d1f1f]">
-            {videoMetas.length}
+            {filteredVideoMetas.length}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          {videoMetas.length === 0 ? (
-            <p className="text-sm text-[#888]">No videos found.</p>
+          {filteredVideoMetas.length === 0 ? (
+            <p className="text-sm text-[#888]">
+              {hasActiveSearch
+                ? "No videos match your search."
+                : "No videos found."}
+            </p>
           ) : (
-            videoMetas.map((meta) => {
+            filteredVideoMetas.map((meta, index) => {
               const key = `video:${meta.id}`;
+              const isOddTail =
+                filteredVideoMetas.length % 2 === 1 &&
+                index === filteredVideoMetas.length - 1;
               return (
                 <div
                   key={meta.id}
-                  className="flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2"
+                  className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
                   <img
                     src={resolveVideoThumbUrl(meta)}
@@ -363,19 +499,26 @@ export default function DeleteTab() {
             Timeline Events
           </h3>
           <span className="rounded-full bg-[#ffe8e8] px-3 py-1 text-xs font-semibold text-[#7d1f1f]">
-            {sortedEvents.length}
+            {filteredEvents.length}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-          {sortedEvents.length === 0 ? (
-            <p className="text-sm text-[#888]">No timeline events found.</p>
+          {filteredEvents.length === 0 ? (
+            <p className="text-sm text-[#888]">
+              {hasActiveSearch
+                ? "No timeline events match your search."
+                : "No timeline events found."}
+            </p>
           ) : (
-            sortedEvents.map((event) => {
+            filteredEvents.map((event, index) => {
               const key = `event:${event.id}`;
+              const isOddTail =
+                filteredEvents.length % 2 === 1 &&
+                index === filteredEvents.length - 1;
               return (
                 <div
                   key={event.id}
-                  className="flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2"
+                  className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#f8f8f8] text-xl">
                     {event.emojiOrDot ?? "•"}

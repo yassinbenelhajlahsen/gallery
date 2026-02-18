@@ -60,21 +60,68 @@ const isFirestoreTimestampLike = (
   );
 };
 
+const formatDateInputLocal = (date: Date): string => {
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateInputUtc = (date: Date): string => {
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateStringToCanonical = (raw: string): string | null => {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Keep date-only values stable and timezone-agnostic.
+  const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDateMatch) {
+    const [, year, month, day] = isoDateMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  // Normalize US-style date input if present.
+  const usMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (usMatch) {
+    const [, monthRaw, dayRaw, year] = usMatch;
+    const month = String(Number(monthRaw)).padStart(2, "0");
+    const day = String(Number(dayRaw)).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const parsedTs = Date.parse(trimmed);
+  if (Number.isNaN(parsedTs)) return null;
+  return formatDateInputLocal(new Date(parsedTs));
+};
+
 const normalizeDateField = (raw: unknown): string => {
-  if (!raw) return new Date().toISOString();
+  const fallback = formatDateInputLocal(new Date());
+  if (!raw) return fallback;
+
   try {
     // Firestore Timestamp support
     if (isFirestoreTimestampLike(raw)) {
-      return raw.toDate().toISOString();
+      return formatDateInputUtc(raw.toDate()) || fallback;
+    }
+    if (raw instanceof Date) {
+      return formatDateInputUtc(raw) || fallback;
     }
     if (typeof raw === "string") {
-      const ts = Date.parse(raw);
-      if (!Number.isNaN(ts)) return new Date(ts).toISOString();
+      const parsed = parseDateStringToCanonical(raw);
+      if (parsed) return parsed;
     }
   } catch {
     // fallthrough
   }
-  return new Date().toISOString();
+
+  return fallback;
 };
 
 const normalizeDurationSeconds = (raw: unknown): number | undefined => {
