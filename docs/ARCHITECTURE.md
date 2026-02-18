@@ -39,6 +39,7 @@ src/
 │   │   └── TimelineEventItem.tsx
 │   └── ui/
 │       ├── FloatingInput.tsx
+│       ├── DeleteConfirmModal.tsx
 │       └── EditMetadataModal.tsx
 │
 ├── context/
@@ -152,7 +153,8 @@ Admin UI and data operations are split across components and services:
 
 - `src/components/admin/UploadTab.tsx`: upload/event forms, progress UI, and orchestration.
 - `src/services/uploadService.ts`: media conversion/extraction helpers, Storage uploads, Firestore writes, and unique-name resolution.
-- `src/components/admin/DeleteTab.tsx`: search/filter UI, metadata edit modal, and delete confirmation modal.
+- `src/components/admin/DeleteTab.tsx`: search/filter UI and delete/edit orchestration.
+- `src/components/ui/DeleteConfirmModal.tsx`: reusable admin delete confirmation modal UI.
 - `src/services/deleteService.ts`: metadata update helpers, Storage deletes, Firestore deletes, and linked event/media cleanup.
 
 ## Environment Configuration
