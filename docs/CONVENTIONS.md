@@ -204,7 +204,7 @@ Events are now created through the admin upload UI and stored in Firestore. Use 
 
 ### Uploading Images (Programmatically)
 
-Follow the same pattern as `AdminUploadTab.tsx`:
+Follow the same pattern as `UploadTab.tsx`:
 
 1. Convert to JPEG client-side (use the `loadImage` → `convertToJpeg` pipeline)
 2. Generate a 480px thumbnail (`generateThumbnail`)

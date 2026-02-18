@@ -88,9 +88,9 @@ vi.mock("../../../context/GalleryContext", () => ({
   }),
 }));
 
-import AdminDeleteTab from "../../../components/admin/AdminDeleteTab";
+import DeleteTab from "../../../components/admin/DeleteTab";
 
-describe("AdminDeleteTab", () => {
+describe("DeleteTab", () => {
   beforeEach(() => {
     deleteObjectMock.mockReset().mockResolvedValue(undefined);
     refMock
@@ -120,12 +120,14 @@ describe("AdminDeleteTab", () => {
   });
 
   it("deletes image storage objects + metadata after two-step confirm", async () => {
-    render(<AdminDeleteTab />);
+    render(<DeleteTab />);
 
     const deleteButton = screen.getByRole("button", { name: "Delete" });
 
     fireEvent.click(deleteButton);
-    expect(screen.getByRole("button", { name: "Confirm Delete" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Confirm Delete" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
 
@@ -133,8 +135,12 @@ describe("AdminDeleteTab", () => {
       expect(deleteObjectMock).toHaveBeenCalledTimes(2);
     });
 
-    expect(deleteObjectMock).toHaveBeenCalledWith({ path: "images/full/img-1.jpg" });
-    expect(deleteObjectMock).toHaveBeenCalledWith({ path: "images/thumb/img-1.jpg" });
+    expect(deleteObjectMock).toHaveBeenCalledWith({
+      path: "images/full/img-1.jpg",
+    });
+    expect(deleteObjectMock).toHaveBeenCalledWith({
+      path: "images/thumb/img-1.jpg",
+    });
     expect(deleteDocMock).toHaveBeenCalledWith({
       collectionName: "images",
       id: "img-1.jpg",
@@ -144,6 +150,9 @@ describe("AdminDeleteTab", () => {
     });
     expect(refreshGalleryMock).toHaveBeenCalledTimes(1);
     expect(refreshEventsMock).toHaveBeenCalledTimes(1);
-    expect(toastMock).toHaveBeenCalledWith("Deleted image img-1.jpg", "success");
+    expect(toastMock).toHaveBeenCalledWith(
+      "Deleted image img-1.jpg",
+      "success",
+    );
   });
 });

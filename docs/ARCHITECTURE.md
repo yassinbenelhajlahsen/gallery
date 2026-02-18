@@ -25,8 +25,8 @@ src/
 │
 ├── components/
 │   ├── admin/
-│   │   ├── AdminDeleteTab.tsx  # Admin delete tools (media + events)
-│   │   └── AdminUploadTab.tsx  # Admin upload + event creation tools
+│   │   ├── DeleteTab.tsx  # Admin delete tools (media + events)
+│   │   └── UploadTab.tsx  # Admin upload + event creation tools
 │   ├── Footer.tsx              # Site-wide footer
 │   ├── GalleryGrid.tsx         # Responsive grid of square tiles (reusable)
 │   ├── GalleryModalRenderer.tsx# Mounts mediaModalViewer from GalleryContext

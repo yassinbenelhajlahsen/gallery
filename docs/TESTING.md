@@ -52,7 +52,7 @@ Global test setup is in `src/test/setup.ts`:
   - gallery loads videos even when image metadata is empty
   - cache/state reset when auth user logs out
 
-- `src/test/components/admin/AdminDeleteTab.test.tsx`
+- `src/test/components/admin/DeleteTab.test.tsx`
   - image delete two-step confirm flow
   - storage + metadata delete wiring
   - refresh/toast side effects
