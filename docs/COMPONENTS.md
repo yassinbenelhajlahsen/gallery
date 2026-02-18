@@ -183,7 +183,7 @@ Capabilities:
 
 - search across images, videos, events
 - metadata editing via `EditMetadataModal`
-- confirmation modal delete flow (`Delete` -> modal `Confirm Delete`)
+- confirmation modal delete flow (`Delete` -> modal `Confirm Delete`) via `src/components/ui/DeleteConfirmModal.tsx`
 - media delete removes Storage + Firestore metadata + event id references
 - event delete clears linked media `event` field and removes event doc
 - delegates metadata update + destructive operations to `deleteService` helpers
