@@ -88,7 +88,7 @@ const LoginPage: React.FC = () => {
             <img
               src="/favicon-v2.png"
               alt="Gallery logo"
-              className="mx-auto mt-2 h-40 w-40 select-none sm:mt-0"
+              className="mx-auto mt-8 -mb-8 h-40 w-40 select-none sm:mt-0 sm:mb-0"
             />
           </div>
 
