@@ -9,8 +9,17 @@ import { isLowBandwidthMobileClient } from "../utils/runtime";
 
 type YearGroup = {
   year: string;
+  totalItems: number;
+  months: MonthGroup[];
+};
+
+type MonthGroup = {
+  key: string;
+  monthLabel: string;
   items: ImageMeta[];
 };
+
+const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: "long" });
 
 const All: React.FC = () => {
   const { imageMetas, resolveThumbUrl, openModalForImageId } = useGallery();
@@ -23,42 +32,73 @@ const All: React.FC = () => {
 
   const yearGroups = React.useMemo<YearGroup[]>(() => {
     if (!imageMetas.length) return [];
-    const map = new Map<string, ImageMeta[]>();
+    const yearMap = new Map<number, Map<number, ImageMeta[]>>();
 
     imageMetas.forEach((meta) => {
-      const year = getLocalDate(meta.date).getFullYear().toString();
-      const bucket = map.get(year) ?? [];
+      const localDate = getLocalDate(meta.date);
+      const year = localDate.getFullYear();
+      const monthIndex = localDate.getMonth();
+      const monthMap = yearMap.get(year) ?? new Map<number, ImageMeta[]>();
+      const bucket = monthMap.get(monthIndex) ?? [];
       bucket.push(meta);
-      map.set(year, bucket);
+      monthMap.set(monthIndex, bucket);
+      yearMap.set(year, monthMap);
     });
 
-    return Array.from(map.entries())
-      .map(([year, items]) => ({
-        year,
-        items: items.sort(
-          (a, b) =>
-            getLocalDate(b.date).getTime() - getLocalDate(a.date).getTime(),
-        ),
-      }))
-      .sort((a, b) => Number(b.year) - Number(a.year));
+    return Array.from(yearMap.entries())
+      .sort(([yearA], [yearB]) => yearB - yearA)
+      .map(([year, monthMap]) => {
+        const months = Array.from(monthMap.entries())
+          .sort(([monthA], [monthB]) => monthB - monthA)
+          .map(([monthIndex, items]) => ({
+            key: `${year}-${String(monthIndex + 1).padStart(2, "0")}`,
+            monthLabel: MONTH_FORMATTER.format(new Date(year, monthIndex, 1)),
+            items: items.sort(
+              (a, b) =>
+                getLocalDate(b.date).getTime() - getLocalDate(a.date).getTime(),
+            ),
+          }));
+
+        return {
+          year: year.toString(),
+          totalItems: months.reduce(
+            (count, monthGroup) => count + monthGroup.items.length,
+            0,
+          ),
+          months,
+        };
+      });
   }, [imageMetas]);
 
-  // Track which year-group indices are currently visible
+  const monthGroups = React.useMemo(
+    () => yearGroups.flatMap((yearGroup) => yearGroup.months),
+    [yearGroups],
+  );
+
+  const monthIndexByKey = React.useMemo(() => {
+    const map = new Map<string, number>();
+    monthGroups.forEach((group, index) => {
+      map.set(group.key, index);
+    });
+    return map;
+  }, [monthGroups]);
+
+  // Track which month-group indices are currently visible
   const [visibleIndices, setVisibleIndices] = React.useState<Set<number>>(
     new Set(),
   );
   const sectionRefs = React.useRef<Map<number, HTMLElement>>(new Map());
 
-  // IntersectionObserver to detect which year-group sections are on screen
+  // IntersectionObserver to detect which month-group sections are on screen
   React.useEffect(() => {
-    if (!yearGroups.length) return;
+    if (!monthGroups.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         setVisibleIndices((prev) => {
           const next = new Set(prev);
           entries.forEach((entry) => {
-            const idx = Number(entry.target.getAttribute("data-group-index"));
+            const idx = Number(entry.target.getAttribute("data-month-index"));
             if (!Number.isNaN(idx)) {
               if (entry.isIntersecting) {
                 next.add(idx);
@@ -80,18 +120,18 @@ const All: React.FC = () => {
     sectionRefs.current.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, [yearGroups.length]);
+  }, [monthGroups.length]);
 
   // Compute which images need full-res based on visible groups ± PRELOAD_GROUPS
   React.useEffect(() => {
-    if (!yearGroups.length || !visibleIndices.size) return;
+    if (!monthGroups.length || !visibleIndices.size) return;
 
     // Expand visible indices to include ±PRELOAD_GROUPS
     const wantedGroupIndices = new Set<number>();
     visibleIndices.forEach((idx) => {
       for (let offset = -preloadGroups; offset <= preloadGroups; offset++) {
         const target = idx + offset;
-        if (target >= 0 && target < yearGroups.length) {
+        if (target >= 0 && target < monthGroups.length) {
           wantedGroupIndices.add(target);
         }
       }
@@ -101,7 +141,7 @@ const All: React.FC = () => {
     const wantedMetas: ImageMeta[] = [];
     const wantedIds = new Set<string>();
     wantedGroupIndices.forEach((idx) => {
-      const group = yearGroups[idx];
+      const group = monthGroups[idx];
       if (group) {
         group.items.forEach((meta) => {
           wantedMetas.push(meta);
@@ -113,7 +153,7 @@ const All: React.FC = () => {
     // Request full-res for wanted, evict the rest
     requestFullRes(wantedMetas);
     evict(wantedIds);
-  }, [visibleIndices, yearGroups, requestFullRes, evict, preloadGroups]);
+  }, [visibleIndices, monthGroups, requestFullRes, evict, preloadGroups]);
 
   const handleTileClick = (meta: ImageMeta) => {
     openModalForImageId(meta.id, imageMetas);
@@ -143,40 +183,57 @@ const All: React.FC = () => {
 
           {!yearGroups.length && renderEmptyState()}
 
-          {yearGroups.map((group, groupIndex) => (
+          {yearGroups.map((group) => (
             <section
               key={group.year}
-              data-group-index={groupIndex}
-              ref={(el) => {
-                if (el) sectionRefs.current.set(groupIndex, el);
-                else sectionRefs.current.delete(groupIndex);
-              }}
-              className="space-y-4 rounded-3xl bg-white/70 sm:p-6 shadow-lg shadow-[#ffe7f1]/50 ring-1 ring-white/60"
+              className="space-y-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-2xl font-semibold text-[#333]">
                   {group.year}
                 </h2>
                 <span className="rounded-full bg-[#FFE39F]/70 px-3 py-1 text-sm font-medium text-[#8a5a2d]">
-                  {group.items.length} memor
-                  {group.items.length === 1 ? "y" : "ies"}
+                  {group.totalItems} Photo
+                  {group.totalItems > 1 ? "s" : ""}
                 </span>
               </div>
 
-              <div className="mx-0 sm:mx-0">
-                <GalleryGrid
-                  tiles={group.items.map((meta) => {
-                    const thumbUrl = resolveThumbUrl(meta);
-                    return {
-                      id: meta.id,
-                      url: thumbUrl,
-                      fullUrl: resolveUrl(meta, thumbUrl),
-                      caption: meta.caption ?? meta.event,
-                      onClick: () => handleTileClick(meta),
-                    };
-                  })}
-                  columns={{ base: 3, sm: 2, md: 3, lg: 4 }}
-                />
+              <div className="space-y-6">
+                {group.months.map((monthGroup) => {
+                  const monthIndex = monthIndexByKey.get(monthGroup.key);
+                  return (
+                    <section
+                      key={monthGroup.key}
+                      data-month-index={monthIndex}
+                      ref={(el) => {
+                        if (monthIndex == null) return;
+                        if (el) sectionRefs.current.set(monthIndex, el);
+                        else sectionRefs.current.delete(monthIndex);
+                      }}
+                      className="space-y-3 rounded-2xl bg-white/80 p-4 shadow-md ring-1 ring-white/70"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-lg font-semibold text-[#4a4a4a]">
+                          {monthGroup.monthLabel}
+                        </h3>
+                      </div>
+
+                      <GalleryGrid
+                        tiles={monthGroup.items.map((meta) => {
+                          const thumbUrl = resolveThumbUrl(meta);
+                          return {
+                            id: meta.id,
+                            url: thumbUrl,
+                            fullUrl: resolveUrl(meta, thumbUrl),
+                            caption: meta.caption ?? meta.event,
+                            onClick: () => handleTileClick(meta),
+                          };
+                        })}
+                        columns={{ base: 3, sm: 2, md: 3, lg: 4 }}
+                      />
+                    </section>
+                  );
+                })}
               </div>
             </section>
           ))}
