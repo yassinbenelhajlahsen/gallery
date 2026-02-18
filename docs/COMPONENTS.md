@@ -152,7 +152,7 @@ Includes:
 
 - File: `src/pages/AdminPage.tsx`
 - Tab container controlled by `?tab=upload|delete`
-- Lazy-loads `UploadTab` and `DeleteTab`
+- Loads `UploadTab` and `DeleteTab`
 - Animated active pill + panel slide + dynamic panel height
 
 ### `UploadTab`

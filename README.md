@@ -41,7 +41,7 @@ Core data/storage model:
   - image thumbs as blobs keyed by image id
   - video poster thumbs as blobs keyed by `video:<id>`
 
-Admin tools live at `/admin` (upload + delete tabs, lazy-loaded).
+Admin tools live at `/admin` (upload + delete tabs).
 
 ## Key Technical Decisions
 
