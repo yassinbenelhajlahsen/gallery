@@ -624,7 +624,8 @@ export default function AdminUploadPage() {
       }
 
       if (results.length === 0) {
-        throw new Error("No files were successfully uploaded");
+        setError("No files were successfully uploaded");
+        return;
       }
 
       toast(
