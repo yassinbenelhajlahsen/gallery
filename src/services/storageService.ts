@@ -77,6 +77,21 @@ const normalizeDateField = (raw: unknown): string => {
   return new Date().toISOString();
 };
 
+const normalizeDurationSeconds = (raw: unknown): number | undefined => {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+    return Math.round(raw);
+  }
+
+  if (typeof raw === "string") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return Math.round(parsed);
+    }
+  }
+
+  return undefined;
+};
+
 export async function fetchAllImageMetadata(): Promise<ImageMeta[]> {
   try {
     const snap = await getDocs(collection(db, "images"));
@@ -160,6 +175,7 @@ export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
           caption: typeof data.caption === "string" ? data.caption : undefined,
           videoPath,
           thumbUrl,
+          durationSeconds: normalizeDurationSeconds(data.durationSeconds),
         } satisfies VideoMeta;
       });
 

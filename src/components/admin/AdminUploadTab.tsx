@@ -27,9 +27,17 @@ interface UploadProgress {
 
 /**
  * Extracts a poster frame JPEG (quality 0.7, maxEdge 480) from a video file.
- * No transcoding/compression of the video itself.
+ * Also reads video duration from metadata.
  */
-async function extractVideoPoster(file: File, maxEdge = 480): Promise<Blob> {
+function normalizeDurationSeconds(rawDuration: number): number | null {
+  if (!Number.isFinite(rawDuration) || rawDuration < 0) return null;
+  return Math.round(rawDuration);
+}
+
+async function extractVideoPoster(
+  file: File,
+  maxEdge = 480,
+): Promise<{ posterBlob: Blob; durationSeconds: number }> {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
@@ -38,6 +46,8 @@ async function extractVideoPoster(file: File, maxEdge = 480): Promise<Blob> {
     video.preload = "metadata";
 
     const objectUrl = URL.createObjectURL(file);
+    let settled = false;
+    let durationSeconds: number | null = null;
 
     const cleanup = () => {
       try {
@@ -50,20 +60,52 @@ async function extractVideoPoster(file: File, maxEdge = 480): Promise<Blob> {
       URL.revokeObjectURL(objectUrl);
     };
 
+    const safeReject = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
+
+    const safeResolve = (value: { posterBlob: Blob; durationSeconds: number }) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+
     video.onloadedmetadata = async () => {
       try {
+        const normalized = normalizeDurationSeconds(video.duration);
+        if (normalized === null) {
+          safeReject(new Error(`Failed to read video duration: ${file.name}`));
+          return;
+        }
+        durationSeconds = normalized;
+
         // Seek to 0.1s to avoid black first frame in some videos
         const target = Math.min(0.1, Math.max(0, video.duration || 0));
         const seekTo = Number.isFinite(target) ? target : 0;
         video.currentTime = seekTo;
       } catch {
         // fallback: attempt capture without seek
-        video.currentTime = 0;
+        try {
+          video.currentTime = 0;
+        } catch (err) {
+          safeReject(err);
+        }
       }
     };
 
     video.onseeked = () => {
       try {
+        const normalized = normalizeDurationSeconds(video.duration);
+        const resolvedDuration = durationSeconds ?? normalized;
+        if (resolvedDuration === null) {
+          safeReject(new Error(`Failed to read video duration: ${file.name}`));
+          return;
+        }
+
         const w = video.videoWidth;
         const h = video.videoHeight;
         if (!w || !h) throw new Error("Unable to read video dimensions");
@@ -82,25 +124,21 @@ async function extractVideoPoster(file: File, maxEdge = 480): Promise<Blob> {
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              cleanup();
-              reject(new Error("Poster JPEG conversion failed"));
+              safeReject(new Error("Poster JPEG conversion failed"));
               return;
             }
-            cleanup();
-            resolve(blob);
+            safeResolve({ posterBlob: blob, durationSeconds: resolvedDuration });
           },
           "image/jpeg",
           0.7,
         );
       } catch (err) {
-        cleanup();
-        reject(err);
+        safeReject(err);
       }
     };
 
     video.onerror = () => {
-      cleanup();
-      reject(new Error(`Failed to load video: ${file.name}`));
+      safeReject(new Error(`Failed to load video: ${file.name}`));
     };
 
     video.src = objectUrl;
@@ -446,7 +484,8 @@ export default function AdminUploadPage() {
             }
 
             updateProgress(fileName, { progress: 20 });
-            const posterBlob = await extractVideoPoster(originalFile);
+            const { posterBlob, durationSeconds } =
+              await extractVideoPoster(originalFile);
             updateProgress(fileName, { progress: 40 });
 
             const { videoId, thumbName } = await resolveUniqueVideoNames(
@@ -477,6 +516,7 @@ export default function AdminUploadPage() {
                 date,
                 videoPath: `videos/full/${videoId}`,
                 thumbPath: `videos/thumb/${thumbName}`,
+                durationSeconds,
                 createdAt: serverTimestamp(),
               };
               if (eventName && eventName.trim().length > 0)

@@ -1,5 +1,6 @@
 // src/components/gallery/GalleryGrid.tsx
 import React from "react";
+import { formatDurationSeconds } from "../../utils/durationFormat";
 
 export type GalleryGridTile = {
   id: string;
@@ -8,6 +9,8 @@ export type GalleryGridTile = {
   fullUrl?: string;
   /** Optional media discriminator for UI only */
   mediaType?: "image" | "video";
+  /** Optional duration in seconds for video tiles */
+  durationSeconds?: number;
   caption?: string;
   onClick?: () => void;
 };
@@ -80,6 +83,10 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
   const hasFullRes = Boolean(tile.fullUrl && tile.fullUrl !== tile.url);
   const isVideo = tile.mediaType === "video";
+  const durationLabel =
+    isVideo && typeof tile.durationSeconds === "number"
+      ? formatDurationSeconds(tile.durationSeconds)
+      : null;
 
   // Check if the image is already decoded (browser cache / blob URL hot)
   const thumbRef = React.useCallback(
@@ -137,18 +144,16 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
           />
         )}
 
-        {isVideo && !hasError && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span className="cursor-pointer flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white/90 ring-1 ring-white/20 backdrop-blur-sm">
-              ▶
-            </span>
-          </div>
-        )}
-
         {hasError && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#f5f5f5] text-sm text-[#999] rounded-2xl">
             ✕
           </div>
+        )}
+
+        {durationLabel && (
+          <span className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+            {durationLabel}
+          </span>
         )}
       </div>
     </button>

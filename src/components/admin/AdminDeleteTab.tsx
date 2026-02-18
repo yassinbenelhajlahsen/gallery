@@ -216,7 +216,7 @@ export default function AdminDeleteTab() {
         </span>
         <h2 className="text-2xl font-bold text-[#333]">Delete Media & Events</h2>
         <p className="text-sm text-[#666]">
-          Click delete once, then click again within 4 seconds to confirm.
+          Click delete once, then click again to confirm.
         </p>
       </header>
 

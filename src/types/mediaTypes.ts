@@ -17,6 +17,8 @@ export type VideoMeta = BaseMediaMeta & {
   videoPath: string;
   /** Thumbnail download URL (videos/thumb/<id>.jpg) */
   thumbUrl: string;
+  /** Video duration in whole seconds */
+  durationSeconds?: number;
 };
 
 export type ImageMediaMeta = ImageMeta & { type: "image" };
