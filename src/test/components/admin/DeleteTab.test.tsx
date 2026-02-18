@@ -18,6 +18,7 @@ const {
   toastMock,
   refreshGalleryMock,
   refreshEventsMock,
+  galleryState,
 } = vi.hoisted(() => ({
   deleteObjectMock: vi.fn(),
   refMock: vi.fn(),
@@ -34,6 +35,21 @@ const {
   toastMock: vi.fn(),
   refreshGalleryMock: vi.fn(),
   refreshEventsMock: vi.fn(),
+  galleryState: {
+    imageMetas: [
+      {
+        id: "img-1.jpg",
+        storagePath: "images/full/img-1.jpg",
+        date: "2024-01-01",
+        event: "Trip",
+        caption: "Photo",
+        downloadUrl: "https://full/img-1.jpg",
+        thumbUrl: "https://thumb/img-1.jpg",
+      },
+    ],
+    videoMetas: [],
+    events: [],
+  },
 }));
 
 vi.mock("firebase/storage", () => ({
@@ -68,19 +84,9 @@ vi.mock("../../../context/ToastContext", () => ({
 
 vi.mock("../../../context/GalleryContext", () => ({
   useGallery: () => ({
-    imageMetas: [
-      {
-        id: "img-1.jpg",
-        storagePath: "images/full/img-1.jpg",
-        date: "2024-01-01",
-        event: "Trip",
-        caption: "Photo",
-        downloadUrl: "https://full/img-1.jpg",
-        thumbUrl: "https://thumb/img-1.jpg",
-      },
-    ],
-    videoMetas: [],
-    events: [],
+    imageMetas: galleryState.imageMetas,
+    videoMetas: galleryState.videoMetas,
+    events: galleryState.events,
     refreshGallery: refreshGalleryMock,
     refreshEvents: refreshEventsMock,
     resolveThumbUrl: (meta: { thumbUrl: string }) => meta.thumbUrl,
@@ -92,6 +98,20 @@ import DeleteTab from "../../../components/admin/DeleteTab";
 
 describe("DeleteTab", () => {
   beforeEach(() => {
+    galleryState.imageMetas = [
+      {
+        id: "img-1.jpg",
+        storagePath: "images/full/img-1.jpg",
+        date: "2024-01-01",
+        event: "Trip",
+        caption: "Photo",
+        downloadUrl: "https://full/img-1.jpg",
+        thumbUrl: "https://thumb/img-1.jpg",
+      },
+    ];
+    galleryState.videoMetas = [];
+    galleryState.events = [];
+
     deleteObjectMock.mockReset().mockResolvedValue(undefined);
     refMock
       .mockReset()
@@ -154,5 +174,47 @@ describe("DeleteTab", () => {
       "Deleted image img-1.jpg",
       "success",
     );
+  });
+
+  it("filters delete lists by keystroke for event name, file name, and date", () => {
+    galleryState.imageMetas = [
+      {
+        id: "beach.jpg",
+        storagePath: "images/full/beach.jpg",
+        date: "2024-07-04",
+        event: "Summer Trip",
+        caption: "Beach day",
+        downloadUrl: "https://full/beach.jpg",
+        thumbUrl: "https://thumb/beach.jpg",
+      },
+      {
+        id: "family.jpg",
+        storagePath: "images/full/family.jpg",
+        date: "2023-12-25",
+        event: "Christmas",
+        caption: "Family",
+        downloadUrl: "https://full/family.jpg",
+        thumbUrl: "https://thumb/family.jpg",
+      },
+    ];
+
+    render(<DeleteTab />);
+
+    const searchInput = screen.getByLabelText("Search media and events");
+
+    fireEvent.change(searchInput, { target: { value: "summer" } });
+    expect(screen.getByText("beach.jpg")).toBeInTheDocument();
+    expect(screen.queryByText("family.jpg")).not.toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: "family.jpg" } });
+    expect(screen.getByText("family.jpg")).toBeInTheDocument();
+    expect(screen.queryByText("beach.jpg")).not.toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: "2024-07-04" } });
+    expect(screen.getByText("beach.jpg")).toBeInTheDocument();
+    expect(screen.queryByText("family.jpg")).not.toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: "no-match" } });
+    expect(screen.getByText("No images match your search.")).toBeInTheDocument();
   });
 });
