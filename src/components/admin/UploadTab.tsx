@@ -1,21 +1,15 @@
 // src/components/admin/AdminUploadPage.tsx
 import { useState, useMemo, useRef } from "react";
-import { ref, uploadBytes, getDownloadURL, getMetadata } from "firebase/storage";
-import { storage } from "../../services/firebaseStorage";
-import { db } from "../../services/firebaseFirestore";
 import { useGallery } from "../../context/GalleryContext";
 import { useToast } from "../../context/ToastContext";
 import { FloatingInput } from "../ui/FloatingInput";
-import {
-  addDoc,
-  collection,
-  setDoc,
-  doc,
-  getDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { getVideoExtension, isVideoFile } from "../../utils/uploadMediaUtils";
+import { isVideoFile } from "../../utils/uploadMediaUtils";
 import { inferUploadDateFromMetadata } from "../../utils/uploadDateMetadata";
+import {
+  createTimelineEvent,
+  uploadImageWithMetadata,
+  uploadVideoWithMetadata,
+} from "../../services/uploadService";
 
 interface UploadProgress {
   fileName: string;
@@ -23,281 +17,6 @@ interface UploadProgress {
   progress: number;
   error?: string;
   url?: string;
-}
-
-/**
- * Extracts a poster frame JPEG (quality 0.7, maxEdge 480) from a video file.
- * Also reads video duration from metadata.
- */
-function normalizeDurationSeconds(rawDuration: number): number | null {
-  if (!Number.isFinite(rawDuration) || rawDuration < 0) return null;
-  return Math.round(rawDuration);
-}
-
-async function extractVideoPoster(
-  file: File,
-  maxEdge = 480,
-): Promise<{ posterBlob: Blob; durationSeconds: number }> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-
-    const objectUrl = URL.createObjectURL(file);
-    let settled = false;
-    let durationSeconds: number | null = null;
-
-    const cleanup = () => {
-      try {
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-      } catch {
-        // ignore
-      }
-      URL.revokeObjectURL(objectUrl);
-    };
-
-    const safeReject = (error: unknown) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(error instanceof Error ? error : new Error(String(error)));
-    };
-
-    const safeResolve = (value: { posterBlob: Blob; durationSeconds: number }) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(value);
-    };
-
-    video.onloadedmetadata = async () => {
-      try {
-        const normalized = normalizeDurationSeconds(video.duration);
-        if (normalized === null) {
-          safeReject(new Error(`Failed to read video duration: ${file.name}`));
-          return;
-        }
-        durationSeconds = normalized;
-
-        // Seek to 0.1s to avoid black first frame in some videos
-        const target = Math.min(0.1, Math.max(0, video.duration || 0));
-        const seekTo = Number.isFinite(target) ? target : 0;
-        video.currentTime = seekTo;
-      } catch {
-        // fallback: attempt capture without seek
-        try {
-          video.currentTime = 0;
-        } catch (err) {
-          safeReject(err);
-        }
-      }
-    };
-
-    video.onseeked = () => {
-      try {
-        const normalized = normalizeDurationSeconds(video.duration);
-        const resolvedDuration = durationSeconds ?? normalized;
-        if (resolvedDuration === null) {
-          safeReject(new Error(`Failed to read video duration: ${file.name}`));
-          return;
-        }
-
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        if (!w || !h) throw new Error("Unable to read video dimensions");
-
-        const scale = Math.min(1, maxEdge / Math.max(w, h));
-        const outW = Math.round(w * scale);
-        const outH = Math.round(h * scale);
-
-        const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = outH;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas context is null");
-        ctx.drawImage(video, 0, 0, outW, outH);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              safeReject(new Error("Poster JPEG conversion failed"));
-              return;
-            }
-            safeResolve({ posterBlob: blob, durationSeconds: resolvedDuration });
-          },
-          "image/jpeg",
-          0.7,
-        );
-      } catch (err) {
-        safeReject(err);
-      }
-    };
-
-    video.onerror = () => {
-      safeReject(new Error(`Failed to load video: ${file.name}`));
-    };
-
-    video.src = objectUrl;
-  });
-}
-
-/**
- * Loads a File into an HTMLImageElement, returning the element.
- */
-function loadImage(file: File): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    const objectUrl = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(
-        new Error(
-          `Failed to load image: ${file.name} (Type: ${file.type}, Size: ${file.size} bytes)`,
-        ),
-      );
-    };
-    img.onabort = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error(`Image load aborted: ${file.name}`));
-    };
-    img.src = objectUrl;
-  });
-}
-
-/**
- * Draws an HTMLImageElement onto a canvas at the given dimensions and returns
- * a JPEG Blob.
- */
-function canvasToJpeg(
-  img: HTMLImageElement,
-  width: number,
-  height: number,
-  quality: number,
-): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return reject(new Error("Canvas context is null"));
-
-    ctx.drawImage(img, 0, 0, width, height);
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return reject(new Error("JPEG conversion failed"));
-        resolve(blob);
-      },
-      "image/jpeg",
-      quality,
-    );
-  });
-}
-
-/**
- * Converts any image File into a full-res JPEG Blob (quality 0.9).
- */
-async function convertToJpeg(img: HTMLImageElement): Promise<Blob> {
-  return canvasToJpeg(img, img.width, img.height, 0.9);
-}
-
-/**
- * Generates a thumbnail JPEG from a loaded image element.
- * Resizes so the longest edge is at most `maxEdge` px (default 480),
- * encoded at quality 0.7.
- */
-async function generateThumbnail(
-  img: HTMLImageElement,
-  maxEdge = 480,
-): Promise<Blob> {
-  const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-  const thumbW = Math.round(img.width * scale);
-  const thumbH = Math.round(img.height * scale);
-  return canvasToJpeg(img, thumbW, thumbH, 0.7);
-}
-
-function firebaseErrorCode(error: unknown): string | null {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof (error as { code?: unknown }).code === "string"
-  ) {
-    return (error as { code: string }).code;
-  }
-  return null;
-}
-
-async function storageObjectExists(path: string): Promise<boolean> {
-  try {
-    await getMetadata(ref(storage, path));
-    return true;
-  } catch (error) {
-    if (firebaseErrorCode(error) === "storage/object-not-found") {
-      return false;
-    }
-    throw error;
-  }
-}
-
-async function mediaCandidateExists(
-  collectionName: "images" | "videos",
-  id: string,
-  fullPath: string,
-  thumbPath: string,
-): Promise<boolean> {
-  const [docSnap, fullExists, thumbExists] = await Promise.all([
-    getDoc(doc(db, collectionName, id)),
-    storageObjectExists(fullPath),
-    storageObjectExists(thumbPath),
-  ]);
-  return docSnap.exists() || fullExists || thumbExists;
-}
-
-async function resolveUniqueImageName(cleanName: string): Promise<string> {
-  const baseName = cleanName.trim() || "upload";
-  let suffix = 0;
-  while (true) {
-    const jpgName = suffix === 0 ? `${baseName}.jpg` : `${baseName}-${suffix}.jpg`;
-    const exists = await mediaCandidateExists(
-      "images",
-      jpgName,
-      `images/full/${jpgName}`,
-      `images/thumb/${jpgName}`,
-    );
-    if (!exists) return jpgName;
-    suffix += 1;
-  }
-}
-
-async function resolveUniqueVideoNames(
-  cleanName: string,
-  ext: string,
-): Promise<{ videoId: string; thumbName: string }> {
-  const baseName = cleanName.trim() || "upload";
-  let suffix = 0;
-  while (true) {
-    const candidateBase = suffix === 0 ? baseName : `${baseName}-${suffix}`;
-    const videoId = `${candidateBase}.${ext}`;
-    const thumbName = `${candidateBase}.jpg`;
-    const exists = await mediaCandidateExists(
-      "videos",
-      videoId,
-      `videos/full/${videoId}`,
-      `videos/thumb/${thumbName}`,
-    );
-    if (!exists) return { videoId, thumbName };
-    suffix += 1;
-  }
 }
 
 export default function AdminUploadPage() {
@@ -321,13 +40,9 @@ export default function AdminUploadPage() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
 
   const { events, refreshEvents, refreshGallery } = useGallery();
-  const selectedEventIdRef = useRef(selectedEventId);
-  const eventNameRef = useRef(eventName);
   const metadataProbeIdRef = useRef(0);
   const dateSourceRef = useRef(dateSource);
 
-  selectedEventIdRef.current = selectedEventId;
-  eventNameRef.current = eventName;
   dateSourceRef.current = dateSource;
 
   // Sort events by date (newest first)
@@ -344,18 +59,7 @@ export default function AdminUploadPage() {
 
     setIsCreatingEvent(true);
     try {
-      const eventData: Record<string, unknown> = {
-        date: newEventDate,
-        title: newEventTitle.trim(),
-        imageIds: [],
-        createdAt: serverTimestamp(),
-      };
-      const trimmedEmoji = newEventEmoji.trim();
-      if (trimmedEmoji.length > 0) {
-        eventData.emojiOrDot = trimmedEmoji;
-      }
-
-      await addDoc(collection(db, "events"), eventData);
+      await createTimelineEvent(newEventDate, newEventTitle, newEventEmoji);
 
       // Refresh events to include the new one
       await refreshEvents();
@@ -475,139 +179,24 @@ export default function AdminUploadPage() {
         updateProgress(fileName, { status: "converting", progress: 10 });
 
         try {
-          const cleanName = originalFile.name.replace(/\.[^.]+$/, "");
-
           if (isVideoFile(originalFile)) {
-            const ext = getVideoExtension(originalFile);
-            if (!ext) {
-              throw new Error("Unsupported video format (only .mp4 and .mov)");
-            }
-
             updateProgress(fileName, { progress: 20 });
-            const { posterBlob, durationSeconds } =
-              await extractVideoPoster(originalFile);
-            updateProgress(fileName, { progress: 40 });
-
-            const { videoId, thumbName } = await resolveUniqueVideoNames(
-              cleanName,
-              ext,
-            );
-
-            const fullRef = ref(storage, `videos/full/${videoId}`);
-            const thumbRef = ref(storage, `videos/thumb/${thumbName}`);
-
             updateProgress(fileName, { status: "uploading", progress: 60 });
-
-            // Upload video & poster; avoid storing app fields in Storage metadata.
-            await Promise.all([
-              uploadBytes(fullRef, originalFile, {
-                contentType: originalFile.type,
-              }),
-              uploadBytes(thumbRef, posterBlob, { contentType: "image/jpeg" }),
-            ]);
-
-            updateProgress(fileName, { progress: 85 });
-
-            // Write Firestore doc for the video
-            try {
-              const payload: Record<string, unknown> = {
-                id: videoId,
-                type: "video",
-                date,
-                videoPath: `videos/full/${videoId}`,
-                thumbPath: `videos/thumb/${thumbName}`,
-                durationSeconds,
-                createdAt: serverTimestamp(),
-              };
-              if (eventName && eventName.trim().length > 0)
-                payload.event = eventName.trim();
-
-              updateProgress(fileName, { progress: 88 });
-              await setDoc(doc(db, "videos", videoId), payload, {
-                merge: true,
-              });
-              updateProgress(fileName, { progress: 95 });
-            } catch (fireErr) {
-              const msg =
-                fireErr instanceof Error ? fireErr.message : String(fireErr);
-              console.error(
-                `[Upload] ✗ Firestore write failed for ${videoId}:`,
-                fireErr,
-              );
-              updateProgress(fileName, {
-                status: "error",
-                error: `Failed to write metadata: ${msg}`,
-                progress: 0,
-              });
-              toast(`Failed to save metadata for ${videoId}: ${msg}`, "error");
-              continue; // proceed to next file
-            }
-
-            const url = await getDownloadURL(thumbRef).catch(() => "");
+            const { url } = await uploadVideoWithMetadata(
+              originalFile,
+              date,
+              eventName,
+            );
             updateProgress(fileName, { progress: 100, status: "success", url });
             results.push(url);
           } else {
-            // Load the image once for both operations
             updateProgress(fileName, { progress: 20 });
-            const img = await loadImage(originalFile);
-            updateProgress(fileName, { progress: 30 });
-
-            // Convert to full-res JPEG + generate thumbnail in parallel
-            const [jpegBlob, thumbBlob] = await Promise.all([
-              convertToJpeg(img),
-              generateThumbnail(img),
-            ]);
-            updateProgress(fileName, { progress: 50 });
-
-            const jpgName = await resolveUniqueImageName(cleanName);
-
-            const fullRef = ref(storage, `images/full/${jpgName}`);
-            const thumbRef = ref(storage, `images/thumb/${jpgName}`);
-
             updateProgress(fileName, { status: "uploading", progress: 60 });
-
-            // Upload full-res and thumbnail in parallel. Do NOT write app metadata to Storage.
-            await Promise.all([
-              uploadBytes(fullRef, jpegBlob, { contentType: "image/jpeg" }),
-              uploadBytes(thumbRef, thumbBlob, { contentType: "image/jpeg" }),
-            ]);
-            updateProgress(fileName, { progress: 80 });
-
-            // Write Firestore doc for the image
-            try {
-              const payload: Record<string, unknown> = {
-                id: jpgName,
-                type: "image",
-                date,
-                fullPath: `images/full/${jpgName}`,
-                thumbPath: `images/thumb/${jpgName}`,
-                createdAt: serverTimestamp(),
-              };
-              if (eventName && eventName.trim().length > 0)
-                payload.event = eventName.trim();
-
-              updateProgress(fileName, { progress: 85 });
-              await setDoc(doc(db, "images", jpgName), payload, {
-                merge: true,
-              });
-              updateProgress(fileName, { progress: 95 });
-            } catch (fireErr) {
-              const msg =
-                fireErr instanceof Error ? fireErr.message : String(fireErr);
-              console.error(
-                `[Upload] ✗ Firestore write failed for ${jpgName}:`,
-                fireErr,
-              );
-              updateProgress(fileName, {
-                status: "error",
-                error: `Failed to write metadata: ${msg}`,
-                progress: 0,
-              });
-              toast(`Failed to save metadata for ${jpgName}: ${msg}`, "error");
-              continue; // proceed to next file
-            }
-
-            const url = await getDownloadURL(fullRef).catch(() => "");
+            const { url } = await uploadImageWithMetadata(
+              originalFile,
+              date,
+              eventName,
+            );
             updateProgress(fileName, { progress: 100, status: "success", url });
             results.push(url);
           }

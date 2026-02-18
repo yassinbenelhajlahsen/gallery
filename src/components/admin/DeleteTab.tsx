@@ -1,103 +1,30 @@
-import { useEffect, useMemo, useState } from "react";
-import { deleteObject, ref } from "firebase/storage";
-import {
-  arrayRemove,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  updateDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore";
-import { storage } from "../../services/firebaseStorage";
-import { db } from "../../services/firebaseFirestore";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useGallery } from "../../context/GalleryContext";
 import { useToast } from "../../context/ToastContext";
+import {
+  buildSearchIndex,
+  deleteEventWithLinkedMediaCleanup,
+  deleteImageWithMetadata,
+  deleteVideoWithMetadata,
+  matchesTokens,
+  normalizeImageSrc,
+  normalizeText,
+  toDateInputValue,
+  toDateLabel,
+  toDateSearchTokens,
+  updateMediaMetadata,
+  updateTimelineEventMetadata,
+} from "../../services/deleteService";
+import EditMetadataModal, {
+  type EditDraft,
+} from "../ui/EditMetadataModal";
 
-const isStorageObjectMissing = (error: unknown): boolean => {
-  if (typeof error !== "object" || error === null) return false;
-  const code =
-    "code" in error && typeof error.code === "string" ? error.code : "";
-  return code === "storage/object-not-found";
-};
-
-const parseLocalDateLike = (dateValue: string): Date | null => {
-  const trimmed = dateValue.trim();
-  if (!trimmed) return null;
-
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    const [, yearRaw, monthRaw, dayRaw] = isoMatch;
-    const year = Number(yearRaw);
-    const month = Number(monthRaw);
-    const day = Number(dayRaw);
-    if (year && month && day) {
-      return new Date(year, month - 1, day);
-    }
-  }
-
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-    const [month, day, year] = trimmed.split("/").map(Number);
-    if (year && month && day) {
-      return new Date(year, month - 1, day);
-    }
-  }
-
-  const parsed = Date.parse(trimmed);
-  if (Number.isNaN(parsed)) return null;
-  return new Date(parsed);
-};
-
-const toDateLabel = (dateValue: string) => {
-  const parsed = parseLocalDateLike(dateValue);
-  if (!parsed) return dateValue;
-  return parsed.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-const normalizeText = (value: string) => value.trim().toLowerCase();
-
-const toDateSearchTokens = (dateValue: string): string[] => {
-  const trimmed = dateValue.trim();
-  if (!trimmed) return [];
-
-  const tokens = new Set<string>([trimmed.toLowerCase()]);
-
-  const parsed = parseLocalDateLike(trimmed);
-  if (parsed) {
-    const year = parsed.getFullYear();
-    const month = parsed.getMonth() + 1;
-    const day = parsed.getDate();
-    const mm = String(month).padStart(2, "0");
-    const dd = String(day).padStart(2, "0");
-    tokens.add(`${year}-${mm}-${dd}`);
-    tokens.add(`${mm}/${dd}/${year}`);
-    tokens.add(`${month}/${day}/${year}`);
-  }
-
-  tokens.add(toDateLabel(trimmed).toLowerCase());
-  return Array.from(tokens);
-};
-
-const buildSearchIndex = (...parts: Array<string | undefined>): string =>
-  parts
-    .filter((part): part is string => Boolean(part))
-    .map((part) => part.toLowerCase())
-    .join(" ");
-
-const matchesTokens = (index: string, tokens: string[]) =>
-  tokens.every((token) => index.includes(token));
-
-const normalizeImageSrc = (src: string | null | undefined): string | null => {
-  if (typeof src !== "string") return null;
-  const trimmed = src.trim();
-  return trimmed.length > 0 ? trimmed : null;
+type DeleteConfirmDraft = {
+  key: string;
+  kind: "image" | "video" | "event";
+  title: string;
+  onConfirm: () => Promise<void>;
 };
 
 export default function DeleteTab() {
@@ -111,17 +38,11 @@ export default function DeleteTab() {
     resolveVideoThumbUrl,
   } = useGallery();
   const { toast } = useToast();
-  const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    if (!confirmKey) return;
-    const timeout = setTimeout(() => {
-      setConfirmKey((current) => (current === confirmKey ? null : current));
-    }, 4000);
-    return () => clearTimeout(timeout);
-  }, [confirmKey]);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [deleteDraft, setDeleteDraft] = useState<DeleteConfirmDraft | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const sortedEvents = useMemo(
     () => [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
@@ -141,7 +62,6 @@ export default function DeleteTab() {
       const index = buildSearchIndex(
         meta.id,
         meta.event,
-        meta.caption,
         ...toDateSearchTokens(meta.date),
       );
       return matchesTokens(index, searchTokens);
@@ -154,7 +74,6 @@ export default function DeleteTab() {
       const index = buildSearchIndex(
         meta.id,
         meta.event,
-        meta.caption,
         ...toDateSearchTokens(meta.date),
       );
       return matchesTokens(index, searchTokens);
@@ -177,183 +96,235 @@ export default function DeleteTab() {
     filteredImageMetas.length + filteredVideoMetas.length + filteredEvents.length;
   const totalItems = imageMetas.length + videoMetas.length + sortedEvents.length;
 
-  const removeMediaFromEventRefs = async (mediaId: string) => {
-    const eventsWithMedia = await getDocs(
-      query(
-        collection(db, "events"),
-        where("imageIds", "array-contains", mediaId),
-      ),
-    );
-
-    await Promise.all(
-      eventsWithMedia.docs.map(async (eventDoc) => {
-        await updateDoc(eventDoc.ref, {
-          imageIds: arrayRemove(mediaId),
-        });
-      }),
-    );
+  const openDeleteConfirm = (nextDraft: DeleteConfirmDraft) => {
+    if (busyKey || isSavingEdit) return;
+    setDeleteDraft(nextDraft);
   };
 
-  const clearEventFromLinkedMedia = async (
+  const requestDeleteImage = (
+    id: string,
+    fullPath: string,
+    thumbPath: string,
+  ) => {
+    openDeleteConfirm({
+      key: `image:${id}`,
+      kind: "image",
+      title: id,
+      onConfirm: async () => {
+        await deleteImageWithMetadata(id, fullPath, thumbPath);
+        await refreshGallery();
+        await refreshEvents();
+        toast(`Deleted image ${id}`, "success");
+      },
+    });
+  };
+
+  const requestDeleteVideo = (
+    id: string,
+    fullPath: string,
+    thumbPath: string,
+  ) => {
+    openDeleteConfirm({
+      key: `video:${id}`,
+      kind: "video",
+      title: id,
+      onConfirm: async () => {
+        await deleteVideoWithMetadata(id, fullPath, thumbPath);
+        await refreshGallery();
+        await refreshEvents();
+        toast(`Deleted video ${id}`, "success");
+      },
+    });
+  };
+
+  const requestDeleteEvent = (
+    eventId: string,
     eventTitle: string,
     mediaIds: string[],
   ) => {
-    const batch = writeBatch(db);
-    const queuedRefs = new Set<string>();
-
-    const queueClearEvent = (
-      collectionName: "images" | "videos",
-      id: string,
-    ) => {
-      const key = `${collectionName}:${id}`;
-      if (queuedRefs.has(key)) return;
-      queuedRefs.add(key);
-      batch.update(doc(db, collectionName, id), { event: null });
-    };
-
-    const [imagesByEvent, videosByEvent] = await Promise.all([
-      getDocs(
-        query(collection(db, "images"), where("event", "==", eventTitle)),
-      ),
-      getDocs(
-        query(collection(db, "videos"), where("event", "==", eventTitle)),
-      ),
-    ]);
-
-    imagesByEvent.docs.forEach((imageDoc) =>
-      queueClearEvent("images", imageDoc.id),
-    );
-    videosByEvent.docs.forEach((videoDoc) =>
-      queueClearEvent("videos", videoDoc.id),
-    );
-
-    await Promise.all(
-      mediaIds.map(async (mediaId) => {
-        const [imageDoc, videoDoc] = await Promise.all([
-          getDoc(doc(db, "images", mediaId)),
-          getDoc(doc(db, "videos", mediaId)),
-        ]);
-        if (imageDoc.exists()) queueClearEvent("images", mediaId);
-        if (videoDoc.exists()) queueClearEvent("videos", mediaId);
-      }),
-    );
-
-    if (queuedRefs.size > 0) {
-      await batch.commit();
-    }
+    openDeleteConfirm({
+      key: `event:${eventId}`,
+      kind: "event",
+      title: eventTitle,
+      onConfirm: async () => {
+        await deleteEventWithLinkedMediaCleanup(eventId, eventTitle, mediaIds);
+        await refreshGallery();
+        await refreshEvents();
+        toast("Deleted timeline event", "success");
+      },
+    });
   };
 
-  const performDelete = async (key: string, onDelete: () => Promise<void>) => {
-    if (busyKey) return;
+  const openImageEditor = (id: string, date: string, event?: string) => {
+    setEditDraft({
+      kind: "image",
+      id,
+      date: toDateInputValue(date),
+      event: event ?? "",
+    });
+  };
 
-    if (confirmKey !== key) {
-      setConfirmKey(key);
-      return;
+  const openVideoEditor = (id: string, date: string, event?: string) => {
+    setEditDraft({
+      kind: "video",
+      id,
+      date: toDateInputValue(date),
+      event: event ?? "",
+    });
+  };
+
+  const openEventEditor = (
+    id: string,
+    date: string,
+    title: string,
+    emojiOrDot?: string,
+    mediaIds?: string[],
+  ) => {
+    setEditDraft({
+      kind: "event",
+      id,
+      originalTitle: title,
+      mediaIds: mediaIds ?? [],
+      date: toDateInputValue(date),
+      title,
+      emojiOrDot: emojiOrDot ?? "",
+    });
+  };
+
+  const closeEditor = () => {
+    if (isSavingEdit) return;
+    setEditDraft(null);
+  };
+
+  const closeDeleteConfirm = useCallback(() => {
+    if (busyKey) return;
+    setDeleteDraft(null);
+  }, [busyKey]);
+
+  useEffect(() => {
+    if (!deleteDraft || busyKey) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeDeleteConfirm();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteDraft, busyKey, closeDeleteConfirm]);
+
+  useEffect(() => {
+    if (!deleteDraft || typeof document === "undefined") return;
+
+    const { body, documentElement } = document;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+    const scrollbarGap = window.innerWidth - documentElement.clientWidth;
+
+    body.style.overflow = "hidden";
+    if (scrollbarGap > 0) {
+      body.style.paddingRight = `${scrollbarGap}px`;
     }
 
-    setConfirmKey(null);
-    setBusyKey(key);
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+    };
+  }, [deleteDraft]);
+
+  const confirmDelete = async () => {
+    if (!deleteDraft || busyKey) return;
+
+    const draft = deleteDraft;
+    setBusyKey(draft.key);
     try {
-      await onDelete();
+      await draft.onConfirm();
+      setDeleteDraft(null);
+    } catch (error) {
+      if (draft.kind === "event") {
+        console.error("Failed to delete event", error);
+        toast("Failed to delete timeline event.", "error");
+      } else {
+        console.error(`Failed to delete ${draft.kind}`, error);
+        toast(`Failed to delete ${draft.kind}. Check console for details.`, "error");
+      }
     } finally {
       setBusyKey(null);
     }
   };
 
-  const deleteImage = async (
-    id: string,
-    fullPath: string,
-    thumbPath: string,
-  ) => {
-    await performDelete(`image:${id}`, async () => {
-      const [fullResult, thumbResult] = await Promise.allSettled([
-        deleteObject(ref(storage, fullPath)),
-        deleteObject(ref(storage, thumbPath)),
-      ]);
+  const saveEdit = async () => {
+    if (!editDraft || isSavingEdit) return;
 
-      const fullError =
-        fullResult.status === "rejected" ? fullResult.reason : null;
-      const thumbError =
-        thumbResult.status === "rejected" ? thumbResult.reason : null;
+    if (!editDraft.date) {
+      toast("Please choose a date.", "error");
+      return;
+    }
 
-      if (fullError && !isStorageObjectMissing(fullError)) throw fullError;
-      if (thumbError && !isStorageObjectMissing(thumbError)) throw thumbError;
+    setIsSavingEdit(true);
+    const draft = editDraft;
+    try {
+      if (draft.kind === "event") {
+        const title = draft.title.trim();
+        if (!title) {
+          toast("Event title is required.", "error");
+          return;
+        }
 
-      await deleteDoc(doc(db, "images", id));
-      await removeMediaFromEventRefs(id);
-      await refreshGallery();
-      await refreshEvents();
-      toast(`Deleted image ${id}`, "success");
-    }).catch((error) => {
-      console.error("Failed to delete image", error);
-      toast("Failed to delete image. Check console for details.", "error");
-    });
-  };
+        await updateTimelineEventMetadata({
+          id: draft.id,
+          date: draft.date,
+          title,
+          emojiOrDot: draft.emojiOrDot,
+          originalTitle: draft.originalTitle,
+          mediaIds: draft.mediaIds,
+        });
 
-  const deleteVideo = async (
-    id: string,
-    fullPath: string,
-    thumbPath: string,
-  ) => {
-    await performDelete(`video:${id}`, async () => {
-      const [fullResult, thumbResult] = await Promise.allSettled([
-        deleteObject(ref(storage, fullPath)),
-        deleteObject(ref(storage, thumbPath)),
-      ]);
+        await refreshGallery();
+        await refreshEvents();
+        toast("Updated timeline event", "success");
+      } else {
+        await updateMediaMetadata(draft.kind, draft.id, draft.date, draft.event);
 
-      const fullError =
-        fullResult.status === "rejected" ? fullResult.reason : null;
-      const thumbError =
-        thumbResult.status === "rejected" ? thumbResult.reason : null;
+        await refreshGallery();
+        await refreshEvents();
+        toast(`Updated ${draft.kind} metadata`, "success");
+      }
 
-      if (fullError && !isStorageObjectMissing(fullError)) throw fullError;
-      if (thumbError && !isStorageObjectMissing(thumbError)) throw thumbError;
-
-      await deleteDoc(doc(db, "videos", id));
-      await removeMediaFromEventRefs(id);
-      await refreshGallery();
-      await refreshEvents();
-      toast(`Deleted video ${id}`, "success");
-    }).catch((error) => {
-      console.error("Failed to delete video", error);
-      toast("Failed to delete video. Check console for details.", "error");
-    });
-  };
-
-  const deleteEvent = async (
-    eventId: string,
-    eventTitle: string,
-    mediaIds: string[],
-  ) => {
-    await performDelete(`event:${eventId}`, async () => {
-      await clearEventFromLinkedMedia(eventTitle, mediaIds);
-      await deleteDoc(doc(db, "events", eventId));
-      await refreshGallery();
-      await refreshEvents();
-      toast("Deleted timeline event", "success");
-    }).catch((error) => {
-      console.error("Failed to delete event", error);
-      toast("Failed to delete timeline event.", "error");
-    });
+      setEditDraft(null);
+    } catch (error) {
+      console.error("Failed to update metadata", error);
+      toast("Failed to update metadata. Check console for details.", "error");
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const buttonLabel = (key: string) => {
     if (busyKey === key) return "Deleting...";
-    if (confirmKey === key) return "Confirm Delete";
     return "Delete";
   };
+
+  const portalTarget = typeof document === "undefined" ? null : document.body;
+  const deleteTypeLabel =
+    deleteDraft?.kind === "event"
+      ? "Timeline Event"
+      : deleteDraft?.kind === "image"
+        ? "Image"
+        : deleteDraft?.kind === "video"
+          ? "Video"
+          : "";
+  const isDeletingCurrentDraft =
+    Boolean(deleteDraft) && busyKey === deleteDraft?.key;
 
   return (
     <div className="space-y-6">
       <header className="space-y-2 text-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#D24A4A]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-[#7d1f1f]">
-          Delete
+          Edit & Delete
         </span>
         <h2 className="text-2xl font-bold text-[#333]">
-          Delete Media & Events
+          Edit & Delete Media & Events
         </h2>
         <p className="text-sm text-[#666]">
-          Click delete once, then click again to confirm.
+          Use Edit to update metadata, or Delete to remove items after confirmation.
         </p>
       </header>
 
@@ -410,7 +381,7 @@ export default function DeleteTab() {
                   {thumbSrc ? (
                     <img
                       src={thumbSrc}
-                      alt={meta.caption ?? meta.event ?? meta.id}
+                      alt={meta.event ?? meta.id}
                       className="h-12 w-12 rounded-lg object-cover"
                     />
                   ) : (
@@ -427,20 +398,32 @@ export default function DeleteTab() {
                       {toDateLabel(meta.date)}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={Boolean(busyKey)}
-                    onClick={() =>
-                      deleteImage(
-                        meta.id,
-                        meta.storagePath,
-                        `images/thumb/${meta.id}`,
-                      )
-                    }
-                    className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {buttonLabel(key)}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(busyKey) || isSavingEdit}
+                      onClick={() =>
+                        openImageEditor(meta.id, meta.date, meta.event)
+                      }
+                      className="cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(busyKey) || isSavingEdit}
+                      onClick={() =>
+                        requestDeleteImage(
+                          meta.id,
+                          meta.storagePath,
+                          `images/thumb/${meta.id}`,
+                        )
+                      }
+                      className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {buttonLabel(key)}
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -479,7 +462,7 @@ export default function DeleteTab() {
                   {thumbSrc ? (
                     <img
                       src={thumbSrc}
-                      alt={meta.caption ?? meta.event ?? meta.id}
+                      alt={meta.event ?? meta.id}
                       className="h-12 w-12 rounded-lg object-cover"
                     />
                   ) : (
@@ -496,20 +479,32 @@ export default function DeleteTab() {
                       {toDateLabel(meta.date)}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={Boolean(busyKey)}
-                    onClick={() =>
-                      deleteVideo(
-                        meta.id,
-                        meta.videoPath,
-                        `videos/thumb/${meta.id.replace(/\.[^.]+$/, ".jpg")}`,
-                      )
-                    }
-                    className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {buttonLabel(key)}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(busyKey) || isSavingEdit}
+                      onClick={() =>
+                        openVideoEditor(meta.id, meta.date, meta.event)
+                      }
+                      className="cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(busyKey) || isSavingEdit}
+                      onClick={() =>
+                        requestDeleteVideo(
+                          meta.id,
+                          meta.videoPath,
+                          `videos/thumb/${meta.id.replace(/\.[^.]+$/, ".jpg")}`,
+                        )
+                      }
+                      className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {buttonLabel(key)}
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -555,22 +550,121 @@ export default function DeleteTab() {
                       {toDateLabel(event.date)}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={Boolean(busyKey)}
-                    onClick={() =>
-                      deleteEvent(event.id, event.title, event.imageIds ?? [])
-                    }
-                    className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {buttonLabel(key)}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(busyKey) || isSavingEdit}
+                      onClick={() =>
+                        openEventEditor(
+                          event.id,
+                          event.date,
+                          event.title,
+                          event.emojiOrDot,
+                          event.imageIds,
+                        )
+                      }
+                      className="cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={Boolean(busyKey) || isSavingEdit}
+                      onClick={() =>
+                        requestDeleteEvent(event.id, event.title, event.imageIds ?? [])
+                      }
+                      className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {buttonLabel(key)}
+                    </button>
+                  </div>
                 </div>
               );
             })
           )}
         </div>
       </section>
+
+      {deleteDraft && portalTarget
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[120] overflow-y-auto bg-[#2f1f26]/55 px-4 py-6 backdrop-blur-sm"
+              style={{ animation: "modalBackdropReveal 0.25s ease-out forwards" }}
+              onClick={closeDeleteConfirm}
+            >
+              <div className="flex min-h-full items-center justify-center">
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Confirm delete"
+                  className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#f1d8df] bg-white shadow-[0_35px_90px_rgba(53,18,34,0.34)]"
+                  style={{
+                    animation:
+                      "modalCardReveal 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards",
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="border-b border-[#f5e1e7] bg-linear-to-r from-[#fff6f9] via-[#fffefe] to-[#fff2f6] px-5 py-4 sm:px-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center rounded-full bg-[#F7DEE2] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7b4658]">
+                          {deleteTypeLabel}
+                        </span>
+                        <h3 className="text-xl font-semibold text-[#332a2e]">
+                          Confirm Delete
+                        </h3>
+                        <p className="truncate text-sm text-[#7a6970]">
+                          {deleteDraft.title}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center space-y-2 px-5 py-5 sm:px-6">
+                    <p className="text-sm text-[#4f4348]">
+                      This will permanently delete this {deleteDraft.kind}.
+                    </p>
+                    <p className="text-sm text-[#7a6970]">
+                      This action cannot be undone.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 border-t border-[#f5e1e7] bg-[#fffbfc] px-5 py-4 sm:px-6">
+                    <button
+                      type="button"
+                      disabled={isDeletingCurrentDraft}
+                      onClick={closeDeleteConfirm}
+                      className="cursor-pointer rounded-full bg-[#efefef] px-4 py-2 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e4e4e4] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingCurrentDraft}
+                      onClick={() => {
+                        void confirmDelete();
+                      }}
+                      className="cursor-pointer rounded-full bg-[#F7DEE2] px-4 py-2 text-xs font-semibold text-[#333] shadow-sm transition hover:bg-[#F3CED6] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isDeletingCurrentDraft ? "Deleting..." : "Confirm Delete"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            portalTarget,
+          )
+        : null}
+
+      <EditMetadataModal
+        draft={editDraft}
+        isSaving={isSavingEdit}
+        onClose={closeEditor}
+        onChange={(nextDraft) => setEditDraft(nextDraft)}
+        onSave={() => {
+          void saveEdit();
+        }}
+      />
     </div>
   );
 }
