@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ImageMeta } from "../../../services/storageService";
@@ -327,5 +327,112 @@ describe("DeleteTab", () => {
     );
     expect(batchCommitMock).toHaveBeenCalledTimes(1);
     expect(toastMock).toHaveBeenCalledWith("Deleted timeline event", "success");
+  });
+
+  it("opens edit modal and updates image metadata", async () => {
+    render(<DeleteTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Edit metadata" });
+    fireEvent.change(within(dialog).getByLabelText("Date"), {
+      target: { value: "2024-05-12" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Event"), {
+      target: { value: "Road Trip" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => {
+      expect(updateDocMock).toHaveBeenCalledWith(
+        { collectionName: "images", id: "img-1.jpg" },
+        {
+          date: "2024-05-12",
+          event: "Road Trip",
+        },
+      );
+    });
+
+    expect(refreshGalleryMock).toHaveBeenCalledTimes(1);
+    expect(refreshEventsMock).toHaveBeenCalledTimes(1);
+    expect(toastMock).toHaveBeenCalledWith("Updated image metadata", "success");
+  });
+
+  it("updates timeline event metadata and propagates renamed event to linked media", async () => {
+    const batchUpdateMock = vi.fn();
+    const batchCommitMock = vi.fn().mockResolvedValue(undefined);
+    writeBatchMock.mockReturnValue({
+      update: batchUpdateMock,
+      commit: batchCommitMock,
+    });
+
+    galleryState.imageMetas = [];
+    galleryState.videoMetas = [];
+    galleryState.events = [
+      {
+        id: "event-1",
+        date: "2024-03-10",
+        title: "Trip",
+        imageIds: ["img-1.jpg", "vid-1.mp4"],
+      },
+    ];
+
+    queryMock.mockImplementation((collectionRef: { name: string }) => ({
+      collectionName: collectionRef.name,
+    }));
+
+    getDocsMock.mockImplementation(async (queryRef: { collectionName: string }) => {
+      if (queryRef.collectionName === "images") {
+        return { docs: [{ id: "img-by-event" }] };
+      }
+      if (queryRef.collectionName === "videos") {
+        return { docs: [{ id: "vid-by-event" }] };
+      }
+      return { docs: [] };
+    });
+
+    getDocMock.mockImplementation(async (docRef: { collectionName: string; id: string }) => {
+      if (docRef.collectionName === "images" && docRef.id === "img-1.jpg") {
+        return { exists: () => true };
+      }
+      if (docRef.collectionName === "videos" && docRef.id === "vid-1.mp4") {
+        return { exists: () => true };
+      }
+      return { exists: () => false };
+    });
+
+    render(<DeleteTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Edit metadata" });
+    fireEvent.change(within(dialog).getByLabelText("Title"), {
+      target: { value: "Vacation" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => {
+      expect(updateDocMock).toHaveBeenCalledWith(
+        { collectionName: "events", id: "event-1" },
+        {
+          date: "2024-03-10",
+          title: "Vacation",
+          emojiOrDot: null,
+        },
+      );
+    });
+
+    expect(batchUpdateMock).toHaveBeenCalledWith(
+      { collectionName: "images", id: "img-1.jpg" },
+      { event: "Vacation" },
+    );
+    expect(batchUpdateMock).toHaveBeenCalledWith(
+      { collectionName: "videos", id: "vid-1.mp4" },
+      { event: "Vacation" },
+    );
+    expect(batchCommitMock).toHaveBeenCalledTimes(1);
+    expect(refreshGalleryMock).toHaveBeenCalledTimes(1);
+    expect(refreshEventsMock).toHaveBeenCalledTimes(1);
+    expect(toastMock).toHaveBeenCalledWith("Updated timeline event", "success");
   });
 });
