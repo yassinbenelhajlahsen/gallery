@@ -15,6 +15,9 @@ type CloudTile = {
   caption?: string;
 };
 
+const HOME_TILE_COUNT = 9;
+const HOME_TILE_COLUMNS = 3;
+
 const pickRandomSubset = <T,>(items: T[], count: number): T[] => {
   if (count >= items.length) return [...items];
   const shuffled = [...items];
@@ -53,9 +56,7 @@ const HomePage: React.FC = () => {
         prev.length > 0 && prev.every((id) => available.has(id));
       if (allStillExist) return prev;
 
-      // Otherwise pick a fresh random subset
-      const isMobile = window.innerWidth < 640;
-      const desired = Math.min(imageMetas.length, isMobile ? 6 : 9);
+      const desired = Math.min(imageMetas.length, HOME_TILE_COUNT);
       return pickRandomSubset(imageMetas, desired).map((m) => m.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +121,7 @@ const HomePage: React.FC = () => {
 
   return (
     <section className="flex w-full justify-center">
-      <div className="mx-auto w-full max-w-5xl sm:max-w-full rounded-[36px] bg-white/80 p-10 text-center shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl">
+      <div className="mx-auto w-full max-w-5xl sm:max-w-full rounded-[36px] bg-white/80 p-4 sm:p-10 text-center shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl">
         <div
           className={`space-y-10 transition-all duration-400 ease-out ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -137,15 +138,17 @@ const HomePage: React.FC = () => {
           {imageMetas.length === 0 ? (
             renderEmptyState()
           ) : cloudTiles.length === 0 ? (
-            <div className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 md:grid-cols-3 md:max-w-5xl lg:grid-cols-3 lg:max-w-6xl xl:max-w-7xl">
-              {Array.from({ length: chosenIds.length || 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-white/60"
-                >
-                  <div className="skeleton-loader h-full w-full" />
-                </div>
-              ))}
+            <div className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-3 sm:gap-4 md:max-w-5xl lg:max-w-6xl xl:max-w-7xl">
+              {Array.from({ length: chosenIds.length || HOME_TILE_COUNT }).map(
+                (_, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-lg ring-1 ring-white/60"
+                  >
+                    <div className="skeleton-loader h-full w-full" />
+                  </div>
+                ),
+              )}
             </div>
           ) : (
             <>
@@ -157,7 +160,12 @@ const HomePage: React.FC = () => {
                   caption: tile.caption,
                   onClick: () => handleTileClick(tile.meta.id),
                 }))}
-                columns={{ base: 2, sm: 3, md: 3, lg: 3 }}
+                columns={{
+                  base: HOME_TILE_COLUMNS,
+                  sm: HOME_TILE_COLUMNS,
+                  md: HOME_TILE_COLUMNS,
+                  lg: HOME_TILE_COLUMNS,
+                }}
               />
 
               <div className="pt-4">

@@ -151,7 +151,7 @@ const All: React.FC = () => {
                 if (el) sectionRefs.current.set(groupIndex, el);
                 else sectionRefs.current.delete(groupIndex);
               }}
-              className="space-y-4 rounded-3xl bg-white/70 p-4 sm:p-6 shadow-lg shadow-[#ffe7f1]/50 ring-1 ring-white/60"
+              className="space-y-4 rounded-3xl bg-white/70 sm:p-6 shadow-lg shadow-[#ffe7f1]/50 ring-1 ring-white/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-2xl font-semibold text-[#333]">

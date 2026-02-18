@@ -66,7 +66,7 @@ const VideosPage: React.FC = () => {
           {yearGroups.map((group) => (
             <section
               key={group.year}
-              className="space-y-4 rounded-3xl bg-white/70 p-4 sm:p-6 shadow-lg shadow-[#e6f7ff]/50 ring-1 ring-white/60"
+              className="space-y-4 rounded-3xl bg-white/70 sm:p-6 shadow-lg shadow-[#e6f7ff]/50 ring-1 ring-white/60"
             >
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl font-semibold text-[#333]">
