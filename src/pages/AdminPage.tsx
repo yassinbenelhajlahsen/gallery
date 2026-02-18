@@ -63,7 +63,7 @@ export default function AdminPage() {
 
   return (
     <section className="flex w-full justify-center px-4 py-8">
-      <div className="mx-auto w-full max-w-4xl space-y-6 rounded-4xl bg-white/90 p-6 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl sm:p-8">
+      <div className="mx-auto w-full max-w-7xl space-y-6 rounded-4xl bg-white/90 p-6 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl sm:p-8">
         <div
           className={`space-y-6 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
@@ -74,7 +74,7 @@ export default function AdminPage() {
             <h1 className="text-3xl font-bold text-[#333]">Admin Controls</h1>
           </header>
 
-          <div className="mx-auto w-full max-w-md rounded-2xl border border-[#ececec] bg-[#f3f3f3] p-1.5 shadow-inner shadow-white/70">
+          <div className="mx-auto w-full max-w-xl rounded-2xl border border-[#ececec] bg-[#f3f3f3] p-1.5 shadow-inner shadow-white/70">
             <div className="relative grid grid-cols-2">
               <div
                 aria-hidden="true"
