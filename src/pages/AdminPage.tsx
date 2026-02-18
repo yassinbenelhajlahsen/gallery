@@ -1,14 +1,13 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePageReveal } from "../hooks/usePageReveal";
+import UploadTab from "../components/admin/UploadTab";
+import DeleteTab from "../components/admin/DeleteTab";
 
 type AdminTab = "upload" | "delete";
 
 const getTabFromParams = (tabParam: string | null): AdminTab =>
   tabParam === "delete" ? "delete" : "upload";
-
-const UploadTab = lazy(() => import("../components/admin/UploadTab"));
-const DeleteTab = lazy(() => import("../components/admin/DeleteTab"));
 
 export default function AdminPage() {
   const isVisible = usePageReveal();
@@ -120,17 +119,9 @@ export default function AdminPage() {
                     : "pointer-events-none absolute inset-0 -translate-x-full opacity-0"
                 }`}
               >
-                <Suspense
-                  fallback={
-                    <div className="py-10 text-center text-sm text-[#777]">
-                      Loading upload tools…
-                    </div>
-                  }
-                >
-                  {loadedTabs.upload || activeTab === "upload" ? (
-                    <UploadTab />
-                  ) : null}
-                </Suspense>
+                {loadedTabs.upload || activeTab === "upload" ? (
+                  <UploadTab />
+                ) : null}
               </div>
               <div
                 ref={deletePanelRef}
@@ -140,17 +131,9 @@ export default function AdminPage() {
                     : "pointer-events-none absolute inset-0 translate-x-full opacity-0"
                 }`}
               >
-                <Suspense
-                  fallback={
-                    <div className="py-10 text-center text-sm text-[#777]">
-                      Loading delete tools…
-                    </div>
-                  }
-                >
-                  {loadedTabs.delete || activeTab === "delete" ? (
-                    <DeleteTab />
-                  ) : null}
-                </Suspense>
+                {loadedTabs.delete || activeTab === "delete" ? (
+                  <DeleteTab />
+                ) : null}
               </div>
             </div>
           </div>
