@@ -263,6 +263,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   const goToIndex = React.useCallback(
     (next: number, _direction?: "left" | "right", immediate = false) => {
       if (!media.length) return;
+      if (media.length <= 1 && !immediate) return;
 
       const wrapForward = next >= media.length;
       const wrapBackward = next < 0;
@@ -400,10 +401,18 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   };
 
   const handleTouchStart = (event: React.TouchEvent) => {
+    if (media.length <= 1) {
+      touchStartX.current = null;
+      return;
+    }
     touchStartX.current = event.touches[0]?.clientX ?? null;
   };
 
   const handleTouchEnd = (event: React.TouchEvent) => {
+    if (media.length <= 1) {
+      touchStartX.current = null;
+      return;
+    }
     if (touchStartX.current == null) return;
     const deltaX =
       (event.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
