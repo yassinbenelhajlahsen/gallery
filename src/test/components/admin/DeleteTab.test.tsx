@@ -217,4 +217,106 @@ describe("DeleteTab", () => {
     fireEvent.change(searchInput, { target: { value: "no-match" } });
     expect(screen.getByText("No images match your search.")).toBeInTheDocument();
   });
+
+  it("tolerates storage/object-not-found errors during media delete", async () => {
+    galleryState.imageMetas = [];
+    galleryState.videoMetas = [
+      {
+        id: "clip-1.mp4",
+        type: "video",
+        date: "2024-04-01",
+        videoPath: "videos/full/clip-1.mp4",
+        thumbUrl: "https://thumb/clip-1.jpg",
+      },
+    ];
+
+    deleteObjectMock.mockImplementation(async ({ path }: { path: string }) => {
+      if (path === "videos/thumb/clip-1.jpg") {
+        throw { code: "storage/object-not-found" };
+      }
+      return undefined;
+    });
+
+    render(<DeleteTab />);
+
+    const deleteButton = screen.getByRole("button", { name: "Delete" });
+    fireEvent.click(deleteButton);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
+
+    await waitFor(() => {
+      expect(deleteDocMock).toHaveBeenCalledWith({
+        collectionName: "videos",
+        id: "clip-1.mp4",
+      });
+    });
+    expect(toastMock).toHaveBeenCalledWith("Deleted video clip-1.mp4", "success");
+  });
+
+  it("deletes timeline events and clears linked media event fields", async () => {
+    const batchUpdateMock = vi.fn();
+    const batchCommitMock = vi.fn().mockResolvedValue(undefined);
+    writeBatchMock.mockReturnValue({
+      update: batchUpdateMock,
+      commit: batchCommitMock,
+    });
+
+    galleryState.imageMetas = [];
+    galleryState.videoMetas = [];
+    galleryState.events = [
+      {
+        id: "event-1",
+        date: "2024-03-10",
+        title: "Trip",
+        imageIds: ["img-1.jpg", "vid-1.mp4"],
+      },
+    ];
+
+    queryMock.mockImplementation((collectionRef: { name: string }) => ({
+      collectionName: collectionRef.name,
+    }));
+
+    getDocsMock.mockImplementation(async (queryRef: { collectionName: string }) => {
+      if (queryRef.collectionName === "images") {
+        return { docs: [{ id: "img-by-event" }] };
+      }
+      if (queryRef.collectionName === "videos") {
+        return { docs: [{ id: "vid-by-event" }] };
+      }
+      return { docs: [] };
+    });
+
+    getDocMock.mockImplementation(async (docRef: { collectionName: string; id: string }) => {
+      if (docRef.collectionName === "images" && docRef.id === "img-1.jpg") {
+        return { exists: () => true };
+      }
+      if (docRef.collectionName === "videos" && docRef.id === "vid-1.mp4") {
+        return { exists: () => true };
+      }
+      return { exists: () => false };
+    });
+
+    render(<DeleteTab />);
+
+    const deleteButton = screen.getByRole("button", { name: "Delete" });
+    fireEvent.click(deleteButton);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
+
+    await waitFor(() => {
+      expect(deleteDocMock).toHaveBeenCalledWith({
+        collectionName: "events",
+        id: "event-1",
+      });
+    });
+
+    expect(batchUpdateMock).toHaveBeenCalledWith(
+      { collectionName: "images", id: "img-1.jpg" },
+      { event: null },
+    );
+    expect(batchUpdateMock).toHaveBeenCalledWith(
+      { collectionName: "videos", id: "vid-1.mp4" },
+      { event: null },
+    );
+    expect(batchCommitMock).toHaveBeenCalledTimes(1);
+    expect(toastMock).toHaveBeenCalledWith("Deleted timeline event", "success");
+  });
 });
