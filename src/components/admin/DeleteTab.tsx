@@ -339,36 +339,38 @@ export default function DeleteTab() {
               return (
                 <div
                   key={meta.id}
-                  className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
+                  className={`rounded-xl border border-[#f0f0f0] bg-white p-3 sm:flex sm:items-center sm:gap-3 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
-                  {thumbSrc ? (
-                    <img
-                      src={thumbSrc}
-                      alt={meta.event ?? meta.id}
-                      className="h-12 w-12 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      className="h-12 w-12 rounded-lg bg-[#f5f5f5]"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#333]">
-                      {meta.id}
-                    </p>
-                    <p className="text-xs text-[#777]">
-                      {toDateLabel(meta.date)}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-3 sm:flex-1">
+                    {thumbSrc ? (
+                      <img
+                        src={thumbSrc}
+                        alt={meta.event ?? meta.id}
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover sm:h-12 sm:w-12"
+                      />
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="h-10 w-10 shrink-0 rounded-lg bg-[#f5f5f5] sm:h-12 sm:w-12"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[#333]">
+                        {meta.id}
+                      </p>
+                      <p className="text-xs text-[#777]">
+                        {toDateLabel(meta.date)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0 sm:flex sm:items-center sm:gap-2">
                     <button
                       type="button"
                       disabled={Boolean(busyKey) || isSavingEdit}
                       onClick={() =>
                         openImageEditor(meta.id, meta.date, meta.event)
                       }
-                      className="cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       Edit
                     </button>
@@ -382,7 +384,7 @@ export default function DeleteTab() {
                           `images/thumb/${meta.id}`,
                         )
                       }
-                      className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       {buttonLabel(key)}
                     </button>
@@ -420,36 +422,38 @@ export default function DeleteTab() {
               return (
                 <div
                   key={meta.id}
-                  className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
+                  className={`rounded-xl border border-[#f0f0f0] bg-white p-3 sm:flex sm:items-center sm:gap-3 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
-                  {thumbSrc ? (
-                    <img
-                      src={thumbSrc}
-                      alt={meta.event ?? meta.id}
-                      className="h-12 w-12 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      className="h-12 w-12 rounded-lg bg-[#f5f5f5]"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#333]">
-                      {meta.id}
-                    </p>
-                    <p className="text-xs text-[#777]">
-                      {toDateLabel(meta.date)}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-3 sm:flex-1">
+                    {thumbSrc ? (
+                      <img
+                        src={thumbSrc}
+                        alt={meta.event ?? meta.id}
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover sm:h-12 sm:w-12"
+                      />
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        className="h-10 w-10 shrink-0 rounded-lg bg-[#f5f5f5] sm:h-12 sm:w-12"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[#333]">
+                        {meta.id}
+                      </p>
+                      <p className="text-xs text-[#777]">
+                        {toDateLabel(meta.date)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0 sm:flex sm:items-center sm:gap-2">
                     <button
                       type="button"
                       disabled={Boolean(busyKey) || isSavingEdit}
                       onClick={() =>
                         openVideoEditor(meta.id, meta.date, meta.event)
                       }
-                      className="cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       Edit
                     </button>
@@ -463,7 +467,7 @@ export default function DeleteTab() {
                           `videos/thumb/${meta.id.replace(/\.[^.]+$/, ".jpg")}`,
                         )
                       }
-                      className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       {buttonLabel(key)}
                     </button>
@@ -500,20 +504,22 @@ export default function DeleteTab() {
               return (
                 <div
                   key={event.id}
-                  className={`flex items-center gap-3 rounded-xl border border-[#f0f0f0] bg-white px-3 py-2 ${isOddTail ? "lg:col-span-2" : ""}`}
+                  className={`rounded-xl border border-[#f0f0f0] bg-white p-3 sm:flex sm:items-center sm:gap-3 ${isOddTail ? "lg:col-span-2" : ""}`}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#f8f8f8] text-xl">
-                    {event.emojiOrDot ?? "•"}
+                  <div className="flex min-w-0 items-center gap-3 sm:flex-1">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f8f8f8] text-xl sm:h-12 sm:w-12">
+                      {event.emojiOrDot ?? "•"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[#333]">
+                        {event.title}
+                      </p>
+                      <p className="text-xs text-[#777]">
+                        {toDateLabel(event.date)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#333]">
-                      {event.title}
-                    </p>
-                    <p className="text-xs text-[#777]">
-                      {toDateLabel(event.date)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-0 sm:flex sm:items-center sm:gap-2">
                     <button
                       type="button"
                       disabled={Boolean(busyKey) || isSavingEdit}
@@ -526,7 +532,7 @@ export default function DeleteTab() {
                           event.imageIds,
                         )
                       }
-                      className="cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       Edit
                     </button>
@@ -536,7 +542,7 @@ export default function DeleteTab() {
                       onClick={() =>
                         requestDeleteEvent(event.id, event.title, event.imageIds ?? [])
                       }
-                      className="cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full cursor-pointer rounded-full bg-[#ffebeb] px-3 py-1.5 text-xs font-semibold text-[#8a2222] transition hover:bg-[#ffd9d9] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       {buttonLabel(key)}
                     </button>
