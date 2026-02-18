@@ -151,7 +151,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
         )}
 
         {durationLabel && (
-          <span className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs font-semibold text-white shadow-sm">
+          <span className="pointer-events-none absolute bottom-1 left-1 sm:bottom-2 sm:left-2 rounded-md bg-black/60 px-1 py-[2px] sm:px-2 sm:py-1 text-[10px] sm:text-xs font-semibold text-white shadow-sm">
             {durationLabel}
           </span>
         )}
