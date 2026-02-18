@@ -9,7 +9,7 @@ Firestore (images/videos/events)
     +
 Firebase Storage (media bytes)
         ↓
-services/* (fetch + normalize + URL resolution)
+services/* (read/cache + admin upload/delete operations)
         ↓
 GalleryContext
   - imageMetas
@@ -80,6 +80,30 @@ Main APIs:
 - `syncVideoThumbCache(videoMetas)` -> cache poster thumbs only
 - `loadVideoThumbUrlsFromCache(videoMetas)` -> object URL map for cached video posters
 - `clearCache()` -> wipe both object stores
+
+### `uploadService.ts`
+
+Admin upload pipeline logic used by `UploadTab`.
+
+Main responsibilities:
+
+- timeline event creation (`createTimelineEvent`)
+- image upload pipeline (`uploadImageWithMetadata`)
+- video upload pipeline (`uploadVideoWithMetadata`)
+- media preprocessing helpers (image conversion/thumbnail, video poster extraction, duration normalization)
+- unique-name resolution against both Firestore docs and Storage object existence
+
+### `deleteService.ts`
+
+Admin delete/edit pipeline logic used by `DeleteTab`.
+
+Main responsibilities:
+
+- metadata search/date normalization helpers used by delete/edit UI
+- media metadata update (`updateMediaMetadata`)
+- timeline event metadata update with linked media propagation (`updateTimelineEventMetadata`)
+- media delete with Storage + Firestore cleanup (`deleteImageWithMetadata`, `deleteVideoWithMetadata`)
+- event delete with linked media `event` cleanup (`deleteEventWithLinkedMediaCleanup`)
 
 ## Context Layer
 
@@ -189,6 +213,7 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 
 ### Upload (`UploadTab`)
 
+- component owns UI state/progress and delegates Firebase operations to `uploadService`
 - infers date from first selected file metadata (JPEG EXIF or QuickTime/MP4 `mvhd`) unless an event date is explicitly selected
 - images: convert to JPEG + generate 480px thumb, upload both, then write Firestore image doc
 - videos: generate poster + read duration, upload video/poster, then write Firestore video doc
@@ -197,7 +222,8 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 
 ### Delete (`DeleteTab`)
 
-- two-step inline confirm per item
+- component owns list/search/modal UI and delegates Firebase operations to `deleteService`
+- delete uses confirmation modal (`Delete` -> modal `Confirm Delete`)
 - image/video delete removes Storage objects and Firestore metadata doc
 - media delete also removes ids from event `imageIds`
 - event delete clears linked media `event` field and deletes event doc

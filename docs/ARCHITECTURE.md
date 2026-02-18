@@ -38,7 +38,8 @@ src/
 │   ├── timeline/
 │   │   └── TimelineEventItem.tsx
 │   └── ui/
-│       └── FloatingInput.tsx
+│       ├── FloatingInput.tsx
+│       └── EditMetadataModal.tsx
 │
 ├── context/
 │   ├── AuthContext.tsx
@@ -62,9 +63,11 @@ src/
 │
 ├── services/
 │   ├── authService.ts
+│   ├── deleteService.ts
 │   ├── eventsService.ts
 │   ├── storageService.ts
 │   ├── mediaCacheService.ts
+│   ├── uploadService.ts
 │   ├── firebaseApp.ts
 │   ├── firebaseAuth.ts
 │   ├── firebaseFirestore.ts
@@ -142,6 +145,15 @@ Authenticated content pages render inside `MainLayout`, which provides:
 - `Navbar`
 - centered `<main>` container
 - `Footer` (admin entry + logout)
+
+## Admin Module Split
+
+Admin UI and data operations are split across components and services:
+
+- `src/components/admin/UploadTab.tsx`: upload/event forms, progress UI, and orchestration.
+- `src/services/uploadService.ts`: media conversion/extraction helpers, Storage uploads, Firestore writes, and unique-name resolution.
+- `src/components/admin/DeleteTab.tsx`: search/filter UI, metadata edit modal, and delete confirmation modal.
+- `src/services/deleteService.ts`: metadata update helpers, Storage deletes, Firestore deletes, and linked event/media cleanup.
 
 ## Environment Configuration
 

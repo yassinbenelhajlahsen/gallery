@@ -68,14 +68,26 @@ Use `GalleryGrid` and compose tile data from context + `useFullResLoader`:
 
 Mirror `UploadTab` behavior:
 
-1. Generate/upload image full + thumb OR video + poster.
-2. Write Firestore metadata doc (`images` or `videos`) with storage paths and app metadata.
-3. Keep metadata in Firestore, not Storage custom metadata.
-4. Refresh gallery state after successful writes (`refreshGallery`).
+1. Prefer `src/services/uploadService.ts` entrypoints (`uploadImageWithMetadata`, `uploadVideoWithMetadata`) instead of in-component Firebase logic.
+2. Generate/upload image full + thumb OR video + poster.
+3. Write Firestore metadata doc (`images` or `videos`) with storage paths and app metadata.
+4. Keep metadata in Firestore, not Storage custom metadata.
+5. Refresh gallery state after successful writes (`refreshGallery`).
+
+### Delete or Edit Metadata Programmatically
+
+Mirror `DeleteTab` behavior via `src/services/deleteService.ts`:
+
+1. For media metadata edits, use `updateMediaMetadata(...)`.
+2. For timeline event edits, use `updateTimelineEventMetadata(...)` so linked media is updated on title changes.
+3. For destructive operations, use `deleteImageWithMetadata(...)`, `deleteVideoWithMetadata(...)`, or `deleteEventWithLinkedMediaCleanup(...)`.
+4. Refresh gallery/events after successful mutations (`refreshGallery`, `refreshEvents`).
 
 ### Create Timeline Events
 
-Use Firestore `addDoc(collection(db, "events"), ...)` with:
+Prefer `createTimelineEvent(...)` from `src/services/uploadService.ts`.
+
+Event payload shape:
 
 - `date` (`YYYY-MM-DD`)
 - `title`
@@ -88,7 +100,7 @@ Events are displayed newest-first.
 
 ### Direct Firebase calls from pages/components
 
-Use service/context entrypoints so normalization, caching, and error handling remain centralized.
+Use service/context entrypoints so normalization, linked-cleanup logic, caching, and error handling remain centralized.
 
 ### Wrong date parsing
 
