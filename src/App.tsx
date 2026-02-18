@@ -5,6 +5,7 @@ import {
   Outlet,
   RouterProvider,
   createBrowserRouter,
+  useLocation,
 } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import LoadingScreen from "./pages/LoadingScreen";
@@ -127,9 +128,11 @@ const RequireGalleryLoaded: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { hasGalleryLoadedOnce } = useGallery();
+  const location = useLocation();
 
   if (!hasGalleryLoadedOnce) {
-    return <Navigate to="/loading" replace />;
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/loading" replace state={{ from }} />;
   }
 
   return <>{children}</>;
@@ -137,8 +140,23 @@ const RequireGalleryLoaded: React.FC<{ children: React.ReactNode }> = ({
 
 const LoadingRoute: React.FC = () => {
   const { hasGalleryLoadedOnce } = useGallery();
+  const location = useLocation();
+
+  const redirectTarget = (() => {
+    if (typeof location.state !== "object" || location.state === null) {
+      return "/home";
+    }
+    const from =
+      "from" in location.state &&
+      typeof location.state.from === "string"
+        ? location.state.from
+        : null;
+    if (!from || from.startsWith("/loading")) return "/home";
+    return from;
+  })();
+
   if (hasGalleryLoadedOnce) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={redirectTarget} replace />;
   }
   return <LoadingScreen />;
 };
