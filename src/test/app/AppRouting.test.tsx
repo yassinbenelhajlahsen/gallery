@@ -91,7 +91,7 @@ describe("App routing guards", () => {
 
   it("redirects unauthenticated users to /login", async () => {
     authState.user = null;
-    await renderAppAt("/home");
+    await renderAppAt("/");
 
     await waitFor(() => {
       expect(screen.getByText("LOGIN_PAGE")).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("App routing guards", () => {
 
   it("sends authenticated users to /loading when gallery has not loaded", async () => {
     galleryState.hasGalleryLoadedOnce = false;
-    await renderAppAt("/home");
+    await renderAppAt("/");
 
     await waitFor(() => {
       expect(screen.getByText("LOADING_PAGE")).toBeInTheDocument();
@@ -119,14 +119,23 @@ describe("App routing guards", () => {
     expect(window.location.pathname).toBe("/loading");
   });
 
-  it("redirects /loading to /home once gallery has loaded", async () => {
+  it("redirects /loading to / once gallery has loaded", async () => {
     galleryState.hasGalleryLoadedOnce = true;
     await renderAppAt("/loading");
 
     await waitFor(() => {
       expect(screen.getByText("HOME_PAGE")).toBeInTheDocument();
     });
-    expect(window.location.pathname).toBe("/home");
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("redirects legacy /home route to /", async () => {
+    await renderAppAt("/home");
+
+    await waitFor(() => {
+      expect(screen.getByText("HOME_PAGE")).toBeInTheDocument();
+    });
+    expect(window.location.pathname).toBe("/");
   });
 
 });

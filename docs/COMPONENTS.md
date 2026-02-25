@@ -80,7 +80,7 @@ Current nav items:
 - `/timeline`
 - `/photos`
 - `/videos`
-- plus home access (`/home`) via brand link (desktop) and explicit mobile item
+- plus home access (`/`) via brand link (desktop) and explicit mobile item
 
 ### `Footer`
 
@@ -115,7 +115,7 @@ Includes:
 
 - File: `src/pages/LoadingScreen.tsx`
 - Animated loader driven by `GalleryContext.loadingProgress`
-- Route redirects to `/home` when `hasGalleryLoadedOnce` becomes true
+- Route redirects to `/` when `hasGalleryLoadedOnce` becomes true
 
 ### `HomePage`
 

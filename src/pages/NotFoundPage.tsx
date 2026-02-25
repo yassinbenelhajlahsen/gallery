@@ -22,7 +22,7 @@ const NotFoundPage: React.FC = () => {
           </div>
 
           <Link
-            to="/home"
+            to="/"
             className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation"
           >
             <span aria-hidden="true">←</span>

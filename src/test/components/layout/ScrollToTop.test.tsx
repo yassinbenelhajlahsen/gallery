@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { locationState } = vi.hoisted(() => ({
   locationState: {
-    pathname: "/home",
+    pathname: "/",
   },
 }));
 
@@ -15,7 +15,7 @@ import ScrollToTop from "../../../components/layout/ScrollToTop";
 
 describe("ScrollToTop", () => {
   beforeEach(() => {
-    locationState.pathname = "/home";
+    locationState.pathname = "/";
     window.scrollTo = vi.fn();
   });
 

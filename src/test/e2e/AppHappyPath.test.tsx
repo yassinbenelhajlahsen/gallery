@@ -118,7 +118,7 @@ describe("App happy path", () => {
   });
 
   it("loads home and allows navigating core pages", async () => {
-    window.history.replaceState({}, "", "/home");
+    window.history.replaceState({}, "", "/");
     vi.resetModules();
     const { default: App } = await import("../../App");
 
