@@ -13,7 +13,7 @@ const Navbar = () => {
     <header className="sticky top-0 z-20 border-b border-[#EDEDED]/80 bg-white/90 backdrop-blur-md">
       <div className="flex w-full items-center justify-center gap-3 px-2 py-3 sm:px-4 sm:justify-between">
         <NavLink
-          to="/home"
+          to="/"
           className="hidden sm:flex shrink-0 items-center gap-2 text-sm font-semibold tracking-wide text-[#3f3f3f] sm:text-base rounded-full px-2.5 py-2 transition-all duration-150 active:scale-95 touch-manipulation hover:scale-105"
         >
           <img
@@ -29,7 +29,7 @@ const Navbar = () => {
         >
           <div className="block sm:hidden">
             <NavLink
-              to="/home"
+              to="/"
               className={({ isActive }) =>
                 `rounded-full px-3 py-1.5 text-center sm:px-4 sm:py-2 leading-tight transition-all duration-150 active:scale-95 touch-manipulation ${
                   isActive

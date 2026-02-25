@@ -60,7 +60,8 @@ Admin implementation is modular:
 
 ## Current Product Shape
 
-- `/home`: random 9-photo hero grid (stable selection per dataset)
+- `/`: random 9-photo hero grid (stable selection per dataset)
+- `/home`: legacy redirect to `/` for backward compatibility
 - `/photos`: images grouped by year -> month
 - `/videos`: videos grouped by year -> month with duration badges
 - `/timeline`: events from Firestore; event opens mixed media modal (images + videos)

@@ -41,13 +41,13 @@ Global setup file: `src/test/setup.ts`
 - unauthenticated users are redirected to `/login`
 - authenticated users with unloaded gallery are redirected to `/loading`
 - authenticated users are redirected away from `/login`
-- `/loading` redirects to `/home` once gallery is loaded
+- `/loading` redirects to `/` once gallery is loaded
 
 ### `src/test/e2e/AppHappyPath.test.tsx`
 
 - app-level happy-path flow in jsdom:
 - authenticated app boot
-- navigation across core pages (`/home`, `/photos`, `/videos`, `/timeline`)
+- navigation across core pages (`/`, `/photos`, `/videos`, `/timeline`)
 - gallery/services load calls are exercised through the real route shell
 
 ### `src/test/components/admin/UploadTab.test.tsx`

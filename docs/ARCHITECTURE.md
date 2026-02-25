@@ -124,8 +124,9 @@ Router is defined in `src/App.tsx`.
 | --- | --- | --- | --- |
 | `/login` | `GuestRoute` | `LoginPage` | Authenticated users are redirected to `/loading` |
 | `/` | `RequireAuth` + `GalleryAppShell` | shell | Parent for all authenticated routes |
-| `/loading` | auth-only shell child | `LoadingRoute` -> `LoadingScreen` | Redirects to `/home` once gallery load flag is true |
-| `/home` | `RequireGalleryLoaded` + `MainLayout` | `HomePage` | Main landing page |
+| `/loading` | auth-only shell child | `LoadingRoute` -> `LoadingScreen` | Redirects to `/` once gallery load flag is true |
+| `/` | `RequireGalleryLoaded` + `MainLayout` | `HomePage` | Main landing page |
+| `/home` | `RequireGalleryLoaded` + `MainLayout` | `Navigate` -> `/` | Backward-compatible home alias |
 | `/timeline` | same as above | `TimelinePage` | Firestore events + mixed-media modal launch |
 | `/photos` | same as above | `PhotosPage` | Photos grouped by year/month |
 | `/videos` | same as above | `VideosPage` | Videos grouped by year/month |

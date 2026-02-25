@@ -144,14 +144,14 @@ const LoadingRoute: React.FC = () => {
 
   const redirectTarget = (() => {
     if (typeof location.state !== "object" || location.state === null) {
-      return "/home";
+      return "/";
     }
     const from =
       "from" in location.state &&
       typeof location.state.from === "string"
         ? location.state.from
         : null;
-    if (!from || from.startsWith("/loading")) return "/home";
+    if (!from || from.startsWith("/loading")) return "/";
     return from;
   })();
 
@@ -186,8 +186,8 @@ const router = createBrowserRouter([
           </RequireGalleryLoaded>
         ),
         children: [
-          { index: true, element: <Navigate to="/home" replace /> },
-          { path: "home", element: <HomePage /> },
+          { index: true, element: <HomePage /> },
+          { path: "home", element: <Navigate to="/" replace /> },
           { path: "timeline", element: <TimelinePage /> },
           { path: "photos", element: <PhotosPage /> },
           { path: "upload", element: <Navigate to="/admin?tab=upload" replace /> },
