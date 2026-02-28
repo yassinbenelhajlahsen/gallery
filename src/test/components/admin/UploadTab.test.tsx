@@ -246,7 +246,7 @@ describe("UploadTab", () => {
     render(<UploadTab />);
 
     const dateInputs = getDateInputs();
-    fireEvent.change(dateInputs[0], { target: { value: "2024-08-01" } });
+    fireEvent.change(dateInputs[1], { target: { value: "2024-08-01" } });
 
     fireEvent.change(screen.getByLabelText(/Title/i), {
       target: { value: "Anniversary" },
@@ -280,7 +280,7 @@ describe("UploadTab", () => {
     render(<UploadTab />);
 
     const dateInputs = getDateInputs();
-    fireEvent.change(dateInputs[0], { target: { value: "2024-10-01" } });
+    fireEvent.change(dateInputs[1], { target: { value: "2024-10-01" } });
     fireEvent.change(screen.getByLabelText(/Title/i), {
       target: { value: "Broken Event" },
     });
@@ -311,7 +311,7 @@ describe("UploadTab", () => {
     });
 
     const dateInputs = getDateInputs();
-    expect(dateInputs[1]?.value).toBe("2024-07-04");
+    expect(dateInputs[0]?.value).toBe("2024-07-04");
     expect((screen.getByLabelText(/Event Name/i) as HTMLInputElement).value).toBe(
       "Beach Trip",
     );
@@ -330,14 +330,14 @@ describe("UploadTab", () => {
     });
 
     const dateInputs = getDateInputs();
-    expect(dateInputs[1]?.value).toBe("2025-01-02");
+    expect(dateInputs[0]?.value).toBe("2025-01-02");
   });
 
   it("uploads an image, writes Firestore metadata, and refreshes gallery", async () => {
     render(<UploadTab />);
 
     const dateInputs = getDateInputs();
-    fireEvent.change(dateInputs[1], { target: { value: "2024-09-15" } });
+    fireEvent.change(dateInputs[0], { target: { value: "2024-09-15" } });
 
     fireEvent.change(screen.getByLabelText(/Event Name/i), {
       target: { value: "Trip" },
@@ -396,7 +396,7 @@ describe("UploadTab", () => {
     render(<UploadTab />);
 
     const dateInputs = getDateInputs();
-    fireEvent.change(dateInputs[1], { target: { value: "2024-09-16" } });
+    fireEvent.change(dateInputs[0], { target: { value: "2024-09-16" } });
 
     const fileInput = getFileInput();
     const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
@@ -420,7 +420,7 @@ describe("UploadTab", () => {
     render(<UploadTab />);
 
     const dateInputs = getDateInputs();
-    fireEvent.change(dateInputs[1], { target: { value: "2024-09-20" } });
+    fireEvent.change(dateInputs[0], { target: { value: "2024-09-20" } });
 
     const fileInput = getFileInput();
     const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
