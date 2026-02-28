@@ -243,6 +243,7 @@ export default function AdminUploadPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <header className="space-y-2 text-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#C0C0C0]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-[#3f3f3f]">
           Upload
@@ -255,100 +256,27 @@ export default function AdminUploadPage() {
         </p>
       </header>
 
-      {/* Create New Event */}
-      <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
-        <h2 className="text-lg font-semibold text-[#333]">Create New Event</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
-              Date{" "}
-              <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={newEventDate}
-              onChange={(e) => setNewEventDate(e.target.value)}
-              className="
-                    pt-4.5
-                    pb-4.5
-                    w-full
-                    min-w-0
-                    appearance-none
-                    box-border
-                    rounded-xl
-                    border-2 border-[#F0F0F0]
-                    bg-white
-                    px-4 py-3
-                    text-[#333]
-                    shadow-sm
-                    transition-all duration-200
-                    hover:border-[#F7DEE2]
-                    focus:border-[#F7DEE2]
-                    focus:outline-none
-                    focus:ring-2 focus:ring-[#F7DEE2]/30
-                  "
-            />
-          </div>
-          <div className="space-y-2 mt-7">
-            <FloatingInput
-              id="new-event-title"
-              type="text"
-              label="Title*"
-              className="w-full"
-              value={newEventTitle}
-              onChange={(e) => setNewEventTitle(e.target.value)}
-              focusColor="#F7DEE2"
-              borderColor="#F0F0F0"
-              labelColor="#333"
-            />
-          </div>
-          <div className="space-y-2 mt-7">
-            <FloatingInput
-              id="new-event-emoji"
-              type="text"
-              label="Emoji"
-              className="w-full"
-              value={newEventEmoji}
-              onChange={(e) => setNewEventEmoji(e.target.value)}
-              focusColor="#F7DEE2"
-              borderColor="#F0F0F0"
-              labelColor="#333"
-            />
-          </div>
-        </div>
-        <button
-          onClick={handleCreateEvent}
-          disabled={isCreatingEvent || !newEventDate || !newEventTitle.trim()}
-          className="cursor-pointer w-full rounded-xl mt-3 bg-[#F7DEE2] py-3 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
-        >
-          {isCreatingEvent ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg
-                className="h-5 w-5 animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Creating…
-            </span>
-          ) : (
-            "Create Event"
+      {/* File Input */}
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-[#333]">
+          Select Media (Images / Videos)
+          <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,video/mp4,video/quicktime,.mp4,.mov"
+            onChange={handleFileInputChange}
+            className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
+          />
+          {files && files.length > 0 && (
+            <p className="mt-2 text-xs text-[#888]">
+              {files.length} file{files.length === 1 ? "" : "s"} selected
+            </p>
           )}
-        </button>
+        </div>
       </div>
 
       <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
@@ -386,30 +314,6 @@ export default function AdminUploadPage() {
         </p>
       </div>
 
-      <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
-
-      {/* File Input */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-[#333]">
-          Select Media (Images / Videos)
-          <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*,video/mp4,video/quicktime,.mp4,.mov"
-            onChange={handleFileInputChange}
-            className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
-          />
-          {files && files.length > 0 && (
-            <p className="mt-2 text-xs text-[#888]">
-              {files.length} file{files.length === 1 ? "" : "s"} selected
-            </p>
-          )}
-        </div>
-      </div>
       {/* Event Name */}
       <div className="space-y-2">
         <FloatingInput
@@ -427,6 +331,7 @@ export default function AdminUploadPage() {
           Used to link media to timeline events
         </p>
       </div>
+
       {/* Date Input */}
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-[#333]">
@@ -581,6 +486,105 @@ export default function AdminUploadPage() {
           </div>
         </div>
       )}
+
+      <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
+
+      {/* Create New Event */}
+      <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
+        <h2 className="text-lg font-semibold text-[#333]">Create New Event</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-[#333]">
+              Date{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={newEventDate}
+              onChange={(e) => setNewEventDate(e.target.value)}
+              className="
+                    pt-4.5
+                    pb-4.5
+                    w-full
+                    min-w-0
+                    appearance-none
+                    box-border
+                    rounded-xl
+                    border-2 border-[#F0F0F0]
+                    bg-white
+                    px-4 py-3
+                    text-[#333]
+                    shadow-sm
+                    transition-all duration-200
+                    hover:border-[#F7DEE2]
+                    focus:border-[#F7DEE2]
+                    focus:outline-none
+                    focus:ring-2 focus:ring-[#F7DEE2]/30
+                  "
+            />
+          </div>
+          <div className="space-y-2 mt-7">
+            <FloatingInput
+              id="new-event-title"
+              type="text"
+              label="Title*"
+              className="w-full"
+              value={newEventTitle}
+              onChange={(e) => setNewEventTitle(e.target.value)}
+              focusColor="#F7DEE2"
+              borderColor="#F0F0F0"
+              labelColor="#333"
+            />
+          </div>
+          <div className="space-y-2 mt-7">
+            <FloatingInput
+              id="new-event-emoji"
+              type="text"
+              label="Emoji"
+              className="w-full"
+              value={newEventEmoji}
+              onChange={(e) => setNewEventEmoji(e.target.value)}
+              focusColor="#F7DEE2"
+              borderColor="#F0F0F0"
+              labelColor="#333"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleCreateEvent}
+          disabled={isCreatingEvent || !newEventDate || !newEventTitle.trim()}
+          className="cursor-pointer w-full rounded-xl mt-3 bg-[#F7DEE2] py-3 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
+        >
+          {isCreatingEvent ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg
+                className="h-5 w-5 animate-spin"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Creating…
+            </span>
+          ) : (
+            "Create Event"
+          )}
+        </button>
+      </div>
     </div>
   );
 }
+
