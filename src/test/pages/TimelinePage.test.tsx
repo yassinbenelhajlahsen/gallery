@@ -124,4 +124,67 @@ describe("TimelinePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /trip's day/i }));
     expect(openModalWithMediaMock).not.toHaveBeenCalled();
   });
+
+  describe("search bar", () => {
+    beforeEach(() => {
+      galleryState.events = [
+        { id: "event-1", date: "2024-07-05", title: "Trip's Day" },
+        { id: "event-2", date: "2024-12-25", title: "Christmas Morning" },
+        { id: "event-3", date: "2025-01-01", title: "New Year" },
+      ];
+    });
+
+    it("renders the search input", () => {
+      render(<TimelinePage />);
+      expect(screen.getByLabelText("Search events")).toBeInTheDocument();
+    });
+
+    it("shows all events when search is empty", () => {
+      render(<TimelinePage />);
+      expect(screen.getByText("Trip's Day")).toBeInTheDocument();
+      expect(screen.getByText("Christmas Morning")).toBeInTheDocument();
+      expect(screen.getByText("New Year")).toBeInTheDocument();
+    });
+
+    it("filters events by title", () => {
+      render(<TimelinePage />);
+      fireEvent.change(screen.getByLabelText("Search events"), {
+        target: { value: "christmas" },
+      });
+      expect(screen.queryByText("Trip's Day")).not.toBeInTheDocument();
+      expect(screen.getByText("Christmas Morning")).toBeInTheDocument();
+      expect(screen.queryByText("New Year")).not.toBeInTheDocument();
+    });
+
+    it("filters events by date", () => {
+      render(<TimelinePage />);
+      fireEvent.change(screen.getByLabelText("Search events"), {
+        target: { value: "2025" },
+      });
+      expect(screen.queryByText("Trip's Day")).not.toBeInTheDocument();
+      expect(screen.queryByText("Christmas Morning")).not.toBeInTheDocument();
+      expect(screen.getByText("New Year")).toBeInTheDocument();
+    });
+
+    it("restores all events when search is cleared", () => {
+      render(<TimelinePage />);
+      const input = screen.getByLabelText("Search events");
+      fireEvent.change(input, { target: { value: "christmas" } });
+      expect(screen.queryByText("Trip's Day")).not.toBeInTheDocument();
+      fireEvent.change(input, { target: { value: "" } });
+      expect(screen.getByText("Trip's Day")).toBeInTheDocument();
+      expect(screen.getByText("Christmas Morning")).toBeInTheDocument();
+      expect(screen.getByText("New Year")).toBeInTheDocument();
+    });
+
+    it("shows no events when search matches nothing", () => {
+      render(<TimelinePage />);
+      fireEvent.change(screen.getByLabelText("Search events"), {
+        target: { value: "zzznomatch" },
+      });
+      expect(screen.queryByText("Trip's Day")).not.toBeInTheDocument();
+      expect(screen.queryByText("Christmas Morning")).not.toBeInTheDocument();
+      expect(screen.queryByText("New Year")).not.toBeInTheDocument();
+    });
+  });
 });
