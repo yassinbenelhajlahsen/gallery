@@ -77,7 +77,7 @@ const LoginPage: React.FC = () => {
       `}</style>
 
       <section className="safe-area-fade relative overflow-hidden flex min-h-screen w-full items-center justify-center px-6 py-16">
-        <div className="relative z-10 grid w-full max-w-5xl gap-10 rounded-[36px] bg-white/80 p-10 shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl transition-all duration-500 hover:ring-[#FACAD5]/60 lg:grid-cols-[1.2fr_1fr]">
+        <div className="relative z-10 grid w-full max-w-5xl gap-10 rounded-[36px] bg-white/80 p-5 sm:p-10 shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl transition-all duration-500 hover:ring-[#FACAD5]/60 lg:grid-cols-[1.2fr_1fr]">
           <div className="space-y-6 text-left">
             <p className="text-sm uppercase racking-[0.4em] text-[#888] text-center">
               Private gallery
@@ -94,63 +94,63 @@ const LoginPage: React.FC = () => {
 
           <form
             onSubmit={handleSubmit}
-            className="space-y-6 rounded-[28px] bg-white/80 p-8 shadow-xl shadow-[#d1e9ff]/40 ring-1 ring-white/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#fbcdd5]/60"
+            className="space-y-6 rounded-[28px] bg-white/80 p-5 sm:p-8 shadow-xl shadow-[#d1e9ff]/40 ring-1 ring-white/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#fbcdd5]/60"
           >
             <header className="space-y-1 text-center sm:text-left">
               <h2 className="text-2xl font-semibold">Enter password</h2>
             </header>
             <div className="space-y-2">
-              <div className="relative">
-                <FloatingInput
-                  id="access-code"
-                  type={showPassword ? "text" : "password"}
-                  label="Password"
-                  className="w-full pr-14 transition focus:scale-[1.01]"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
-                  disabled={disabled}
-                  focusColor="#F7DEE2"
-                  borderColor="#F0F0F0"
-                  labelColor="#333"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute inset-y-0 right-3 my-auto flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#ff8fb3] shadow-sm shadow-[#ffc7da]/60 transition hover:scale-105"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.8}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m17.94 17.94-11.88-11.88" />
-                      <path d="M10.585 10.585a2 2 0 0 0 2.83 2.83" />
-                      <path d="M9.88 4.24c.69-.16 1.41-.24 2.12-.24 4.2 0 7.87 2.53 9.65 6.5-.64 1.4-1.56 2.64-2.68 3.67" />
-                      <path d="M6.62 6.62C4.7 7.95 3.11 9.79 2 12c1.78 3.97 5.45 6.5 9.65 6.5 1.06 0 2.1-.15 3.1-.44" />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.8}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
+              <FloatingInput
+                id="access-code"
+                type={showPassword ? "text" : "password"}
+                label="Password"
+                className="w-full transition focus:scale-[1.01]"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                disabled={disabled}
+                focusColor="#F7DEE2"
+                borderColor="#F0F0F0"
+                labelColor="#333"
+                rightSlot={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#ff8fb3] shadow-sm shadow-[#ffc7da]/60 transition hover:scale-105"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m17.94 17.94-11.88-11.88" />
+                        <path d="M10.585 10.585a2 2 0 0 0 2.83 2.83" />
+                        <path d="M9.88 4.24c.69-.16 1.41-.24 2.12-.24 4.2 0 7.87 2.53 9.65 6.5-.64 1.4-1.56 2.64-2.68 3.67" />
+                        <path d="M6.62 6.62C4.7 7.95 3.11 9.79 2 12c1.78 3.97 5.45 6.5 9.65 6.5 1.06 0 2.1-.15 3.1-.44" />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                }
+              />
               <p
                 role="status"
                 aria-live="polite"
