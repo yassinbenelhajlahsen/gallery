@@ -141,6 +141,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     setModalInitialIndex(0);
     setIsModalOpen(false);
     setModalPreloadAll(false);
+    setEvents([]);
     // Clear the IndexedDB cache on logout
     clearCache();
   }, []);
