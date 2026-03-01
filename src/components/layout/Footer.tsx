@@ -19,14 +19,6 @@ const Footer = () => {
   return (
     <footer className="mt-auto bg-linear-to-b from-white/0 via-white/70 to-white backdrop-blur-sm">
       <div className="mx-auto flex flex-col items-center justify-center gap-1.5 px-4 py-4 text-xs text-[#aaa]">
-        <div className="flex items-center gap-1.5">
-          <span>Made with</span>
-          <span className="text-[#F7889D]" aria-label="love">
-            ♥
-          </span>
-          <span>for {config.brandDisplay}</span>
-        </div>
-
         <div className="flex items-center gap-2">
           <NavLink
             to="/admin?tab=upload"

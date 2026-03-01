@@ -74,7 +74,7 @@ export function FloatingInput({
         autoCorrect={autoCorrect}
         spellCheck={spellCheck}
         disabled={disabled}
-        className={`${className} peer w-full ${leftIcon ? "pl-10" : "pl-4"} ${
+        className={`peer w-full ${leftIcon ? "pl-10" : "pl-4"} ${
           rightSlot ? "pr-10" : "pr-4"
         } pt-6 pb-3 bg-white border-2 rounded-xl shadow-sm transition-all duration-200 text-[#333]`}
         onFocus={() => setIsFocused(true)}

@@ -114,7 +114,7 @@ const HomePage: React.FC = () => {
   const renderEmptyState = () => (
     <div className="rounded-4xl border border-dashed border-[#FDE2EB] bg-white/80 px-6 py-10 text-center text-[#777] shadow-inner shadow-white/50">
       <p className="text-lg font-medium">
-        We’re still fetching your latest memories. They’ll bloom here soon.
+        We’re still syncing your gallery. Content will appear here shortly.
       </p>
     </div>
   );

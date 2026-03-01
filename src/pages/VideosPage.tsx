@@ -71,7 +71,7 @@ const VideosPage: React.FC = () => {
   const renderEmptyState = () => (
     <div className="rounded-4xl border border-dashed border-[#E6F0FF] bg-white/80 px-6 py-10 text-center text-[#777] shadow-inner shadow-white/40">
       <p className="text-lg font-medium">
-        No videos yet. Upload to share memories.
+        No videos yet. Upload videos to get started.
       </p>
     </div>
   );

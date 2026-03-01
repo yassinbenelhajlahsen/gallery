@@ -41,7 +41,7 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           MEASUREMENTID: ${{ secrets.MEASUREMENTID }}
           VITE_SITE_TITLE: ${{ secrets.VITE_SITE_TITLE }}
-        VITE_BRAND_DISPLAY: ${{ secrets.VITE_BRAND_DISPLAY }}
+          VITE_BRAND_DISPLAY: ${{ secrets.VITE_BRAND_DISPLAY }}
           VITE_SITE_DESCRIPTION: ${{ secrets.VITE_SITE_DESCRIPTION }}
           VITE_LOGIN_HEADING: ${{ secrets.VITE_LOGIN_HEADING }}
           VITE_AUTH_EMAIL: ${{ secrets.VITE_AUTH_EMAIL }}

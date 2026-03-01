@@ -25,18 +25,18 @@ import { config } from "./config";
 
 const AdminPage = React.lazy(() => import("./pages/AdminPage"));
 const floatingAccents = [
-  { id: "h1", className: "left-10 top-16 text-4xl text-[#F7DEE2]" },
-  { id: "h2", className: "right-12 top-20 text-5xl text-[#D8ECFF] delay-75" },
+  { id: "a1", className: "left-10 top-16 text-4xl text-[#F7DEE2]" },
+  { id: "a2", className: "right-12 top-20 text-5xl text-[#D8ECFF] delay-75" },
   {
-    id: "h3",
+    id: "a3",
     className: "left-1/4 bottom-16 text-6xl text-[#FACAD5] delay-150",
   },
   {
-    id: "h4",
+    id: "a4",
     className: "right-24 bottom-12 text-4xl text-[#B9E4FF] delay-200",
   },
-  { id: "h5", className: "left-12 bottom-8 text-5xl text-[#FFE89D] delay-300" },
-  { id: "h6", className: "right-1/3 top-10 text-3xl text-[#FFF2C7] delay-500" },
+  { id: "a5", className: "left-12 bottom-8 text-5xl text-[#FFE89D] delay-300" },
+  { id: "a6", className: "right-1/3 top-10 text-3xl text-[#FFF2C7] delay-500" },
 ];
 
 const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({
@@ -51,10 +51,10 @@ const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({
       className="pointer-events-none absolute inset-0 opacity-85"
       aria-hidden="true"
     >
-      {floatingAccents.map((heart) => (
+      {floatingAccents.map((accent) => (
         <span
-          key={heart.id}
-          className={`accent-floating absolute motion-safe:animate-[float_6s_ease-in-out_infinite] motion-reduce:hidden ${heart.className}`}
+          key={accent.id}
+          className={`accent-floating absolute motion-safe:animate-[float_6s_ease-in-out_infinite] motion-reduce:hidden ${accent.className}`}
         >
           ♥
         </span>

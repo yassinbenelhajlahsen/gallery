@@ -11,7 +11,7 @@ const env = import.meta.env;
 
 export const config = {
   /** Brand name shown in navbar, footer, hero, etc. */
-brandDisplay: (env.VITE_BRAND_DISPLAY as string) || "Our Gallery",
+  brandDisplay: (env.VITE_BRAND_DISPLAY as string) || "My Gallery",
 
   /** <title> and OG title */
   siteTitle: (env.VITE_SITE_TITLE as string) || "Private Gallery",
@@ -19,17 +19,17 @@ brandDisplay: (env.VITE_BRAND_DISPLAY as string) || "Our Gallery",
   /** Meta description */
   siteDescription:
     (env.VITE_SITE_DESCRIPTION as string) ||
-    "A private photo gallery for our most cherished memories.",
+    "A private photo and video gallery.",
 
   /** Login page heading */
   loginHeading:
-    (env.VITE_LOGIN_HEADING as string) || "Welcome to our secret archive",
+    (env.VITE_LOGIN_HEADING as string) || "Welcome back",
 
   /** Email used for Firebase Auth sign-in */
   authEmail: (env.VITE_AUTH_EMAIL as string) || "",
 
   /** Toast shown when user logs out */
-  logoutToast: (env.VITE_LOGOUT_TOAST as string) || "Signed out ♥",
+  logoutToast: (env.VITE_LOGOUT_TOAST as string) || "Signed out",
 
   /** 404 page message */
   notFoundText:

@@ -19,17 +19,6 @@ This project is a real-world private gallery app focused on:
 - Firebase credentials and display values live in `.env` (git-ignored).
 - Real protection is enforced by Firebase Security Rules (owner UID), not frontend checks.
 
-## Architecture at a Glance
-
-```text
-AuthProvider
-  └─ ToastProvider
-      └─ AppBackdrop
-          └─ RouterProvider
-
-Route shell (authenticated only):
-RequireAuth -> GalleryProvider -> Outlet + global GalleryModalRenderer
-```
 
 Core data/storage model:
 

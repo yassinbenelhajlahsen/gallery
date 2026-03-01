@@ -162,7 +162,7 @@ const All: React.FC = () => {
   const renderEmptyState = () => (
     <div className="rounded-4xl border border-dashed border-[#FDE2EB] bg-white/80 px-6 py-10 text-center text-[#777] shadow-inner shadow-white/40">
       <p className="text-lg font-medium">
-        No images yet. Upload memories to see them bloom here.
+        No images yet. Upload photos to get started.
       </p>
     </div>
   );

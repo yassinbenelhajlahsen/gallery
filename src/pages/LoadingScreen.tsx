@@ -91,7 +91,7 @@ const LoadingScreen = () => {
       <div className="relative z-10 w-full max-w-3xl space-y-8 rounded-3xl bg-white/80 p-8 shadow-2xl ring-1 ring-white/70 backdrop-blur animate-[fadeIn_0.6s_ease-out] sm:space-y-10 sm:p-10">
         <header className="space-y-3">
           <p className="animate-[fadeIn_0.8s_ease-out] text-sm uppercase tracking-[0.35em] text-[#888]">
-            Loading memories
+            Loading gallery
           </p>
         </header>
 
