@@ -1,11 +1,18 @@
 // src/pages/TimelinePage.tsx
-import React from "react";
+import React, { useState } from "react";
 import TimelineEventItem from "../components/timeline/TimelineEventItem";
 import type { TimelineEvent } from "../components/timeline/TimelineEventItem";
 import { useGallery } from "../context/GalleryContext";
 import type { ImageMeta } from "../services/storageService";
 import type { MediaMeta, VideoMeta } from "../types/mediaTypes";
 import { usePageReveal } from "../hooks/usePageReveal";
+import {
+  normalizeText,
+  buildSearchIndex,
+  matchesTokens,
+  toDateSearchTokens,
+} from "../services/deleteService";
+import { FloatingInput } from "../components/ui/FloatingInput";
 
 const normalize = (value?: string | null) => {
   if (!value) return "";
@@ -25,6 +32,28 @@ const TimelinePage: React.FC = () => {
   const isVisible = usePageReveal();
 
   const { events: timelineEvents } = useGallery();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const searchTokens = React.useMemo(
+    () =>
+      normalizeText(searchQuery)
+        .split(/\s+/)
+        .filter(Boolean),
+    [searchQuery],
+  );
+  const hasActiveSearch = searchTokens.length > 0;
+
+  const filteredEvents = React.useMemo(() => {
+    if (!hasActiveSearch) return timelineEvents;
+    return timelineEvents.filter((event) => {
+      const index = buildSearchIndex(
+        event.title,
+        ...toDateSearchTokens(event.date),
+        ...(event.imageIds ?? []),
+      );
+      return matchesTokens(index, searchTokens);
+    });
+  }, [hasActiveSearch, searchTokens, timelineEvents]);
   const areCountsReady = isVideoMetadataReady ?? true;
 
   const eventMediaMap = React.useMemo(() => {
@@ -116,8 +145,25 @@ const TimelinePage: React.FC = () => {
             </span>
           </header>
 
+          <div className="space-y-4">
+          <FloatingInput
+            id="timeline-search"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            label="Search events"
+            required={false}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            focusColor="#D8ECFF"
+            borderColor="#c5ddf0"
+            labelColor="#7aadcc"
+          />
+
           <ol className="space-y-4">
-            {timelineEvents.map((event) => {
+            {filteredEvents.map((event) => {
               const matches = eventMediaMap.get(event.id) ?? [];
               const mediaCounts = matches.reduce(
                 (acc, m) => {
@@ -140,6 +186,7 @@ const TimelinePage: React.FC = () => {
               );
             })}
           </ol>
+          </div>
         </div>
       </div>
     </section>
