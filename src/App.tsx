@@ -69,12 +69,21 @@ const MainLayout = () => {
     <div className="flex min-h-screen flex-col">
       <ScrollToTop />
       <Navbar />
-      <main className="relative z-10 flex-1 px-4 py-10">
+      <main
+        className="relative z-10 flex-1 px-4 pb-24 sm:pt-10 sm:pb-10"
+        style={{ paddingTop: "max(2.5rem, calc(1.5rem + env(safe-area-inset-top)))" }}
+      >
         <div className="mx-auto w-full max-w-6xl">
           <Outlet />
         </div>
       </main>
       <Footer />
+      {/* Spacer so footer scrolls above the fixed bottom nav on mobile */}
+      <div
+        className="sm:hidden shrink-0"
+        style={{ height: "calc(4rem + env(safe-area-inset-bottom))" }}
+        aria-hidden="true"
+      />
     </div>
   );
 };

@@ -18,7 +18,7 @@ const Footer = () => {
 
   return (
     <footer className="mt-auto bg-linear-to-b from-white/0 via-white/70 to-white backdrop-blur-sm">
-      <div className="mx-auto flex flex-col items-center justify-center gap-1.5 px-4 py-4 text-xs text-[#aaa]">
+      <div className="mx-auto flex flex-col items-center justify-center gap-1.5 px-4 pt-4 text-xs text-[#aaa]" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}>
         <div className="flex items-center gap-2">
           <NavLink
             to="/admin?tab=upload"

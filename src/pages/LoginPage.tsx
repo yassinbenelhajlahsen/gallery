@@ -59,52 +59,56 @@ const LoginPage: React.FC = () => {
           right: 0;
           pointer-events: none; /* don't intercept taps */
           z-index: 0; /* sit above background, below content (content will be z-10) */
+          mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+          -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);
         }
 
         .safe-area-fade::before {
           top: 0;
-          height: calc(env(safe-area-inset-top, 0px) + 48px);
-          background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 60%);
+          height: calc(env(safe-area-inset-top, 0px) + 140px);
+          background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
         }
 
         .safe-area-fade::after {
           bottom: 0;
-          height: calc(env(safe-area-inset-bottom, 0px) + 48px);
-          background: linear-gradient(0deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 60%);
+          height: calc(env(safe-area-inset-bottom, 0px) + 140px);
+          background: linear-gradient(0deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
+          mask-image: linear-gradient(0deg, #000 0%, transparent 100%);
+          -webkit-mask-image: linear-gradient(0deg, #000 0%, transparent 100%);
         }
       `}</style>
 
-      <section className="safe-area-fade relative overflow-hidden flex min-h-screen w-full items-center justify-center px-6 py-16">
-        <div className="relative z-10 grid w-full max-w-5xl gap-10 rounded-[36px] bg-white/80 p-5 sm:p-10 shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl transition-all duration-500 hover:ring-[#FACAD5]/60 lg:grid-cols-[1.2fr_1fr]">
-          <div className="space-y-6 text-left">
-            <p className="text-sm uppercase racking-[0.4em] text-[#888] text-center">
-              Private gallery
-            </p>
-            <h1 className="text-4xl font-semibold leading-tight text-[#333] text-center">
-              {config.loginHeading}
-            </h1>
+      <section
+        className="safe-area-fade relative flex min-h-dvh w-full items-start justify-center px-6 pb-16 lg:items-center lg:py-16 lg:pt-16"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 5rem)" }}
+      >
+        <div className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-6 px-2 lg:grid lg:grid-cols-[1.2fr_1fr] lg:gap-10 lg:rounded-[36px] lg:bg-white/80 lg:p-10 lg:shadow-[0_35px_120px_rgba(248,180,196,0.35)] lg:ring-1 lg:ring-white/60 lg:backdrop-blur-2xl">
+          <div className="flex flex-col items-center gap-2 lg:gap-6 lg:items-start">
             <img
               src="/favicon-v2.png"
               alt="Gallery logo"
-              className="mx-auto mt-8 -mb-8 h-40 w-40 select-none sm:mt-0 sm:mb-0"
+              className="h-16 w-16 select-none lg:mx-auto lg:h-40 lg:w-40"
             />
+            <p className="text-xs uppercase tracking-[0.4em] text-[#888] lg:text-sm lg:text-center lg:w-full">
+              Private gallery
+            </p>
+            <h1 className="text-2xl font-semibold leading-tight text-[#333] lg:text-4xl lg:text-center lg:w-full">
+              {config.loginHeading}
+            </h1>
           </div>
 
           <form
             onSubmit={handleSubmit}
-            className="space-y-6 rounded-[28px] bg-white/80 p-5 sm:p-8 shadow-xl shadow-[#d1e9ff]/40 ring-1 ring-white/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#fbcdd5]/60"
+            className="w-full space-y-4 lg:space-y-6 lg:rounded-[28px] lg:bg-white/80 lg:p-8 lg:shadow-xl lg:shadow-[#d1e9ff]/40 lg:ring-1 lg:ring-white/60"
           >
-            <header className="space-y-1 text-center sm:text-left">
-              <h2 className="text-2xl font-semibold">Enter password</h2>
-            </header>
             <div className="space-y-2">
               <FloatingInput
                 id="access-code"
                 type={showPassword ? "text" : "password"}
                 label="Password"
-                className="w-full transition focus:scale-[1.01]"
+                className="w-full"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"

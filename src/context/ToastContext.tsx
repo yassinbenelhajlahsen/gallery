@@ -91,7 +91,7 @@ const ToastContainer: React.FC<{ toasts: Toast[] }> = ({ toasts }) => {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-6 left-0 right-0 z-100 flex flex-col items-center gap-3 px-4"
+      className="pointer-events-none fixed bottom-24 sm:bottom-6 left-0 right-0 z-100 flex flex-col items-center gap-3 px-4"
       aria-live="polite"
     >
       {toasts.map((t) => (

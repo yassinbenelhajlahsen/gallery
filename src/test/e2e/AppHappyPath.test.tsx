@@ -128,17 +128,17 @@ describe("App happy path", () => {
       expect(screen.getByRole("button", { name: /see all photos/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("link", { name: "Photos" }));
+    fireEvent.click(screen.getAllByRole("link", { name: "Photos" })[0]);
     await waitFor(() => {
       expect(window.location.pathname).toBe("/photos");
     });
 
-    fireEvent.click(screen.getByRole("link", { name: "Videos" }));
+    fireEvent.click(screen.getAllByRole("link", { name: "Videos" })[0]);
     await waitFor(() => {
       expect(window.location.pathname).toBe("/videos");
     });
 
-    fireEvent.click(screen.getByRole("link", { name: "Timeline" }));
+    fireEvent.click(screen.getAllByRole("link", { name: "Timeline" })[0]);
     await waitFor(() => {
       expect(window.location.pathname).toBe("/timeline");
     });

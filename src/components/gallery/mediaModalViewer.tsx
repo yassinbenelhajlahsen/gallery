@@ -71,7 +71,13 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   // When true, force transitions to 0ms for instant snapping (used for teleport snap)
   const [suppressTransition, setSuppressTransition] = React.useState(false);
   const touchStartX = React.useRef<number | null>(null);
+  const touchStartTimeRef = React.useRef<number>(0);
+  const dragOffsetRef = React.useRef<number>(0);
+  const isDraggingRef = React.useRef<boolean>(false);
+  const slideContainerRef = React.useRef<HTMLDivElement | null>(null);
   const animationTimeoutRef = React.useRef<number | null>(null);
+  const modalRootRef = React.useRef<HTMLDivElement | null>(null);
+  const savedScrollYRef = React.useRef<number>(0);
 
   // ── Full-res URL management ──
   // Map of image id → full-res blob URL (only for the windowed preload area)
@@ -120,6 +126,19 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
       animationTimeoutRef.current = null;
     }
   };
+
+  // Update theme-color meta so iOS status bar area goes dark when modal is open
+  React.useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return;
+    const original = meta.getAttribute("content") ?? "#FAFAF7";
+    if (isOpen) {
+      meta.setAttribute("content", "#000000");
+    }
+    return () => {
+      meta.setAttribute("content", original);
+    };
+  }, [isOpen]);
 
   // Reset state when modal closes completely
   React.useEffect(() => {
@@ -380,19 +399,60 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [goToNext, goToPrev, handleClose, isOpen]);
 
-  // Use layout effect to set background BEFORE paint, ensuring consistent timing
+  // Use layout effect to set background BEFORE paint, ensuring consistent timing.
+  // position:fixed is required on iOS — overflow:hidden alone doesn't stop momentum scroll.
   React.useLayoutEffect(() => {
     if (isOpen) {
-      // Set dark background synchronously before browser paints
+      savedScrollYRef.current = window.scrollY;
       document.documentElement.style.backgroundColor = "#000";
       document.body.style.backgroundColor = "#000";
       document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${savedScrollYRef.current}px`;
+      document.body.style.width = "100%";
     } else {
-      // Reset immediately when closing
       document.documentElement.style.backgroundColor = "";
       document.body.style.backgroundColor = "";
       document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, savedScrollYRef.current);
     }
+  }, [isOpen]);
+
+  // Focus trap: keep Tab/Shift+Tab cycling within the modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const FOCUSABLE =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const root = modalRootRef.current;
+      if (!root) return;
+      const nodes = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => !el.hasAttribute("disabled"),
+      );
+      if (!nodes.length) return;
+      const first = nodes[0]!;
+      const last = nodes[nodes.length - 1]!;
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", trap);
+    return () => document.removeEventListener("keydown", trap);
   }, [isOpen]);
   const handleBackdropClick = (event: React.MouseEvent) => {
     if (event.target === event.currentTarget) {
@@ -406,6 +466,22 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
       return;
     }
     touchStartX.current = event.touches[0]?.clientX ?? null;
+    touchStartTimeRef.current = Date.now();
+    dragOffsetRef.current = 0;
+    isDraggingRef.current = false;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent) => {
+    if (touchStartX.current == null || media.length <= 1) return;
+    const currentX = event.touches[0]?.clientX ?? 0;
+    const delta = currentX - touchStartX.current;
+    dragOffsetRef.current = delta;
+    isDraggingRef.current = true;
+    if (slideContainerRef.current) {
+      const base = `calc(${visualIndex} * (-100% - 1.5rem))`;
+      slideContainerRef.current.style.transitionDuration = "0ms";
+      slideContainerRef.current.style.transform = `translateX(calc(${base} + ${delta}px))`;
+    }
   };
 
   const handleTouchEnd = (event: React.TouchEvent) => {
@@ -414,15 +490,35 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
       return;
     }
     if (touchStartX.current == null) return;
-    const deltaX =
-      (event.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
-    const threshold = 50;
-    if (deltaX > threshold) {
-      goToPrev();
-    } else if (deltaX < -threshold) {
-      goToNext();
+
+    const endX = event.changedTouches[0]?.clientX ?? 0;
+    const deltaX = endX - touchStartX.current;
+    const elapsed = Math.max(Date.now() - touchStartTimeRef.current, 1);
+    const velocity = Math.abs(deltaX) / elapsed; // px/ms
+
+    // Restore CSS transition before snap or spring-back
+    if (slideContainerRef.current) {
+      slideContainerRef.current.style.transitionDuration = `${SLIDE_DURATION}ms`;
     }
+
+    const distanceThreshold = 50;
+    const velocityThreshold = 0.3; // px/ms — fast flick
+    const shouldNavigate =
+      Math.abs(deltaX) > distanceThreshold || velocity > velocityThreshold;
+
+    if (shouldNavigate && deltaX > 0) {
+      goToPrev();
+    } else if (shouldNavigate && deltaX < 0) {
+      goToNext();
+    } else if (slideContainerRef.current) {
+      // Spring back to current position
+      const base = `calc(${visualIndex} * (-100% - 1.5rem))`;
+      slideContainerRef.current.style.transform = `translateX(${base})`;
+    }
+
     touchStartX.current = null;
+    dragOffsetRef.current = 0;
+    isDraggingRef.current = false;
   };
 
   if (!isOpen || !media.length) {
@@ -447,6 +543,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
 
   return (
     <div
+      ref={modalRootRef}
       className={`modal-backdrop-reveal modal-safe-area-mask fixed z-50 bg-black/80 px-3 py-6 text-white sm:px-8 sm:py-10 transition-opacity duration-300 ${
         isClosing ? "opacity-0" : "opacity-100"
       }`}
@@ -469,10 +566,8 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
         className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
           isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100"
         }`}
-        style={{
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.5rem)",
-        }}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div className="pointer-events-none absolute inset-0">
@@ -482,7 +577,6 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
         <button
           type="button"
           className="cursor-pointer absolute right-4 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-[#1a1a1a]/80 text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10 backdrop-blur-lg transition-all duration-200 hover:bg-[#2a2a2a] hover:text-white hover:ring-white/20 active:scale-95 sm:h-12 sm:w-12"
-          style={{ top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
           onClick={handleClose}
           aria-label="Close modal"
         >
@@ -506,6 +600,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
           <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-[#050505] via-[#050505]/60 to-transparent opacity-60" />
 
           <div
+            ref={slideContainerRef}
             className={`flex w-full items-center gap-6 ${
               isAnimating ? "cursor-grabbing" : ""
             }`}

@@ -28,6 +28,11 @@ textarea:focus-visible {
 /* Performance optimizations */
 * {
   -webkit-tap-highlight-color: transparent;
+  scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
 }
 
 img {

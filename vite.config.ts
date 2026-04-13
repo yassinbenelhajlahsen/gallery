@@ -1,11 +1,57 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
+import { VitePWA } from "vite-plugin-pwa";
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  return {
   plugins: [
     react(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon-v2.png"],
+      manifest: {
+        name: env.VITE_PWA_APP_NAME || "Rasso",
+        short_name: env.VITE_PWA_APP_NAME || "Rasso",
+        description: env.VITE_SITE_DESCRIPTION || "Private photo and video gallery",
+        theme_color: "#FAFAF7",
+        background_color: "#FAFAF7",
+        display: "standalone",
+        scope: "/",
+        start_url: "/",
+        icons: [
+          {
+            src: "/favicon-v2.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/favicon-app-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*thumb.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "thumbnail-cache",
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+        ],
+      },
+    }),
     process.env.ANALYZE === "true" &&
       visualizer({
         filename: "dist/stats.html",
@@ -39,4 +85,5 @@ export default defineConfig({
       },
     },
   },
+  };
 });
