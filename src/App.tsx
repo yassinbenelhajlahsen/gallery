@@ -78,12 +78,6 @@ const MainLayout = () => {
         </div>
       </main>
       <Footer />
-      {/* Spacer so footer scrolls above the fixed bottom nav on mobile */}
-      <div
-        className="sm:hidden shrink-0"
-        style={{ height: "calc(4rem + env(safe-area-inset-bottom))" }}
-        aria-hidden="true"
-      />
     </div>
   );
 };
