@@ -1,10 +1,11 @@
 /*src/index.css */
 @import "tailwindcss";
 
-/* Over-scroll background — prevents white bleed on iOS rubber-band scroll */
+/* Over-scroll background — matches AppBackdrop top-gradient tint so iOS
+   rubber-band fades naturally instead of showing a flat white/off-white band. */
 html,
 body {
-  background-color: #FAFAF7;
+  background-color: #FDE8ED;
 }
 
 /* ── Accessible focus ring (pastel-themed) ── */
