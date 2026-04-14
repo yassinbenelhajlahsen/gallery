@@ -13,15 +13,6 @@ const LoadingScreen = () => {
         className="h-44 w-44 select-none sm:h-56 sm:w-56"
       />
 
-      {/* Static "Loading..." label */}
-      <p
-        className="font-display text-2xl tracking-wide text-[#888] sm:text-2xl"
-        role="status"
-        aria-live="polite"
-      >
-        Loading...
-      </p>
-
       {/* Bouncing bubbles — pink, blue, yellow */}
       <div className="flex items-center justify-center gap-3" aria-hidden="true">
         <span
