@@ -1,11 +1,13 @@
 /*src/index.css */
 @import "tailwindcss";
 
-/* Over-scroll background — matches AppBackdrop top-gradient tint so iOS
-   rubber-band fades naturally instead of showing a flat white/off-white band. */
-html,
+/* html gradient sets ios overscroll edge colors — pink at top, neutral at bottom.
+   body must be transparent so iOS uses the html gradient during rubber-band. */
+html {
+  background: linear-gradient(to bottom, #FDE8ED, #FAFAF7 15%);
+}
 body {
-  background-color: #FDE8ED;
+  background: transparent;
 }
 
 /* ── Accessible focus ring (pastel-themed) ── */

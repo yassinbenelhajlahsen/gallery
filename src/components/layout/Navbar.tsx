@@ -1,5 +1,5 @@
 // src/components/layout/Navbar.tsx
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { config } from "../../config";
 
 const NAV_ITEMS = [
@@ -47,6 +47,9 @@ const HomeIcon = () => (
 );
 
 const Navbar = () => {
+  const { pathname } = useLocation();
+  const solidMobileNav = pathname === "/photos" || pathname === "/videos";
+
   return (
     <>
       {/* Desktop top navbar — hidden on mobile */}
@@ -91,7 +94,7 @@ const Navbar = () => {
 
       {/* Mobile bottom tab bar */}
       <nav
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t border-[#EDEDED]/80"
+        className={`sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#EDEDED]/80 ${solidMobileNav ? "bg-white" : "bg-white/90 backdrop-blur-md"}`}
         aria-label="Primary"
       >
         <div className="flex items-stretch">
@@ -139,7 +142,7 @@ const Navbar = () => {
         </div>
         {/* Safe-area fill — extends bg colour into the home indicator zone */}
         <div
-          className="w-full bg-white/90"
+          className={`w-full ${solidMobileNav ? "bg-white" : "bg-white/90"}`}
           style={{ height: "env(safe-area-inset-bottom)" }}
           aria-hidden="true"
         />
