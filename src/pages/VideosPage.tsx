@@ -78,7 +78,7 @@ const VideosPage: React.FC = () => {
 
   return (
     <section className="w-full">
-      <div className="mx-auto w-full max-w-[1400px]">
+      <div className="mx-auto w-full max-w-350">
         <div
           className={`space-y-10 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >

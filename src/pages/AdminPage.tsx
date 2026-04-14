@@ -62,7 +62,7 @@ export default function AdminPage() {
 
   return (
     <section className="w-full">
-      <div className="mx-auto w-full max-w-[1400px] space-y-6">
+      <div className="mx-auto w-full max-w-350 space-y-6">
         <div
           className={`space-y-6 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
