@@ -157,9 +157,7 @@ const TimelinePage: React.FC = () => {
             autoCorrect="off"
             autoCapitalize="none"
             spellCheck={false}
-            focusColor="#D8ECFF"
-            borderColor="#c5ddf0"
-            labelColor="#7aadcc"
+            labelColor="#888"
           />
 
           <ol className="space-y-4">
