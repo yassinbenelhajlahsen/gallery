@@ -16,6 +16,7 @@ dist-ssr
 serviceAccountKey.json
 cors.json
 .firebase
+.playwright-mcp
 
 # Editor directories and files
 .vscode/*

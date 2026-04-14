@@ -118,13 +118,3 @@ Any `URL.createObjectURL` must be paired with revoke logic.
 ### Hardcoded personal strings
 
 Put user-visible strings behind `src/config.ts` / `VITE_*`.
-
-## Build & Run
-
-```bash
-npm install
-npm run dev
-npm run lint
-npm run test
-npm run build
-```
