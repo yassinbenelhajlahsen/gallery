@@ -280,9 +280,6 @@ export default function DeleteTab() {
   return (
     <div className="space-y-6">
       <header className="space-y-2 text-center">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#D24A4A]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-[#7d1f1f]">
-          Edit & Delete
-        </span>
         <h2 className="text-2xl font-bold text-[#333]">
           Edit & Delete Media & Events
         </h2>

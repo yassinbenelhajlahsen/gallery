@@ -245,9 +245,6 @@ export default function AdminUploadPage() {
     <div className="space-y-6">
       {/* Header */}
       <header className="space-y-2 text-center">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#C0C0C0]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-[#3f3f3f]">
-          Upload
-        </span>
         <h2 className="text-2xl font-bold text-[#333]">
           Add New Media & Events
         </h2>
