@@ -72,8 +72,7 @@ src/
 │   ├── firebaseApp.ts
 │   ├── firebaseAuth.ts
 │   ├── firebaseFirestore.ts
-│   ├── firebaseStorage.ts
-│   └── firebaseConfig.ts   # compatibility barrel
+│   └── firebaseStorage.ts
 │
 ├── types/
 │   ├── mediaTypes.ts
@@ -123,7 +122,7 @@ Router is defined in `src/App.tsx`.
 | Path | Guard | Component | Notes |
 | --- | --- | --- | --- |
 | `/login` | `GuestRoute` | `LoginPage` | Authenticated users are redirected to `/loading` |
-| `/` | `RequireAuth` + `GalleryAppShell` | shell | Parent for all authenticated routes |
+| `/ (shell)` | `RequireAuth` + `GalleryAppShell` | shell | Parent for all authenticated routes |
 | `/loading` | auth-only shell child | `LoadingRoute` -> `LoadingScreen` | Redirects to `/` once gallery load flag is true |
 | `/` | `RequireGalleryLoaded` + `MainLayout` | `HomePage` | Main landing page |
 | `/home` | `RequireGalleryLoaded` + `MainLayout` | `Navigate` -> `/` | Backward-compatible home alias |
@@ -232,5 +231,5 @@ videos/thumb/<basename>.jpg
 
 ## Agent-Critical Notes
 
-- Prefer direct Firebase modules (`firebaseApp/firebaseAuth/firebaseFirestore/firebaseStorage`) over `firebaseConfig.ts` in new code.
-- `GalleryContext.resetState()` currently clears images/videos/modal/cache but does **not** clear `events` state; treat this as a known behavior gap when debugging logout edge cases.
+- Use direct Firebase module imports (`firebaseApp`, `firebaseAuth`, `firebaseFirestore`, `firebaseStorage`) for all new code.
+- `GalleryContext.resetState()` clears all gallery state on logout: images, videos, events, modal state, progress state, and IndexedDB cache.

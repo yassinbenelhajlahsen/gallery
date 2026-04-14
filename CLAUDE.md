@@ -66,7 +66,6 @@ Use service wrappers and context hooks (`useAuth`, `useGallery`) — never make 
 - `uploadService` — image/video upload pipelines, event creation, unique-name resolution
 - `deleteService` — metadata edits, media/event deletes, linked cleanup
 
-Prefer direct Firebase modules (`firebaseApp`/`firebaseAuth`/`firebaseFirestore`/`firebaseStorage`) over `firebaseConfig.ts` in new code.
 
 ## Key Conventions
 

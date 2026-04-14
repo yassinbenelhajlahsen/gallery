@@ -24,6 +24,7 @@
 - Existing UI language is soft pastel, rounded cards, blur/ring overlays.
 - Keep interaction affordances (`hover` / `active` / keyboard focus) consistent.
 - Respect `prefers-reduced-motion` patterns used in `src/index.css`.
+- Use the `font-display` Tailwind utility (`--font-display: "Instrument Serif", Georgia, serif`) for page-level headings; it is declared in `src/index.css` and loaded via Google Fonts in `index.html`.
 
 ### File Organization
 
@@ -113,10 +114,6 @@ Only one global modal is expected (`GalleryModalRenderer`).
 ### Blob URL leaks
 
 Any `URL.createObjectURL` must be paired with revoke logic.
-
-### Assuming logout resets every gallery field
-
-Current implementation clears media/cache/modal state on logout, but `events` is not cleared in `resetState()` (known behavior gap).
 
 ### Hardcoded personal strings
 

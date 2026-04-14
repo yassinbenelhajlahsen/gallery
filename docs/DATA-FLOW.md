@@ -129,6 +129,8 @@ State includes:
 - `imageMetas`
 - `videoMetas`
 - `preloadedImages`
+- `videoThumbUrls` (blob URL map for cached video posters)
+- `isVideoMetadataReady`
 - `loadingProgress`, `isGalleryLoading`, `hasGalleryLoadedOnce`, `loadError`
 - modal state (`isModalOpen`, `modalMedia`, `modalInitialIndex`, `modalPreloadAll`)
 
@@ -159,13 +161,11 @@ If gallery fetch fails, `loadError` is set and the loading gate is still release
 
 ### Logout/reset behavior
 
-`resetState()` currently:
+`resetState()` clears all gallery state:
 
-- clears images, videos, modal state, progress state
+- clears images, videos, events, modal state, progress state
 - clears IndexedDB cache
 - revokes cached object URLs
-
-Known caveat: `events` is not currently cleared inside `resetState()`.
 
 ## Modal Data Flow
 
@@ -184,7 +184,7 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 
 ### Home
 
-- chooses a stable random subset of 9 photos
+- chooses a stable random subset of 12 photos
 - requests full-res URLs for those ids
 - displays thumbnails first and overlays full-res when available
 

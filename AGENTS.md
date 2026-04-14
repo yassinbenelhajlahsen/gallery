@@ -69,12 +69,11 @@
   - explicit `event.imageIds`
   - normalized title match against media `event` field.
 - Only one modal instance is expected; use `GalleryContext` modal APIs, not page-level modal mounts.
-- `GalleryContext.resetState()` clears media/cache/modal state but does not clear `events`.
+- `GalleryContext.resetState()` clears all gallery state on logout (media, events, cache, modal state).
 - Date handling intentionally normalizes/parses local date-like values in multiple modules (`storageService`, pages, `deleteService`); preserve this behavior to avoid timezone shifts.
 - `ScrollToTop` uses `window.scrollTo({ behavior: "instant" })`.
 - `/upload` is a redirect route to `/admin?tab=upload`.
 - `useGalleryLoadingProgress` exists but app loading uses `GalleryContext.loadingProgress`.
-- `cors.json` has `Content-Tyxpe` typo in `responseHeader` (current file value).
 
 ## Build/Test/Config Notes
 - TypeScript project references: `tsconfig.json` -> `tsconfig.app.json` + `tsconfig.node.json`.

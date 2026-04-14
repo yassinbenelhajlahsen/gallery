@@ -75,6 +75,11 @@ Behavior:
 - File: `src/components/layout/Navbar.tsx`
 - Purpose: top-level navigation.
 
+Renders two separate structures:
+
+- **Desktop**: a `<header>` fixed at top. Transparent by default; transitions to a solid `#FAFAF7` background once `window.scrollY > 10px` (passive scroll listener).
+- **Mobile**: a bottom tab `<nav>` fixed at bottom. Always solid `#FAFAF7`.
+
 Current nav items:
 
 - `/timeline`
@@ -120,7 +125,7 @@ Includes:
 ### `HomePage`
 
 - File: `src/pages/HomePage.tsx`
-- Chooses stable random subset of 9 images
+- Chooses stable random subset of 12 images
 - Uses `GalleryGrid`
 - Shows thumbs first and overlays full-res URLs when resolved
 - Tile click opens modal with current subset
@@ -153,7 +158,7 @@ Includes:
 - File: `src/pages/AdminPage.tsx`
 - Tab container controlled by `?tab=upload|delete`
 - Loads `UploadTab` and `DeleteTab`
-- Animated active pill + panel slide + dynamic panel height
+- Underline-tab navigation; tab state driven by `?tab=upload|delete` query string
 
 ### `UploadTab`
 
