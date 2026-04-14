@@ -30,7 +30,7 @@ const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({
 }) => (
   <div
     className="relative min-h-screen w-full text-[#333]"
-    style={{ backgroundColor: "#FAFAF7", backgroundImage: "linear-gradient(to bottom, #FDE8ED 0%, transparent 72px)" }}
+    style={{ backgroundColor: "#FAFAF7", backgroundImage: "linear-gradient(to bottom, #FBDCE7 0%, transparent 72px)" }}
   >
     <div
       className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,220,230,0.6),transparent_55%),radial-gradient(circle_at_bottom,rgba(216,236,255,0.5),transparent_60%),radial-gradient(circle_at_center,rgba(255,238,173,0.35),transparent_45%)]"
@@ -190,6 +190,22 @@ function App() {
   // Set document title from env so the HTML stays name-free
   React.useEffect(() => {
     document.title = config.siteTitle;
+  }, []);
+
+  // Sync html background-color to scroll position so iOS PWA rubber-band
+  // overscroll shows pink at the top and white at the bottom.
+  // (iOS paints overscroll with html's background-color, ignoring gradients.)
+  React.useEffect(() => {
+    const PINK = "#FBDCE7";
+    const WHITE = "#FAFAF7";
+    const THRESHOLD = 120;
+    const html = document.documentElement;
+    const sync = () => {
+      html.style.backgroundColor = window.scrollY < THRESHOLD ? PINK : WHITE;
+    };
+    sync();
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
   }, []);
 
   return (
