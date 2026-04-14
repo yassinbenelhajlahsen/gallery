@@ -25,12 +25,14 @@ import { config } from "./config";
 
 const AdminPage = React.lazy(() => import("./pages/AdminPage"));
 
-const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => (
+const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div
     className="relative min-h-screen w-full text-[#333]"
-    style={{ backgroundColor: "#FAFAF7", backgroundImage: "linear-gradient(to bottom, #FBDCE7 0%, transparent 72px)" }}
+    style={{
+      backgroundColor: "#FAFAF7",
+      backgroundImage:
+        "linear-gradient(to bottom, #FBDCE7 0%, transparent 400px)",
+    }}
   >
     <div
       className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,220,230,0.6),transparent_55%),radial-gradient(circle_at_bottom,rgba(216,236,255,0.5),transparent_60%),radial-gradient(circle_at_center,rgba(255,238,173,0.35),transparent_45%)]"
@@ -47,7 +49,9 @@ const MainLayout = () => {
       <Navbar />
       <main
         className="relative z-10 flex-1 px-4 pb-24 sm:pt-5 sm:pb-10"
-        style={{ paddingTop: "max(0.75rem, calc(0.25rem + env(safe-area-inset-top)))" }}
+        style={{
+          paddingTop: "max(0.75rem, calc(0.25rem + env(safe-area-inset-top)))",
+        }}
       >
         <div className="w-full">
           <Outlet />
@@ -126,8 +130,7 @@ const LoadingRoute: React.FC = () => {
       return "/";
     }
     const from =
-      "from" in location.state &&
-      typeof location.state.from === "string"
+      "from" in location.state && typeof location.state.from === "string"
         ? location.state.from
         : null;
     if (!from || from.startsWith("/loading")) return "/";
@@ -169,11 +172,16 @@ const router = createBrowserRouter([
           { path: "home", element: <Navigate to="/" replace /> },
           { path: "timeline", element: <TimelinePage /> },
           { path: "photos", element: <PhotosPage /> },
-          { path: "upload", element: <Navigate to="/admin?tab=upload" replace /> },
+          {
+            path: "upload",
+            element: <Navigate to="/admin?tab=upload" replace />,
+          },
           {
             path: "admin",
             element: (
-              <React.Suspense fallback={<GateFallback message="Loading admin…" />}>
+              <React.Suspense
+                fallback={<GateFallback message="Loading admin…" />}
+              >
                 <AdminPage />
               </React.Suspense>
             ),
