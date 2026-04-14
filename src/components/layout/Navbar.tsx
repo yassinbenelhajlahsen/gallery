@@ -9,7 +9,6 @@ const NAV_ITEMS = [
     to: "/timeline",
     activeClass: "bg-[#D8ECFF]",
     icon: (
-      // Event card with V-notch pointer + horizontal timeline bar with arrowheads and center dot
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" className="w-5 h-5">
         <rect x="4" y="3" width="16" height="8" />
         <polyline points="10,11 12,13.5 14,11" />
@@ -25,7 +24,6 @@ const NAV_ITEMS = [
     to: "/photos",
     activeClass: "bg-[#FFE39F]",
     icon: (
-      // Rectangle frame + landscape silhouette + sun dot — classic image icon
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" className="w-5 h-5">
         <rect x="3" y="4" width="18" height="16" />
         <polyline points="3,16 8,10 13,14 16,11 21,15" />
@@ -38,7 +36,6 @@ const NAV_ITEMS = [
     to: "/videos",
     activeClass: "bg-[#F3D0D6]",
     icon: (
-      // Video player frame + play triangle inside
       <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
         <rect x="2" y="5" width="20" height="14" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" />
         <polygon points="10,9 10,15 16,12" fill="currentColor" />
@@ -48,7 +45,6 @@ const NAV_ITEMS = [
 ];
 
 const HomeIcon = () => (
-  // Angular house — sharp miter corners
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" className="w-5 h-5">
     <polyline points="3,12 12,4 21,12" />
     <polyline points="6,10 6,20 18,20 18,10" />
@@ -56,27 +52,46 @@ const HomeIcon = () => (
   </svg>
 );
 
+
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  const onScroll = () => {
+    const next = window.scrollY > 40;
+    setScrolled(prev => (prev === next ? prev : next));
+  };
 
+  window.addEventListener("scroll", onScroll, { passive: true });
+  return () => window.removeEventListener("scroll", onScroll);
+}, []);
+
+  
   return (
     <>
-      {/* Desktop top navbar — hidden on mobile */}
+      {/* Desktop navbar */}
       <header
-        className="relative hidden sm:block sticky top-0 z-20 bg-linear-to-b from-[#FAFAF7] via-[#FAFAF7] to-transparent"
+        className="relative hidden sm:block sticky top-0 z-20"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        {/* Solid fill that fades in once the page scrolls past the pink wash */}
+        {/* Gradient fade background */}
         <div
-          className={`absolute inset-0 bg-[#FAFAF7] transition-opacity duration-300 motion-reduce:transition-none ${scrolled ? "opacity-100" : "opacity-0"}`}
+          className={`pointer-events-none absolute inset-x-0 top-0 transition-all duration-300 ${
+            scrolled ? "h-8" : "h-20"
+          } bg-gradient-to-b from-[#FAFAF7] via-[#FAFAF7] to-transparent`}
           aria-hidden="true"
         />
+
+        {/* Solid background + blur when scrolled */}
+        <div
+          className={`absolute inset-0 transition-all duration-300 ${
+            scrolled
+              ? "opacity-100 bg-[#FAFAF7]/80 backdrop-blur-md"
+              : "opacity-0"
+          }`}
+          aria-hidden="true"
+        />
+
         <div className="relative z-10 flex w-full items-center justify-between px-4 py-2.5">
           <NavLink
             to="/"
@@ -89,6 +104,7 @@ const Navbar = () => {
             />
             {config.brandDisplay}
           </NavLink>
+
           <nav
             className="flex shrink-0 items-center gap-2 text-sm font-semibold text-[#666]"
             aria-label="Primary"
@@ -118,7 +134,6 @@ const Navbar = () => {
         aria-label="Primary"
       >
         <div className="flex items-stretch">
-          {/* Home tab */}
           <NavLink
             to="/"
             end
@@ -130,9 +145,8 @@ const Navbar = () => {
           >
             {({ isActive }) => (
               <>
-                {/* Active top-bar indicator */}
                 {isActive && (
-                  <span className="absolute top-0 left-3 right-3 h-[2px] bg-[#333]" aria-hidden="true" />
+                  <span className="absolute top-0 left-3 right-3 h-[2px] bg-[#333]" />
                 )}
                 <HomeIcon />
                 Home
@@ -140,7 +154,6 @@ const Navbar = () => {
             )}
           </NavLink>
 
-          {/* Other nav tabs */}
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -154,7 +167,7 @@ const Navbar = () => {
               {({ isActive }) => (
                 <>
                   {isActive && (
-                    <span className="absolute top-0 left-3 right-3 h-[2px] bg-[#333]" aria-hidden="true" />
+                    <span className="absolute top-0 left-3 right-3 h-[2px] bg-[#333]" />
                   )}
                   {item.icon}
                   {item.label}
@@ -164,7 +177,6 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* Safe-area fill — extends bg into home indicator zone */}
         <div
           className="w-full bg-[#FAFAF7]"
           style={{ height: "env(safe-area-inset-bottom)" }}
