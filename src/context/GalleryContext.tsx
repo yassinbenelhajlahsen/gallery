@@ -110,7 +110,7 @@ async function waitForReadinessGates(thumbUrls: string[]) {
       ? document.fonts.ready
       : Promise.resolve();
 
-  const minShown = new Promise<void>((r) => setTimeout(r, 250));
+  const minShown = new Promise<void>((r) => setTimeout(r, 550));
 
   const imagesDecoded = Promise.all(
     thumbUrls.map((url) => {
