@@ -15,7 +15,7 @@ type CloudTile = {
   caption?: string;
 };
 
-const HOME_TILE_COUNT = 9;
+const HOME_TILE_COUNT = 12;
 const HOME_TILE_COLUMNS = 3;
 
 const pickRandomSubset = <T,>(items: T[], count: number): T[] => {
@@ -30,7 +30,8 @@ const pickRandomSubset = <T,>(items: T[], count: number): T[] => {
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { imageMetas, openModalWithImages, resolveThumbUrl } = useGallery();
+  const { imageMetas, videoMetas, openModalWithImages, resolveThumbUrl } =
+    useGallery();
   const isVisible = usePageReveal();
   const { resolveUrl, requestFullRes } = useFullResLoader();
 
@@ -112,33 +113,49 @@ const HomePage: React.FC = () => {
   };
 
   const renderEmptyState = () => (
-    <div className="rounded-4xl border border-dashed border-[#FDE2EB] bg-white/80 px-6 py-10 text-center text-[#777] shadow-inner shadow-white/50">
-      <p className="text-lg font-medium">
-        We’re still syncing your gallery. Content will appear here shortly.
+    <div className="border border-dashed border-[#E0E0E0] px-6 py-10 text-center text-[#777]">
+      <p className="text-base font-medium sm:text-lg">
+        We're still syncing your gallery. Content will appear here shortly.
       </p>
     </div>
   );
 
   return (
     <section className="flex w-full justify-center">
-      <div className="mx-auto w-full max-w-5xl sm:max-w-full rounded-[36px] bg-white/80 p-4 sm:p-10 text-center shadow-[0_35px_120px_rgba(248,180,196,0.35)] ring-1 ring-white/60 backdrop-blur-2xl">
+      <div className="mx-auto w-full max-w-6xl">
         <div
-          className={`space-y-10 transition-all duration-400 ease-out ${
+          className={`space-y-8 sm:space-y-10 transition-all duration-400 ease-out ${
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <div className="space-y-3">
-            <p className="text-5xl uppercase tracking-[0.35em] mt-5 mb-15">
+          {/* ── Wordmark block ── */}
+          <header className="pb-2">
+            <h1 className="font-display text-6xl leading-[0.95] tracking-tight text-[#222] sm:text-8xl sm:text-center mt-5">
               {config.brandDisplay}
-            </p>
-          </div>
+            </h1>
 
-          {/* If we have no images yet, show the empty state or skeleton. Otherwise
-              render a progressive grid using thumbnails and overlay full-res when ready. */}
+            {/* Thin rule + photo/video stat line */}
+            <div className="mt-4 flex items-center gap-3 sm:justify-center">
+              <span className="h-px w-10 bg-[#222]" aria-hidden="true" />
+              <p className="text-sm text-[#555]">
+                {imageMetas.length}{" "}
+                {imageMetas.length === 1 ? "photo" : "photos"}
+                {videoMetas.length > 0 && (
+                  <>
+                    {" · "}
+                    {videoMetas.length}{" "}
+                    {videoMetas.length === 1 ? "video" : "videos"}
+                  </>
+                )}
+              </p>
+            </div>
+          </header>
+
+          {/* ── Content: empty / skeleton / grid ── */}
           {imageMetas.length === 0 ? (
             renderEmptyState()
           ) : cloudTiles.length === 0 ? (
-            <div className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-3 sm:gap-4 md:max-w-5xl lg:max-w-6xl xl:max-w-7xl">
+            <div className="mx-auto grid w-full grid-cols-3 gap-2 sm:gap-4">
               {Array.from({ length: chosenIds.length || HOME_TILE_COUNT }).map(
                 (_, i) => (
                   <div
@@ -168,13 +185,13 @@ const HomePage: React.FC = () => {
                 }}
               />
 
-              <div className="pt-4">
+              <div className="pt-6 sm:flex sm:justify-center">
                 <button
                   type="button"
                   onClick={handleSeeAll}
-                  className="cursor-pointer  inline-flex items-center gap-3 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation mt-5"
+                  className="inline-flex items-center gap-2 border-b border-[#222] pb-1 text-base font-medium text-[#222] touch-manipulation active:opacity-60 sm:mx-auto sm:block"
                 >
-                  See all photos
+                  All photos
                   <span aria-hidden="true">→</span>
                 </button>
               </div>

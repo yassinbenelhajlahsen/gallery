@@ -40,6 +40,7 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../../context/GalleryContext", () => ({
   useGallery: () => ({
     imageMetas: galleryState.imageMetas,
+    videoMetas: [],
     openModalWithImages: openModalWithImagesMock,
     resolveThumbUrl: resolveThumbUrlMock,
   }),
@@ -122,7 +123,7 @@ describe("HomePage", () => {
   it("navigates to photos when CTA is clicked", () => {
     render(<HomePage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /see all photos/i }));
+    fireEvent.click(screen.getByRole("button", { name: /all photos/i }));
 
     expect(navigateMock).toHaveBeenCalledWith("/photos", {
       state: { transition: "fade" },

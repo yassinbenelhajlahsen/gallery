@@ -24,42 +24,18 @@ import NotFoundPage from "./pages/NotFoundPage";
 import { config } from "./config";
 
 const AdminPage = React.lazy(() => import("./pages/AdminPage"));
-const floatingAccents = [
-  { id: "a1", className: "left-10 top-16 text-4xl text-[#F7DEE2]" },
-  { id: "a2", className: "right-12 top-20 text-5xl text-[#D8ECFF] delay-75" },
-  {
-    id: "a3",
-    className: "left-1/4 bottom-16 text-6xl text-[#FACAD5] delay-150",
-  },
-  {
-    id: "a4",
-    className: "right-24 bottom-12 text-4xl text-[#B9E4FF] delay-200",
-  },
-  { id: "a5", className: "left-12 bottom-8 text-5xl text-[#FFE89D] delay-300" },
-  { id: "a6", className: "right-1/3 top-10 text-3xl text-[#FFF2C7] delay-500" },
-];
 
 const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
-  <div className="relative min-h-screen w-full overflow-hidden bg-[#FAFAF7] text-[#333]">
+  <div
+    className="relative min-h-screen w-full text-[#333]"
+    style={{ backgroundColor: "#FAFAF7", backgroundImage: "linear-gradient(to bottom, #FDE8ED 0%, transparent 72px)" }}
+  >
     <div
       className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,220,230,0.6),transparent_55%),radial-gradient(circle_at_bottom,rgba(216,236,255,0.5),transparent_60%),radial-gradient(circle_at_center,rgba(255,238,173,0.35),transparent_45%)]"
       aria-hidden="true"
     />
-    <div
-      className="pointer-events-none absolute inset-0 opacity-85"
-      aria-hidden="true"
-    >
-      {floatingAccents.map((accent) => (
-        <span
-          key={accent.id}
-          className={`accent-floating absolute motion-safe:animate-[float_6s_ease-in-out_infinite] motion-reduce:hidden ${accent.className}`}
-        >
-          ♥
-        </span>
-      ))}
-    </div>
     <div className="relative z-10 flex min-h-screen flex-col">{children}</div>
   </div>
 );
@@ -70,10 +46,10 @@ const MainLayout = () => {
       <ScrollToTop />
       <Navbar />
       <main
-        className="relative z-10 flex-1 px-4 pb-24 sm:pt-10 sm:pb-10"
-        style={{ paddingTop: "max(2.5rem, calc(1.5rem + env(safe-area-inset-top)))" }}
+        className="relative z-10 flex-1 px-4 pb-24 sm:pt-5 sm:pb-10"
+        style={{ paddingTop: "max(0.75rem, calc(0.25rem + env(safe-area-inset-top)))" }}
       >
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="mx-auto w-full max-w-screen-2xl">
           <Outlet />
         </div>
       </main>

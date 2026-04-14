@@ -61,49 +61,40 @@ export default function AdminPage() {
   }, [activeTab]);
 
   return (
-    <section className="flex w-full justify-center px-4 py-8">
-      <div className="mx-auto w-full max-w-7xl space-y-6 rounded-4xl bg-white/90 p-6 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl sm:p-8">
+    <section className="w-full">
+      <div className="w-full space-y-6">
         <div
           className={`space-y-6 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
-          <header className="space-y-2 text-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#2f2f2f]/90 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-white">
+          <header>
+            <h1 className="font-display text-5xl leading-tight text-[#222]">
               Admin
-            </span>
-            <h1 className="text-3xl font-bold text-[#333]">Admin Controls</h1>
+            </h1>
           </header>
 
-          <div className="mx-auto w-full max-w-xl rounded-2xl border border-[#ececec] bg-[#f3f3f3] p-1.5 shadow-inner shadow-white/70">
-            <div className="relative grid grid-cols-2">
-              <div
-                aria-hidden="true"
-                className={`absolute inset-y-0 left-0 w-1/2 rounded-xl bg-white shadow-[0_8px_20px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out motion-reduce:transition-none ${
-                  activeTab === "upload" ? "translate-x-0" : "translate-x-full"
-                }`}
-              />
-              <button
-                type="button"
-                onClick={() => selectTab("upload")}
-                className={`relative z-10 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-200 ${
-                  activeTab === "upload"
-                    ? "text-[#1f1f1f]"
-                    : "text-[#6d6d6d] hover:text-[#2d2d2d]"
-                }`}
-              >
-                Upload
-              </button>
-              <button
-                type="button"
-                onClick={() => selectTab("delete")}
-                className={`relative z-10 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-200 ${
-                  activeTab === "delete"
-                    ? "text-[#741d1d]"
-                    : "text-[#6d6d6d] hover:text-[#741d1d]"
-                }`}
-              >
-                Delete
-              </button>
-            </div>
+          <div className="flex border-b border-[#E0E0E0]">
+            <button
+              type="button"
+              onClick={() => selectTab("upload")}
+              className={`cursor-pointer border-b-2 -mb-px px-5 pb-3 pt-1 text-sm font-semibold transition-colors duration-150 touch-manipulation active:opacity-60 ${
+                activeTab === "upload"
+                  ? "border-[#222] text-[#222]"
+                  : "border-transparent text-[#999] hover:text-[#222]"
+              }`}
+            >
+              Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab("delete")}
+              className={`cursor-pointer border-b-2 -mb-px px-5 pb-3 pt-1 text-sm font-semibold transition-colors duration-150 touch-manipulation active:opacity-60 ${
+                activeTab === "delete"
+                  ? "border-[#741d1d] text-[#741d1d]"
+                  : "border-transparent text-[#999] hover:text-[#741d1d]"
+              }`}
+            >
+              Delete
+            </button>
           </div>
 
           <div

@@ -18,7 +18,7 @@ const Footer = () => {
 
   return (
     <footer
-      className="mt-auto bg-linear-to-b from-transparent via-[#FAFAF7]/70 to-[#FAFAF7] backdrop-blur-sm"
+      className="mt-auto bg-linear-to-b from-transparent via-[#FAFAF7]/70 to-[#FAFAF7]"
       style={{ paddingBottom: "calc(3.75rem + env(safe-area-inset-bottom, 0px))" }}
     >
       <div className="mx-auto flex flex-col items-center justify-center gap-1.5 px-4 pt-4 pb-4 text-xs text-[#aaa]">

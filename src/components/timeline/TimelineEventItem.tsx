@@ -38,11 +38,11 @@ const TimelineEventItem: React.FC<TimelineEventItemProps> = ({
       type="button"
       onClick={() => hasImages && onSelect(event)}
       disabled={!hasImages}
-      className={`group flex w-full gap-4 rounded-3xl border px-5 py-4 text-left shadow-sm transition-all duration-200
+      className={`group flex w-full gap-4 rounded-xl border px-5 py-4 text-left transition-all duration-200
         ${
           hasImages
-            ? "border-[#F0F0F0] cursor-pointer  bg-white/80 hover:scale-[1.01] hover:border-[#F7DEE2] hover:shadow-md active:scale-[0.99] touch-manipulation"
-            : "cursor-not-allowed border-dashed border-[#E5E4E4] bg-white/60 opacity-70"
+            ? "border-[#E0E0E0] cursor-pointer bg-white hover:border-[#222] active:scale-[0.99] touch-manipulation"
+            : "cursor-not-allowed border-dashed border-[#E0E0E0] bg-white/60 opacity-60"
         }`}
       style={hasImages ? { willChange: "transform" } : undefined}
     >

@@ -125,7 +125,7 @@ describe("App happy path", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /see all photos/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /all photos/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getAllByRole("link", { name: "Photos" })[0]);

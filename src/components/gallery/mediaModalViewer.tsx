@@ -78,6 +78,10 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   const animationTimeoutRef = React.useRef<number | null>(null);
   const modalRootRef = React.useRef<HTMLDivElement | null>(null);
   const savedScrollYRef = React.useRef<number>(0);
+  // Viewport height captured the moment the modal opens (before the body lock can
+  // cause the iOS URL bar to reappear and shrink window.innerHeight). Stored in
+  // state so the pinned height propagates to the rendered style without a ref read.
+  const [modalViewportHeight, setModalViewportHeight] = React.useState<number>(0);
 
   // ── Full-res URL management ──
   // Map of image id → full-res blob URL (only for the windowed preload area)
@@ -404,6 +408,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   React.useLayoutEffect(() => {
     if (isOpen) {
       savedScrollYRef.current = window.scrollY;
+      setModalViewportHeight(window.innerHeight);
       document.documentElement.style.backgroundColor = "#000";
       document.body.style.backgroundColor = "#000";
       document.body.style.overflow = "hidden";
@@ -551,7 +556,13 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
         top: 0,
         left: 0,
         right: 0,
-        bottom: 0,
+        // Pin the height to the viewport measured before the body lock fires.
+        // On iOS, locking the body causes the URL bar to reappear and shrink
+        // window.innerHeight. Using bottom:0 would let that reflow move the
+        // centered card upward. A fixed pixel height prevents the jump.
+        // modalViewportHeight is set synchronously in useLayoutEffect (before
+        // paint); window.innerHeight is the safe fallback for the first render.
+        height: `${modalViewportHeight || window.innerHeight}px`,
         paddingTop: "max(1.5rem, env(safe-area-inset-top))",
         paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
         display: "flex",

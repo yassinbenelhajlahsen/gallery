@@ -134,15 +134,15 @@ const TimelinePage: React.FC = () => {
   );
 
   return (
-    <section className="flex w-full justify-center">
-      <div className="mx-auto w-full max-w-7xl space-y-16 rounded-4xl bg-white/80 p-6 sm:p-10 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl">
+    <section className="w-full">
+      <div className="w-full">
         <div
           className={`space-y-10 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
-          <header className="space-y-4">
-            <span className="inline-flex items-center justify-center rounded-full bg-[#D8ECFF]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em] text-[#1f4f6f]">
+          <header>
+            <h1 className="font-display text-5xl leading-tight text-[#222]">
               Timeline
-            </span>
+            </h1>
           </header>
 
           <div className="space-y-4">
@@ -194,3 +194,4 @@ const TimelinePage: React.FC = () => {
 };
 
 export default TimelinePage;
+

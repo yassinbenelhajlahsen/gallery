@@ -69,54 +69,44 @@ const VideosPage: React.FC = () => {
   };
 
   const renderEmptyState = () => (
-    <div className="rounded-4xl border border-dashed border-[#E6F0FF] bg-white/80 px-6 py-10 text-center text-[#777] shadow-inner shadow-white/40">
-      <p className="text-lg font-medium">
+    <div className="border border-dashed border-[#E0E0E0] px-6 py-10 text-center text-[#777]">
+      <p className="text-base font-medium">
         No videos yet. Upload videos to get started.
       </p>
     </div>
   );
 
   return (
-    <section className="flex w-full justify-center">
-      <div className="mx-auto w-full max-w-7xl space-y-8 rounded-4xl bg-white/80 p-6 sm:p-10 shadow-[0_35px_120px_rgba(248,180,196,0.25)] ring-1 ring-white/60 backdrop-blur-2xl">
+    <section className="w-full">
+      <div className="w-full">
         <div
           className={`space-y-10 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
-          <header className="space-y-4">
-            <span className="inline-flex items-center justify-center rounded-full bg-[#F3D0D6]/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.4em]">
+          <header>
+            <h1 className="font-display text-5xl leading-tight text-[#222]">
               Videos
-            </span>
+            </h1>
           </header>
 
           {!yearGroups.length && renderEmptyState()}
 
           {yearGroups.map((group) => (
-            <section
-              key={group.year}
-              className="space-y-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-2xl font-semibold text-[#333]">
+            <section key={group.year} className="space-y-4">
+              <div className="flex items-baseline justify-between gap-3 border-b border-[#E0E0E0] pb-2">
+                <h2 className="font-display text-3xl text-[#222]">
                   {group.year}
                 </h2>
-                <span className="rounded-full bg-[#F3D0D6]/70 px-3 py-1 text-sm font-medium text-[#1f4f6f]">
-                  {group.totalItems} Video
-                  {group.totalItems === 1 ? "" : "s"}
+                <span className="text-sm text-[#555]">
+                  {group.totalItems} video{group.totalItems === 1 ? "" : "s"}
                 </span>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {group.months.map((monthGroup) => (
-                  <section
-                    key={monthGroup.key}
-                    className="space-y-3 rounded-2xl bg-white/80 p-4 shadow-md ring-1 ring-white/70"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className="text-lg font-semibold text-[#4a4a4a]">
-                        {monthGroup.monthLabel}
-                      </h3>
-
-                    </div>
+                  <section key={monthGroup.key} className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-[0.25em] text-[#999]">
+                      {monthGroup.monthLabel}
+                    </h3>
 
                     <GalleryGrid
                       tiles={monthGroup.items.map((meta) => ({

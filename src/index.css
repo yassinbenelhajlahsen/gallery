@@ -1,6 +1,10 @@
 /*src/index.css */
 @import "tailwindcss";
 
+@theme {
+  --font-display: "Instrument Serif", Georgia, serif;
+}
+
 /* html gradient sets ios overscroll edge colors — pink at top, neutral at bottom.
    body must be transparent so iOS uses the html gradient during rubber-band. */
 html {
