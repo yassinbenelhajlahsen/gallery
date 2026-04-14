@@ -200,33 +200,34 @@ function App() {
     document.title = config.siteTitle;
   }, []);
 
-// Sync html background-color to scroll position so iOS PWA rubber-band
-// overscroll shows pink at the top and white at the bottom.
-// Only apply on mobile; keep desktop always white.
-React.useEffect(() => {
-  const html = document.documentElement;
+  // Sync html background-color to scroll position so iOS PWA rubber-band
+  // overscroll shows pink at the top and white at the bottom.
+  // Only apply on mobile; keep desktop always white.
+  React.useEffect(() => {
+    const html = document.documentElement;
 
-  const isMobile =
-    window.matchMedia("(pointer: coarse)").matches ||
-    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isMobile =
+      (typeof window !== "undefined" &&
+        window.matchMedia?.("(pointer: coarse)")?.matches) ||
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-  if (!isMobile) {
-    html.style.backgroundColor = "#FAFAF7";
-    return;
-  }
+    if (!isMobile) {
+      html.style.backgroundColor = "#FAFAF7";
+      return;
+    }
 
-  const PINK = "#FBDCE7";
-  const WHITE = "#FAFAF7";
-  const THRESHOLD = 120;
+    const PINK = "#FBDCE7";
+    const WHITE = "#FAFAF7";
+    const THRESHOLD = 120;
 
-  const sync = () => {
-    html.style.backgroundColor = window.scrollY < THRESHOLD ? PINK : WHITE;
-  };
+    const sync = () => {
+      html.style.backgroundColor = window.scrollY < THRESHOLD ? PINK : WHITE;
+    };
 
-  sync();
-  window.addEventListener("scroll", sync, { passive: true });
-  return () => window.removeEventListener("scroll", sync);
-}, []);
+    sync();
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
+  }, []);
 
   return (
     <AuthProvider>
