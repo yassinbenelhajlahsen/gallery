@@ -19,6 +19,7 @@ import {
 } from "../services/storageService";
 import {
   loadFromCache,
+  loadVideoMetasFromCache,
   syncCache,
   clearCache,
   syncVideoThumbCache,
@@ -182,7 +183,10 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
 
       try {
         // ── Phase 1: Instant restore from IndexedDB cache ──
-        const cached = await loadFromCache();
+        const [cached, cachedVideoMetas] = await Promise.all([
+          loadFromCache(),
+          loadVideoMetasFromCache(),
+        ]);
 
         if (cached && cached.metas.length && !cancelled) {
           setImageMetas(cached.metas);
@@ -191,9 +195,17 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           setLoadingProgress(100);
         }
 
+        if (cachedVideoMetas && cachedVideoMetas.length && !cancelled) {
+          setVideoMetas(cachedVideoMetas);
+        }
+
         // ── Phase 2: Fetch fresh metadata from Firebase ──
         const freshMetas = await fetchAllImageMetadata();
         if (cancelled) return;
+
+        // Fire video metadata fetch in parallel with image cache sync — it has
+        // no dependency on image data and is metadata-only (no bytes).
+        const videoMetasFetch = fetchAllVideoMetadata();
 
         // If we had no cache, show the initial 20% progress
         if (!cached || !cached.metas.length) {
@@ -232,9 +244,9 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           });
         }
 
-        // ── Phase 4: Fetch video metadata (metadata only; no video bytes) ──
+        // ── Phase 4: Await video metadata (already in-flight since Phase 2) ──
         try {
-          const freshVideoMetas = await fetchAllVideoMetadata();
+          const freshVideoMetas = await videoMetasFetch;
           if (cancelled) return;
           setVideoMetas(freshVideoMetas);
           setIsVideoMetadataReady(true);

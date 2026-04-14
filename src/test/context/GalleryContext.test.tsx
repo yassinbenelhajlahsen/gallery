@@ -6,6 +6,7 @@ const {
   fetchAllImageMetadataMock,
   fetchAllVideoMetadataMock,
   loadFromCacheMock,
+  loadVideoMetasFromCacheMock,
   syncCacheMock,
   clearCacheMock,
   syncVideoThumbCacheMock,
@@ -16,6 +17,7 @@ const {
   fetchAllImageMetadataMock: vi.fn(),
   fetchAllVideoMetadataMock: vi.fn(),
   loadFromCacheMock: vi.fn(),
+  loadVideoMetasFromCacheMock: vi.fn(),
   syncCacheMock: vi.fn(),
   clearCacheMock: vi.fn(),
   syncVideoThumbCacheMock: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("../../services/storageService", () => ({
 
 vi.mock("../../services/mediaCacheService", () => ({
   loadFromCache: loadFromCacheMock,
+  loadVideoMetasFromCache: loadVideoMetasFromCacheMock,
   syncCache: syncCacheMock,
   clearCache: clearCacheMock,
   syncVideoThumbCache: syncVideoThumbCacheMock,
@@ -165,6 +168,7 @@ describe("GalleryProvider", () => {
       },
     ]);
     loadFromCacheMock.mockReset().mockResolvedValue(null);
+    loadVideoMetasFromCacheMock.mockReset().mockResolvedValue(null);
     syncCacheMock.mockReset().mockResolvedValue([]);
     clearCacheMock.mockReset().mockResolvedValue(undefined);
     syncVideoThumbCacheMock.mockReset().mockResolvedValue(undefined);

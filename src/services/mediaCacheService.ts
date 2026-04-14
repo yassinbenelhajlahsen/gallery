@@ -28,6 +28,7 @@ const DB_VERSION = 1;
 const BLOB_STORE = "image-blobs";
 const META_STORE = "meta";
 const MANIFEST_KEY = "manifest";
+const VIDEO_MANIFEST_KEY = "video-manifest";
 
 const videoKey = (id: string) => `video:${id}`;
 
@@ -139,6 +140,26 @@ export async function loadFromCache(): Promise<CachedGallery | null> {
     return { metas: manifest, preloaded };
   } catch (err) {
     console.warn("[ImageCache] Failed to load from cache:", err);
+    return null;
+  }
+}
+
+/**
+ * Read the cached VideoMeta list written by syncVideoThumbCache.
+ * Returns null if no cache exists yet (first visit).
+ */
+export async function loadVideoMetasFromCache(): Promise<VideoMeta[] | null> {
+  try {
+    const db = await openDB();
+    const manifest = await idbGet<VideoMeta[]>(
+      db,
+      META_STORE,
+      VIDEO_MANIFEST_KEY,
+    );
+    db.close();
+    return manifest ?? null;
+  } catch (err) {
+    console.warn("[ImageCache] Failed to load video manifest from cache:", err);
     return null;
   }
 }
@@ -308,6 +329,10 @@ export async function syncVideoThumbCache(
       }),
     );
   }
+
+  // Persist the video manifest so the next load can hydrate videoMetas from
+  // cache before the Firebase fetch completes (same pattern as image manifest).
+  await idbPut(db, META_STORE, VIDEO_MANIFEST_KEY, videoMetas);
 
   db.close();
 }

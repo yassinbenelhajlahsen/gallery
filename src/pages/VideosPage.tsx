@@ -21,7 +21,7 @@ const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: "long" });
 
 const VideosPage: React.FC = () => {
   const isVisible = usePageReveal();
-  const { videoMetas, openModalWithMedia, resolveVideoThumbUrl } = useGallery();
+  const { videoMetas, isVideoMetadataReady, openModalWithMedia, resolveVideoThumbUrl } = useGallery();
 
   const yearGroups = React.useMemo<YearGroup[]>(() => {
     if (!videoMetas.length) return [];
@@ -88,7 +88,7 @@ const VideosPage: React.FC = () => {
             </h1>
           </header>
 
-          {!yearGroups.length && renderEmptyState()}
+          {isVideoMetadataReady && !yearGroups.length && renderEmptyState()}
 
           {yearGroups.map((group) => (
             <section key={group.year} className="space-y-4">
