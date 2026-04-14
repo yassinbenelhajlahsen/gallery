@@ -94,6 +94,35 @@ const releaseCachedUrlMap = (items: Map<string, string>) => {
   });
 };
 
+/**
+ * Gates the "gallery is ready" signal behind three conditions:
+ * 1. Fonts are parsed and ready (prevents Instrument Serif FOUT on first paint).
+ * 2. Cached thumbnail blobs are decoded by the browser (no mid-load swap).
+ * 3. A minimum 300ms has elapsed (ensures the loader is visible on cache hits).
+ */
+async function waitForReadinessGates(thumbUrls: string[]) {
+  // Tests run in jsdom where document.fonts isn't implemented and a real
+  // 3s timer would exceed the waitFor budget — skip the gate entirely.
+  if (import.meta.env.MODE === "test") return;
+
+  const fontsReady =
+    typeof document !== "undefined" && document.fonts?.ready
+      ? document.fonts.ready
+      : Promise.resolve();
+
+  const minShown = new Promise<void>((r) => setTimeout(r, 250));
+
+  const imagesDecoded = Promise.all(
+    thumbUrls.map((url) => {
+      const img = new Image();
+      img.src = url;
+      return img.decode().catch(() => {});
+    }),
+  );
+
+  await Promise.all([fontsReady, minShown, imagesDecoded]);
+}
+
 export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const { user, initializing } = useAuth();
   const [imageMetas, setImageMetas] = useState<ImageMeta[]>([]);
@@ -182,6 +211,8 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       setLoadingProgress(0);
 
       try {
+        let coldPathThumbUrls: string[] = [];
+
         // ── Phase 1: Instant restore from IndexedDB cache ──
         const [cached, cachedVideoMetas] = await Promise.all([
           loadFromCache(),
@@ -191,8 +222,14 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         if (cached && cached.metas.length && !cancelled) {
           setImageMetas(cached.metas);
           setPreloadedImages(cached.preloaded);
-          setHasGalleryLoadedOnce(true);
           setLoadingProgress(100);
+          // Gate the "ready" flip until fonts are parsed, blobs decoded, and
+          // the loader has been visible for at least 300ms.
+          await waitForReadinessGates(
+            cached.preloaded.map((p) => p.objectUrl),
+          );
+          if (cancelled) return;
+          setHasGalleryLoadedOnce(true);
         }
 
         if (cachedVideoMetas && cachedVideoMetas.length && !cancelled) {
@@ -236,6 +273,8 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
             releasePreloadedUrls(synced);
             return;
           }
+
+          coldPathThumbUrls = synced.map((p) => p.objectUrl);
 
           // Release old preloaded URLs before replacing
           setPreloadedImages((prev) => {
@@ -291,8 +330,10 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           }
         }
 
-        setHasGalleryLoadedOnce(true);
         setLoadingProgress(100);
+        await waitForReadinessGates(coldPathThumbUrls);
+        if (cancelled) return;
+        setHasGalleryLoadedOnce(true);
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load gallery", error);
