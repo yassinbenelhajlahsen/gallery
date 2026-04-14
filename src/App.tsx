@@ -49,7 +49,7 @@ const MainLayout = () => {
         className="relative z-10 flex-1 px-4 pb-24 sm:pt-5 sm:pb-10"
         style={{ paddingTop: "max(0.75rem, calc(0.25rem + env(safe-area-inset-top)))" }}
       >
-        <div className="mx-auto w-full max-w-screen-2xl">
+        <div className="w-full">
           <Outlet />
         </div>
       </main>
