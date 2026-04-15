@@ -7,9 +7,12 @@
 
 html {
   background-color: #FAFAF7;
+  /* Block pinch-zoom on iOS PWA (viewport meta user-scalable=no is ignored since iOS 10) */
+  touch-action: pan-x pan-y;
 }
 body {
   background: transparent;
+  touch-action: pan-x pan-y;
 }
 
 /* ── Accessible focus ring (pastel-themed) ── */
