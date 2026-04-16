@@ -240,19 +240,32 @@ export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
 
 /**
  * Get a download URL for a video file. Call this ONLY after a user clicks a video tile.
+ * Results are cached for the session lifetime — Firebase download URLs carry long-lived
+ * tokens, so re-fetching the same path is pure overhead.
  */
-export async function getVideoDownloadUrl(videoPath: string): Promise<string> {
-  try {
-    const videoRef = ref(storage, videoPath);
-    return await getDownloadURL(videoRef);
-  } catch (error) {
-    if (isPermissionDenied(error)) {
-      throw new Error(
-        "Storage rules denied video access. Ensure /videos is owner-readable.",
-      );
+const _videoUrlCache = new Map<string, Promise<string>>();
+
+export function getVideoDownloadUrl(videoPath: string): Promise<string> {
+  const cached = _videoUrlCache.get(videoPath);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    try {
+      const videoRef = ref(storage, videoPath);
+      return await getDownloadURL(videoRef);
+    } catch (error) {
+      _videoUrlCache.delete(videoPath); // don't cache failures
+      if (isPermissionDenied(error)) {
+        throw new Error(
+          "Storage rules denied video access. Ensure /videos is owner-readable.",
+        );
+      }
+      throw error;
     }
-    throw error;
-  }
+  })();
+
+  _videoUrlCache.set(videoPath, promise);
+  return promise;
 }
 
 export const storageService = {

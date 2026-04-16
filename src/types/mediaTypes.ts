@@ -23,3 +23,9 @@ export type VideoMeta = BaseMediaMeta & {
 export type ImageMediaMeta = ImageMeta & { type: "image" };
 
 export type MediaMeta = ImageMediaMeta | VideoMeta;
+
+export const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
+  Boolean(item && (item as VideoMeta).type === "video");
+
+export const isImageMeta = (item: MediaMeta | undefined): item is ImageMediaMeta =>
+  Boolean(item && !isVideoMeta(item));

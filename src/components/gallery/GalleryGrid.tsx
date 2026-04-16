@@ -109,6 +109,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
     <button
       type="button"
       onClick={tile.onClick}
+      data-video-id={tile.mediaType === "video" ? tile.id : undefined}
       className="group relative isolate aspect-square overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-white/60 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] touch-manipulation [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden]"
     >
       {/* Inner clipping wrapper for mobile Safari stability: keep rounding and overflow consistent */}

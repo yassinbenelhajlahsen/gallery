@@ -1,15 +1,11 @@
 // src/components/gallery/mediaModalViewer.tsx
 import React from "react";
 import type { ImageMeta } from "../../services/storageService";
-import type { ImageMediaMeta, MediaMeta, VideoMeta } from "../../types/mediaTypes";
+import type { MediaMeta, VideoMeta } from "../../types/mediaTypes";
+import { isImageMeta, isVideoMeta } from "../../types/mediaTypes";
 import { getVideoDownloadUrl } from "../../services/storageService";
 import { isLowBandwidthMobileClient } from "../../utils/runtime";
-
-const isVideoMeta = (item: MediaMeta | undefined): item is VideoMeta =>
-  Boolean(item && (item as VideoMeta).type === "video");
-
-const isImageMeta = (item: MediaMeta | undefined): item is ImageMediaMeta =>
-  Boolean(item && !isVideoMeta(item));
+import { useVideoPrefetch, VIDEO_BOOSTER_POOL_SIZE } from "../../hooks/useVideoPrefetch";
 
 export type MediaModalViewer = {
   media: MediaMeta[];
@@ -120,6 +116,19 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
 
   const PRELOAD_AHEAD = isMobile ? 3 : 10;
   const PRELOAD_BEHIND = isMobile ? 2 : 5;
+
+  const { prefetchedUrls } = useVideoPrefetch({
+    media,
+    dataIndex,
+    isOpen,
+    preloadAll,
+    isMobile,
+  });
+
+  const boosterEntries = React.useMemo(
+    () => [...prefetchedUrls.entries()].slice(0, VIDEO_BOOSTER_POOL_SIZE),
+    [prefetchedUrls],
+  );
 
   const SLIDE_DURATION = 300;
   const totalItems = media.length;
@@ -757,6 +766,28 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
           </div>
         </footer>
       </div>
+
+      {/* Hidden video booster elements — decoder warmup for prefetched neighbours (desktop only).
+          Positioned far off-screen (not display:none) so the browser keeps the network requests alive. */}
+      {!isMobile && hasInitialized && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            width: 1,
+            height: 1,
+            overflow: "hidden",
+            opacity: 0,
+            pointerEvents: "none",
+            left: -9999,
+            top: -9999,
+          }}
+        >
+          {boosterEntries.map(([id, url]) => (
+            <video key={id} src={url} preload="metadata" muted playsInline />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

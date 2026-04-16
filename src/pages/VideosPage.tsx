@@ -4,6 +4,7 @@ import type { VideoMeta } from "../types/mediaTypes";
 import GalleryGrid from "../components/gallery/GalleryGrid";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
+import { useVideoPagePrefetch } from "../hooks/useVideoPagePrefetch";
 
 type YearGroup = {
   year: string;
@@ -22,6 +23,7 @@ const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: "long" });
 const VideosPage: React.FC = () => {
   const isVisible = usePageReveal();
   const { videoMetas, isVideoMetadataReady, openModalWithMedia, resolveVideoThumbUrl } = useGallery();
+  useVideoPagePrefetch(videoMetas);
 
   const yearGroups = React.useMemo<YearGroup[]>(() => {
     if (!videoMetas.length) return [];
