@@ -12,6 +12,7 @@ const GalleryModalRenderer: React.FC = () => {
     closeModal,
     resolveThumbUrl,
     resolveVideoThumbUrl,
+    resolveFullResUrl,
     updateModalIndex,
   } = useGallery();
 
@@ -24,6 +25,7 @@ const GalleryModalRenderer: React.FC = () => {
       onChangeIndex={updateModalIndex}
       resolveThumbUrl={resolveThumbUrl}
       resolveVideoThumbUrl={resolveVideoThumbUrl}
+      resolveFullResUrl={resolveFullResUrl}
       preloadAll={modalPreloadAll}
     />
   );

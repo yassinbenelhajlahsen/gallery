@@ -72,6 +72,7 @@ Stores:
 
 - `image-blobs`: image thumb blobs keyed by image id, and video thumb blobs keyed by `video:<id>`
 - `meta`: manifest under key `manifest` (`ImageMeta[]`)
+- `fullres-blobs`: full-resolution image blobs keyed by image id, capped at 500 MB (see below)
 
 Main APIs:
 
@@ -79,7 +80,16 @@ Main APIs:
 - `syncCache(freshMetas, onProgress?)` -> diff image cache, download missing image thumbs, evict removed image keys, update manifest
 - `syncVideoThumbCache(videoMetas)` -> cache poster thumbs only
 - `loadVideoThumbUrlsFromCache(videoMetas)` -> object URL map for cached video posters
-- `clearCache()` -> wipe both object stores
+- `syncFullResCache(freshMetas, options?)` -> warm full-res blobs newest-first within `FULLRES_BUDGET_BYTES` (500 MB), evicting entries that are stale or fall outside the budget
+- `loadFullResUrlsFromCache(metas)` -> object URL map for cached full-res blobs (only ids with a cached blob appear)
+- `clearCache()` -> wipe all three object stores
+
+Full-res cache behavior:
+
+- Walks `freshMetas` by `ImageMeta.date` descending, downloading each missing image until adding the next blob would exceed the 500 MB budget.
+- Images past the budget are never persisted. Opening them in the modal falls back to streaming `meta.downloadUrl` from Firebase.
+- Images removed upstream (absent from `freshMetas`) are evicted. When new uploads push the newest 500 MB past the budget, the oldest-dated cached entries fall out.
+- Runs as a non-blocking background task after the thumbnail sync — never gates `hasGalleryLoadedOnce`.
 
 ### `uploadService.ts`
 
@@ -130,6 +140,7 @@ State includes:
 - `videoMetas`
 - `preloadedImages`
 - `videoThumbUrls` (blob URL map for cached video posters)
+- `fullResBlobUrls` (blob URL map for cached full-res images — present only for the newest 500 MB)
 - `isVideoMetadataReady`
 - `loadingProgress`, `isGalleryLoading`, `hasGalleryLoadedOnce`, `loadError`
 - modal state (`isModalOpen`, `modalMedia`, `modalInitialIndex`, `modalPreloadAll`)
@@ -138,6 +149,7 @@ Helpers:
 
 - `resolveThumbUrl(imageMeta)`
 - `resolveVideoThumbUrl(videoMeta)`
+- `resolveFullResUrl(imageMeta)` — returns a cached full-res blob URL if available, else `null`
 - `openModalWithImages(...)`
 - `openModalWithMedia(...)`
 - `openModalForImageId(...)`
@@ -152,10 +164,11 @@ Helpers:
    - if hit: render cached images immediately and set load flag true
 4. Fetch fresh image metadata (`fetchAllImageMetadata`).
 5. `syncCache` image thumbs and replace preloaded image object URLs.
-6. Fetch video metadata (`fetchAllVideoMetadata`).
-7. Load cached video poster URLs.
-8. Sync video thumb cache, then rehydrate poster URL map.
-9. Mark loading complete.
+6. Kick off `syncFullResCache` in the background (does not gate ready flip); on completion, rehydrate `fullResBlobUrls`.
+7. Fetch video metadata (`fetchAllVideoMetadata`).
+8. Load cached video poster URLs.
+9. Sync video thumb cache, then rehydrate poster URL map.
+10. Mark loading complete.
 
 If gallery fetch fails, `loadError` is set and the loading gate is still released to avoid lockup.
 
@@ -177,6 +190,7 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 - image full-res preloading window:
   - desktop/default: `+10 / -5`
   - low-bandwidth mobile heuristic: `+3 / -2`
+- prefers a cached full-res blob URL via `resolveFullResUrl` before falling back to `meta.downloadUrl`
 - optional `preloadAll` for small sets (timeline events)
 - videos are loaded on demand with `getVideoDownloadUrl`
 

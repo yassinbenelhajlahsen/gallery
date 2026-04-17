@@ -3,9 +3,9 @@
  * IndexedDB-backed image cache.
  *
  * Stores **thumbnail** blobs + a metadata manifest so returning visitors
- * get an instant gallery without re-downloading every image.
- * Full-resolution images are never cached — they are streamed on demand
- * by the modal viewer.
+ * get an instant gallery without re-downloading every image. A separate
+ * store keeps the **most recent 500 MB of full-resolution** image blobs —
+ * older images fall back to streaming from Firebase when evicted.
  *
  * Cache-hit path (< 50 ms on most devices):
  *   1. Read the manifest → restore `ImageMeta[]` immediately
@@ -18,17 +18,21 @@
  *        • removed   → evict from cache
  *        • unchanged → keep cached blob
  *   3. Update the manifest
+ *   4. `syncFullResCache` warms the newest images into the 500 MB budget.
  */
 
 import type { ImageMeta, PreloadedImage } from "./storageService";
 import type { VideoMeta } from "../types/mediaTypes";
 
 const DB_NAME = "gallery-cache";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const BLOB_STORE = "image-blobs";
 const META_STORE = "meta";
+const FULLRES_STORE = "fullres-blobs";
 const MANIFEST_KEY = "manifest";
 const VIDEO_MANIFEST_KEY = "video-manifest";
+
+export const FULLRES_BUDGET_BYTES = 500 * 1024 * 1024;
 
 const videoKey = (id: string) => `video:${id}`;
 
@@ -45,6 +49,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(META_STORE)) {
         db.createObjectStore(META_STORE); // single key: "manifest"
+      }
+      if (!db.objectStoreNames.contains(FULLRES_STORE)) {
+        db.createObjectStore(FULLRES_STORE); // keyed by ImageMeta.id
       }
     };
 
@@ -263,19 +270,18 @@ export async function syncCache(
 export async function clearCache(): Promise<void> {
   try {
     const db = await openDB();
-    const blobTx = db.transaction(BLOB_STORE, "readwrite");
-    blobTx.objectStore(BLOB_STORE).clear();
-    await new Promise<void>((resolve, reject) => {
-      blobTx.oncomplete = () => resolve();
-      blobTx.onerror = () => reject(blobTx.error);
-    });
+    const clearStore = async (store: string) => {
+      const tx = db.transaction(store, "readwrite");
+      tx.objectStore(store).clear();
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    };
 
-    const metaTx = db.transaction(META_STORE, "readwrite");
-    metaTx.objectStore(META_STORE).clear();
-    await new Promise<void>((resolve, reject) => {
-      metaTx.oncomplete = () => resolve();
-      metaTx.onerror = () => reject(metaTx.error);
-    });
+    await clearStore(BLOB_STORE);
+    await clearStore(META_STORE);
+    await clearStore(FULLRES_STORE);
 
     db.close();
   } catch (err) {
@@ -367,6 +373,162 @@ export async function loadVideoThumbUrlsFromCache(
     );
   } catch (err) {
     console.warn("[ImageCache] Failed to load cached video thumbs:", err);
+    return new Map();
+  } finally {
+    db?.close();
+  }
+}
+
+/* ─── full-resolution cache ────────────────────────────── */
+
+function readAllFullResBlobs(db: IDBDatabase): Promise<Map<string, Blob>> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(FULLRES_STORE, "readonly");
+    const req = tx.objectStore(FULLRES_STORE).openCursor();
+    const out = new Map<string, Blob>();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        out.set(String(cursor.key), cursor.value as Blob);
+        cursor.continue();
+      } else {
+        resolve(out);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Walk `freshMetas` newest-first and keep the most recent set of full-res
+ * blobs that fits within `budgetBytes`. Older entries — or entries whose
+ * ids have been removed upstream — are evicted from IndexedDB.
+ *
+ * New blobs are downloaded one batch at a time from `meta.downloadUrl`.
+ * Images past the budget are not downloaded.
+ */
+export async function syncFullResCache(
+  freshMetas: ImageMeta[],
+  options?: {
+    budgetBytes?: number;
+    onProgress?: (loaded: number, total: number) => void;
+  },
+): Promise<void> {
+  if (!freshMetas.length) return;
+
+  const budgetBytes = options?.budgetBytes ?? FULLRES_BUDGET_BYTES;
+  const onProgress = options?.onProgress;
+
+  const db = await openDB();
+  try {
+    const existing = await readAllFullResBlobs(db);
+    const cachedSizes = new Map<string, number>();
+    existing.forEach((blob, id) => cachedSizes.set(id, blob.size));
+
+    const sortedDesc = [...freshMetas].sort(
+      (a, b) => Date.parse(b.date) - Date.parse(a.date),
+    );
+
+    const keepers = new Set<string>();
+    let runningSize = 0;
+    let loaded = 0;
+    const total = sortedDesc.length;
+    let budgetReached = false;
+
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < sortedDesc.length; i += BATCH_SIZE) {
+      if (budgetReached) break;
+      const batch = sortedDesc.slice(i, i + BATCH_SIZE);
+
+      const results = await Promise.all(
+        batch.map(async (meta) => {
+          const cachedSize = cachedSizes.get(meta.id);
+          if (cachedSize !== undefined) {
+            return { meta, size: cachedSize, blob: null as Blob | null };
+          }
+          try {
+            const response = await fetch(meta.downloadUrl, { mode: "cors" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+            return { meta, size: blob.size, blob };
+          } catch (err) {
+            console.warn(
+              `[ImageCache] Failed to cache full-res ${meta.id}:`,
+              err,
+            );
+            return null;
+          }
+        }),
+      );
+
+      for (const r of results) {
+        loaded++;
+        if (!r) {
+          onProgress?.(loaded, total);
+          continue;
+        }
+        if (runningSize + r.size > budgetBytes) {
+          budgetReached = true;
+          onProgress?.(loaded, total);
+          continue;
+        }
+        runningSize += r.size;
+        keepers.add(r.meta.id);
+        if (r.blob) {
+          try {
+            await idbPut(db, FULLRES_STORE, r.meta.id, r.blob);
+            cachedSizes.set(r.meta.id, r.size);
+          } catch (err) {
+            console.warn(
+              `[ImageCache] Failed to persist full-res ${r.meta.id}:`,
+              err,
+            );
+          }
+        }
+        onProgress?.(loaded, total);
+      }
+    }
+
+    const toEvict = [...cachedSizes.keys()].filter((id) => !keepers.has(id));
+    await Promise.all(
+      toEvict.map((id) => idbDelete(db, FULLRES_STORE, id)),
+    );
+  } catch (err) {
+    console.warn("[ImageCache] Failed to sync full-res cache:", err);
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Create object URLs for every cached full-res blob that matches an id in
+ * `metas`. The caller owns the returned URLs and must `URL.revokeObjectURL`
+ * them when the map is replaced.
+ */
+export async function loadFullResUrlsFromCache(
+  metas: ImageMeta[],
+): Promise<Map<string, string>> {
+  if (!metas.length) return new Map();
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    return new Map();
+  }
+
+  let db: IDBDatabase | null = null;
+  try {
+    db = await openDB();
+    const database = db;
+    const pairs = await Promise.all(
+      metas.map(async (meta) => {
+        const blob = await idbGet<Blob>(database, FULLRES_STORE, meta.id);
+        if (!blob) return null;
+        return [meta.id, URL.createObjectURL(blob)] as [string, string];
+      }),
+    );
+    return new Map(
+      pairs.filter((pair): pair is [string, string] => pair !== null),
+    );
+  } catch (err) {
+    console.warn("[ImageCache] Failed to load cached full-res urls:", err);
     return new Map();
   } finally {
     db?.close();

@@ -12,6 +12,8 @@ const {
   clearCacheMock,
   syncVideoThumbCacheMock,
   loadVideoThumbUrlsFromCacheMock,
+  syncFullResCacheMock,
+  loadFullResUrlsFromCacheMock,
   signInWithPasswordMock,
   signOutMock,
   authState,
@@ -26,6 +28,8 @@ const {
   clearCacheMock: vi.fn(),
   syncVideoThumbCacheMock: vi.fn(),
   loadVideoThumbUrlsFromCacheMock: vi.fn(),
+  syncFullResCacheMock: vi.fn(),
+  loadFullResUrlsFromCacheMock: vi.fn(),
   signInWithPasswordMock: vi.fn(),
   signOutMock: vi.fn(),
   authState: {
@@ -62,6 +66,8 @@ vi.mock("../../services/mediaCacheService", () => ({
   clearCache: clearCacheMock,
   syncVideoThumbCache: syncVideoThumbCacheMock,
   loadVideoThumbUrlsFromCache: loadVideoThumbUrlsFromCacheMock,
+  syncFullResCache: syncFullResCacheMock,
+  loadFullResUrlsFromCache: loadFullResUrlsFromCacheMock,
 }));
 
 describe("App happy path", () => {
@@ -119,6 +125,8 @@ describe("App happy path", () => {
     clearCacheMock.mockReset().mockResolvedValue(undefined);
     syncVideoThumbCacheMock.mockReset().mockResolvedValue(undefined);
     loadVideoThumbUrlsFromCacheMock.mockReset().mockResolvedValue(new Map());
+    syncFullResCacheMock.mockReset().mockResolvedValue(undefined);
+    loadFullResUrlsFromCacheMock.mockReset().mockResolvedValue(new Map());
   });
 
   it("loads home and allows navigating core pages", async () => {

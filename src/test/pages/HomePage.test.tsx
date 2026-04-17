@@ -43,6 +43,7 @@ vi.mock("../../context/GalleryContext", () => ({
     videoMetas: [],
     openModalWithImages: openModalWithImagesMock,
     resolveThumbUrl: resolveThumbUrlMock,
+    resolveFullResUrl: () => null,
   }),
 }));
 

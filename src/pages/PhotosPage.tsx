@@ -22,9 +22,10 @@ type MonthGroup = {
 const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: "long" });
 
 const All: React.FC = () => {
-  const { imageMetas, resolveThumbUrl, openModalForImageId } = useGallery();
+  const { imageMetas, resolveThumbUrl, resolveFullResUrl, openModalForImageId } =
+    useGallery();
   const isVisible = usePageReveal();
-  const { resolveUrl, requestFullRes, evict } = useFullResLoader();
+  const { resolveUrl, requestFullRes, evict } = useFullResLoader(resolveFullResUrl);
   const preloadGroups = React.useMemo(
     () => (isLowBandwidthMobileClient() ? 1 : 3),
     [],

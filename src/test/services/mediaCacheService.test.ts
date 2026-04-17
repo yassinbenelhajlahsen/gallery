@@ -4,8 +4,10 @@ import type { VideoMeta } from "../../types/mediaTypes";
 import {
   clearCache,
   loadFromCache,
+  loadFullResUrlsFromCache,
   loadVideoThumbUrlsFromCache,
   syncCache,
+  syncFullResCache,
   syncVideoThumbCache,
 } from "../../services/mediaCacheService";
 
@@ -55,6 +57,7 @@ class FakeTransaction {
   }
 
   objectStore() {
+    const store = this.store;
     return {
       get: (key: string) => makeRequest(() => this.store.get(key)),
       getAllKeys: () => makeRequest(() => Array.from(this.store.keys())),
@@ -76,6 +79,28 @@ class FakeTransaction {
           this.scheduleComplete();
           return undefined;
         }),
+      openCursor: () => {
+        const entries = Array.from(store.entries());
+        const request: {
+          result: { key: string; value: unknown; continue: () => void } | null;
+          onsuccess: null | (() => void);
+          onerror: null | (() => void);
+        } = { result: null, onsuccess: null, onerror: null };
+
+        let i = 0;
+        const advance = () => {
+          if (i >= entries.length) {
+            request.result = null;
+            setTimeout(() => request.onsuccess?.(), 0);
+            return;
+          }
+          const [key, value] = entries[i++];
+          request.result = { key, value, continue: advance };
+          setTimeout(() => request.onsuccess?.(), 0);
+        };
+        advance();
+        return request;
+      },
     };
   }
 }
@@ -251,19 +276,110 @@ describe("mediaCacheService", () => {
     expect(nextMap.has(v2.id)).toBe(true);
   });
 
-  it("clears image and video cache stores", async () => {
+  it("clears image, video, and full-res cache stores", async () => {
     const img = buildImageMeta("only.jpg", "2024-01-20");
     const vid = buildVideoMeta("only.mp4");
 
     await syncCache([img]);
     await syncVideoThumbCache([vid]);
+    await syncFullResCache([img]);
 
     expect(await loadFromCache()).not.toBeNull();
     expect((await loadVideoThumbUrlsFromCache([vid])).size).toBe(1);
+    expect((await loadFullResUrlsFromCache([img])).size).toBe(1);
 
     await clearCache();
 
     expect(await loadFromCache()).toBeNull();
     expect((await loadVideoThumbUrlsFromCache([vid])).size).toBe(0);
+    expect((await loadFullResUrlsFromCache([img])).size).toBe(0);
+  });
+
+  describe("full-res cache", () => {
+    // Use a small blob body so we can control cache budgeting precisely.
+    // Each image is 100 bytes; with a 250-byte budget, only the 2 newest fit.
+    const body = "x".repeat(100);
+
+    beforeEach(() => {
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+        async () => new Response(body, { status: 200 }),
+      );
+    });
+
+    it("keeps only the newest images that fit within the budget", async () => {
+      const metas = [
+        buildImageMeta("old.jpg", "2024-01-01"),
+        buildImageMeta("mid.jpg", "2024-06-01"),
+        buildImageMeta("new.jpg", "2024-12-01"),
+      ];
+
+      const progress: Array<[number, number]> = [];
+      await syncFullResCache(metas, {
+        budgetBytes: 250,
+        onProgress: (loaded, total) => progress.push([loaded, total]),
+      });
+
+      const urls = await loadFullResUrlsFromCache(metas);
+      expect(urls.has("new.jpg")).toBe(true);
+      expect(urls.has("mid.jpg")).toBe(true);
+      expect(urls.has("old.jpg")).toBe(false);
+
+      expect(progress.at(-1)?.[1]).toBe(3);
+      // newest-first fetch order
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls[0][0]).toBe("https://full/new.jpg");
+      expect(calls[1][0]).toBe("https://full/mid.jpg");
+    });
+
+    it("evicts the oldest cached image when a new upload overflows the budget", async () => {
+      const initial = [
+        buildImageMeta("a.jpg", "2024-01-01"),
+        buildImageMeta("b.jpg", "2024-02-01"),
+      ];
+      await syncFullResCache(initial, { budgetBytes: 250 });
+      expect((await loadFullResUrlsFromCache(initial)).size).toBe(2);
+
+      const afterUpload = [
+        ...initial,
+        buildImageMeta("c.jpg", "2024-03-01"),
+      ];
+      await syncFullResCache(afterUpload, { budgetBytes: 250 });
+
+      const urls = await loadFullResUrlsFromCache(afterUpload);
+      expect(urls.has("c.jpg")).toBe(true);
+      expect(urls.has("b.jpg")).toBe(true);
+      expect(urls.has("a.jpg")).toBe(false);
+    });
+
+    it("evicts cached entries whose ids no longer appear in freshMetas", async () => {
+      const initial = [
+        buildImageMeta("a.jpg", "2024-01-01"),
+        buildImageMeta("b.jpg", "2024-02-01"),
+      ];
+      await syncFullResCache(initial, { budgetBytes: 10_000 });
+      expect((await loadFullResUrlsFromCache(initial)).size).toBe(2);
+
+      // `b.jpg` deleted upstream
+      await syncFullResCache([initial[0]], { budgetBytes: 10_000 });
+      const urls = await loadFullResUrlsFromCache(initial);
+      expect(urls.has("a.jpg")).toBe(true);
+      expect(urls.has("b.jpg")).toBe(false);
+    });
+
+    it("does not re-fetch already cached images on subsequent syncs", async () => {
+      const metas = [
+        buildImageMeta("a.jpg", "2024-01-01"),
+        buildImageMeta("b.jpg", "2024-02-01"),
+      ];
+      await syncFullResCache(metas, { budgetBytes: 10_000 });
+      const fetchCount1 = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+        .calls.length;
+
+      await syncFullResCache(metas, { budgetBytes: 10_000 });
+      const fetchCount2 = (globalThis.fetch as ReturnType<typeof vi.fn>).mock
+        .calls.length;
+
+      expect(fetchCount2).toBe(fetchCount1);
+    });
   });
 });

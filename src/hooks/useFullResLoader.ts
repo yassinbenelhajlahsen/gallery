@@ -9,8 +9,13 @@ import type { ImageMeta } from "../services/storageService";
  *   const { resolveUrl, requestFullRes } = useFullResLoader();
  *   requestFullRes(imageMetas);            // start loading
  *   const url = resolveUrl(meta, thumbUrl); // returns full-res blob or thumb fallback
+ *
+ * Pass `cachedResolver` (typically `useGallery().resolveFullResUrl`) to
+ * prefer a locally cached blob URL over the Firebase download URL.
  */
-export function useFullResLoader() {
+export function useFullResLoader(
+  cachedResolver?: (meta: ImageMeta) => string | null,
+) {
   const [fullResUrls, setFullResUrls] = useState<Map<string, string>>(
     new Map(),
   );
@@ -72,17 +77,19 @@ export function useFullResLoader() {
 
   /**
    * Resolve the best available URL for an image:
-   * full-res blob → provided fallback
+   * cached blob → recorded download URL → provided fallback
    */
   const resolveUrl = useCallback(
     (meta: ImageMeta, fallbackUrl: string): string => {
+      const cached = cachedResolver?.(meta);
+      if (cached) return cached;
       return fullResUrls.get(meta.id) ?? fallbackUrl;
     },
-    [fullResUrls],
+    [fullResUrls, cachedResolver],
   );
 
   /**
-   * Check if an image has its full-res version loaded.
+   * Check if an image has its full-res version loaded (cached blob OR recorded URL).
    */
   const hasFullRes = useCallback(
     (id: string): boolean => fullResUrls.has(id),
