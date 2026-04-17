@@ -306,17 +306,17 @@ export default function AdminUploadPage() {
           })}
         </select>
         <p className="text-xs text-[#888]">
-          Select an event to automatically fill date and media label, or enter
+          Select an event to automatically fill date and label, or enter
           custom details below
         </p>
       </div>
 
-      {/* Media Label */}
+      {/* Label */}
       <div className="space-y-2">
         <FloatingInput
-          id="media-label"
+          id="label"
           type="text"
-          label="Media Label"
+          label="Label"
           className="w-full"
           value={eventName}
           onChange={(e) => handleEventNameChange(e.target.value)}
