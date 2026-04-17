@@ -51,4 +51,24 @@ describe("useFullResLoader", () => {
     expect(result.current.fullResUrls.size).toBe(1);
     expect(Array.from(result.current.fullResUrls.keys())).toEqual(["img-1.jpg"]);
   });
+
+  it("prefers a cached resolver over the recorded download URL", () => {
+    const cachedResolver = (meta: { id: string }) =>
+      meta.id === "img-1.jpg" ? "blob:cached-1" : null;
+
+    const { result } = renderHook(() => useFullResLoader(cachedResolver));
+
+    act(() => {
+      result.current.requestFullRes(metas);
+    });
+
+    // img-1 falls through to the cached blob URL.
+    expect(result.current.resolveUrl(metas[0], metas[0].thumbUrl)).toBe(
+      "blob:cached-1",
+    );
+    // img-2 has no cached URL; falls through to the recorded download URL.
+    expect(result.current.resolveUrl(metas[1], metas[1].thumbUrl)).toBe(
+      "https://full/img-2.jpg",
+    );
+  });
 });

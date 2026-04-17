@@ -11,6 +11,8 @@ const {
   clearCacheMock,
   syncVideoThumbCacheMock,
   loadVideoThumbUrlsFromCacheMock,
+  syncFullResCacheMock,
+  loadFullResUrlsFromCacheMock,
   authState,
 } = vi.hoisted(() => ({
   fetchEventsMock: vi.fn(),
@@ -22,6 +24,8 @@ const {
   clearCacheMock: vi.fn(),
   syncVideoThumbCacheMock: vi.fn(),
   loadVideoThumbUrlsFromCacheMock: vi.fn(),
+  syncFullResCacheMock: vi.fn(),
+  loadFullResUrlsFromCacheMock: vi.fn(),
   authState: {
     user: { uid: "u-1" } as { uid: string } | null,
     initializing: false,
@@ -48,6 +52,8 @@ vi.mock("../../services/mediaCacheService", () => ({
   clearCache: clearCacheMock,
   syncVideoThumbCache: syncVideoThumbCacheMock,
   loadVideoThumbUrlsFromCache: loadVideoThumbUrlsFromCacheMock,
+  syncFullResCache: syncFullResCacheMock,
+  loadFullResUrlsFromCache: loadFullResUrlsFromCacheMock,
 }));
 
 import { GalleryProvider, useGallery } from "../../context/GalleryContext";
@@ -175,6 +181,8 @@ describe("GalleryProvider", () => {
     loadVideoThumbUrlsFromCacheMock.mockReset().mockImplementation(async () => {
       return new Map([["v1.mp4", "blob:cached-v1"]]);
     });
+    syncFullResCacheMock.mockReset().mockResolvedValue(undefined);
+    loadFullResUrlsFromCacheMock.mockReset().mockResolvedValue(new Map());
   });
 
   afterEach(() => {

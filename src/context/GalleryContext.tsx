@@ -24,6 +24,8 @@ import {
   clearCache,
   syncVideoThumbCache,
   loadVideoThumbUrlsFromCache,
+  syncFullResCache,
+  loadFullResUrlsFromCache,
 } from "../services/mediaCacheService";
 import { useAuth } from "./AuthContext";
 
@@ -52,6 +54,8 @@ type GalleryContextValue = {
   resolveThumbUrl: (meta: ImageMeta) => string;
   /** Resolves a cached video thumbnail blob URL if present, otherwise falls back to thumbUrl */
   resolveVideoThumbUrl: (meta: VideoMeta) => string;
+  /** Resolves a cached full-res blob URL if present, otherwise null */
+  resolveFullResUrl: (meta: ImageMeta) => string | null;
   isModalOpen: boolean;
   /** Modal media (images only for most callers; timeline may mix images + videos) */
   modalMedia: MediaMeta[];
@@ -132,6 +136,9 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const [videoThumbUrls, setVideoThumbUrls] = useState<Map<string, string>>(
     new Map(),
   );
+  const [fullResBlobUrls, setFullResBlobUrls] = useState<Map<string, string>>(
+    new Map(),
+  );
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
   const [hasGalleryLoadedOnce, setHasGalleryLoadedOnce] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -154,12 +161,22 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     };
   }, [videoThumbUrls]);
 
+  useEffect(() => {
+    return () => {
+      releaseCachedUrlMap(fullResBlobUrls);
+    };
+  }, [fullResBlobUrls]);
+
   const resetState = useCallback(() => {
     setImageMetas([]);
     setVideoMetas([]);
     setIsVideoMetadataReady(false);
     setPreloadedImages([]);
     setVideoThumbUrls((prev) => {
+      releaseCachedUrlMap(prev);
+      return new Map();
+    });
+    setFullResBlobUrls((prev) => {
       releaseCachedUrlMap(prev);
       return new Map();
     });
@@ -223,6 +240,24 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           setImageMetas(cached.metas);
           setPreloadedImages(cached.preloaded);
           setLoadingProgress(100);
+
+          // Hydrate cached full-res blob URLs in parallel with the readiness
+          // gates so the modal can resolve them instantly on first open.
+          loadFullResUrlsFromCache(cached.metas)
+            .then((urls) => {
+              if (cancelled) {
+                releaseCachedUrlMap(urls);
+                return;
+              }
+              setFullResBlobUrls((prev) => {
+                releaseCachedUrlMap(prev);
+                return urls;
+              });
+            })
+            .catch((err) => {
+              console.warn("[Gallery] Failed to hydrate full-res cache:", err);
+            });
+
           // Gate the "ready" flip until fonts are parsed, blobs decoded, and
           // the loader has been visible for at least 300ms.
           await waitForReadinessGates(
@@ -281,6 +316,25 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
             releasePreloadedUrls(prev);
             return synced;
           });
+
+          // Warm the full-res cache in the background so modal opens get
+          // instant blob URLs. Do NOT await — this must never gate the
+          // "ready" flip or interfere with video metadata/thumb sync.
+          syncFullResCache(freshMetas)
+            .then(() => loadFullResUrlsFromCache(freshMetas))
+            .then((urls) => {
+              if (cancelled) {
+                releaseCachedUrlMap(urls);
+                return;
+              }
+              setFullResBlobUrls((prev) => {
+                releaseCachedUrlMap(prev);
+                return urls;
+              });
+            })
+            .catch((err) => {
+              console.warn("[Gallery] Full-res cache warm failed:", err);
+            });
         }
 
         // ── Phase 4: Await video metadata (already in-flight since Phase 2) ──
@@ -368,6 +422,11 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const resolveVideoThumbUrl = useCallback((meta: VideoMeta) => {
     return videoThumbUrls.get(meta.id) ?? meta.thumbUrl;
   }, [videoThumbUrls]);
+
+  const resolveFullResUrl = useCallback(
+    (meta: ImageMeta) => fullResBlobUrls.get(meta.id) ?? null,
+    [fullResBlobUrls],
+  );
 
   const openModalWithImages = useCallback(
     (images: ImageMeta[], options?: OpenModalOptions) => {
@@ -466,6 +525,19 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           releasePreloadedUrls(prev);
           return synced;
         });
+
+        // Warm the full-res cache in the background.
+        syncFullResCache(freshMetas)
+          .then(() => loadFullResUrlsFromCache(freshMetas))
+          .then((urls) => {
+            setFullResBlobUrls((prev) => {
+              releaseCachedUrlMap(prev);
+              return urls;
+            });
+          })
+          .catch((err) => {
+            console.warn("[Gallery] Full-res cache warm failed:", err);
+          });
       }
 
       // Fetch video metadata
@@ -522,6 +594,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       loadingProgress,
       resolveThumbUrl,
       resolveVideoThumbUrl,
+      resolveFullResUrl,
       isModalOpen,
       modalMedia,
       modalInitialIndex,
@@ -546,6 +619,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       loadingProgress,
       resolveThumbUrl,
       resolveVideoThumbUrl,
+      resolveFullResUrl,
       isModalOpen,
       modalMedia,
       modalInitialIndex,

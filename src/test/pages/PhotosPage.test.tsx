@@ -31,6 +31,7 @@ vi.mock("../../context/GalleryContext", () => ({
   useGallery: () => ({
     imageMetas: galleryState.imageMetas,
     resolveThumbUrl: resolveThumbUrlMock,
+    resolveFullResUrl: () => null,
     openModalForImageId: openModalForImageIdMock,
   }),
 }));

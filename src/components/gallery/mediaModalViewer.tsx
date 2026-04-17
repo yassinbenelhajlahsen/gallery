@@ -17,6 +17,8 @@ export type MediaModalViewer = {
   resolveThumbUrl?: (image: ImageMeta) => string;
   /** Resolves a cached thumbnail blob URL for a video (used for poster) */
   resolveVideoThumbUrl?: (video: VideoMeta) => string;
+  /** Resolves a cached full-res blob URL if available, otherwise null */
+  resolveFullResUrl?: (image: ImageMeta) => string | null;
   /** When true, preload full-res for ALL images instead of only the ±N window */
   preloadAll?: boolean;
 };
@@ -55,6 +57,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   onChangeIndex,
   resolveThumbUrl,
   resolveVideoThumbUrl,
+  resolveFullResUrl,
   preloadAll = false,
 }) => {
   // visualIndex: used only for transform/animation (may go out of range)
@@ -280,17 +283,26 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
 
       loadingIdsRef.current.add(img.id);
 
-      // Instead of fetching bytes, record the download URL so the
-      // browser can load it directly when the <img> is rendered.
+      // Prefer a cached full-res blob URL when one is available; otherwise
+      // record the Firebase download URL so the browser streams it.
+      const cachedUrl = resolveFullResUrl?.(img) ?? null;
       setFullResUrls((prev) => {
         if (prev.has(img.id)) return prev;
         const next = new Map(prev);
-        next.set(img.id, img.downloadUrl);
+        next.set(img.id, cachedUrl ?? img.downloadUrl);
         return next;
       });
       loadingIdsRef.current.delete(img.id);
     });
-  }, [dataIndex, isOpen, media, preloadAll, PRELOAD_AHEAD, PRELOAD_BEHIND]);
+  }, [
+    dataIndex,
+    isOpen,
+    media,
+    preloadAll,
+    PRELOAD_AHEAD,
+    PRELOAD_BEHIND,
+    resolveFullResUrl,
+  ]);
 
   const goToIndex = React.useCallback(
     (next: number, _direction?: "left" | "right", immediate = false) => {
@@ -834,10 +846,7 @@ const ModalImage: React.FC<{
     [currentFullSrc],
   );
 
-  const showSpinner =
-    !thumbLoaded ||
-    (isActive && !isFullRes) ||
-    (isActive && isFullRes && !fullLoaded);
+  const showSpinner = !thumbLoaded;
   const actualThumbSrc = thumbSrc ?? (isFullRes ? undefined : src);
   return (
     <div className="relative flex w-full items-center justify-center">

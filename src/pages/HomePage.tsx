@@ -30,10 +30,15 @@ const pickRandomSubset = <T,>(items: T[], count: number): T[] => {
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { imageMetas, videoMetas, openModalWithImages, resolveThumbUrl } =
-    useGallery();
+  const {
+    imageMetas,
+    videoMetas,
+    openModalWithImages,
+    resolveThumbUrl,
+    resolveFullResUrl,
+  } = useGallery();
   const isVisible = usePageReveal();
-  const { resolveUrl, requestFullRes } = useFullResLoader();
+  const { resolveUrl, requestFullRes } = useFullResLoader(resolveFullResUrl);
 
   // Store the *IDs* of chosen tiles so re-renders/re-mounts use the same set
   const [chosenIds, setChosenIds] = React.useState<string[]>([]);
