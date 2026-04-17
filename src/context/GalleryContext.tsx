@@ -167,6 +167,29 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     };
   }, [fullResBlobUrls]);
 
+  const warmFullResCache = useCallback(
+    async (
+      metas: ImageMeta[],
+      opts?: { skipSync?: boolean; isCancelled?: () => boolean },
+    ) => {
+      try {
+        if (!opts?.skipSync) await syncFullResCache(metas);
+        const urls = await loadFullResUrlsFromCache(metas);
+        if (opts?.isCancelled?.()) {
+          releaseCachedUrlMap(urls);
+          return;
+        }
+        setFullResBlobUrls((prev) => {
+          releaseCachedUrlMap(prev);
+          return urls;
+        });
+      } catch (err) {
+        console.warn("[Gallery] Full-res cache warm failed:", err);
+      }
+    },
+    [],
+  );
+
   const resetState = useCallback(() => {
     setImageMetas([]);
     setVideoMetas([]);
@@ -241,22 +264,12 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           setPreloadedImages(cached.preloaded);
           setLoadingProgress(100);
 
-          // Hydrate cached full-res blob URLs in parallel with the readiness
-          // gates so the modal can resolve them instantly on first open.
-          loadFullResUrlsFromCache(cached.metas)
-            .then((urls) => {
-              if (cancelled) {
-                releaseCachedUrlMap(urls);
-                return;
-              }
-              setFullResBlobUrls((prev) => {
-                releaseCachedUrlMap(prev);
-                return urls;
-              });
-            })
-            .catch((err) => {
-              console.warn("[Gallery] Failed to hydrate full-res cache:", err);
-            });
+          // Hydrate in parallel with the readiness gates so the modal can
+          // resolve cached blobs instantly on first open.
+          warmFullResCache(cached.metas, {
+            skipSync: true,
+            isCancelled: () => cancelled,
+          });
 
           // Gate the "ready" flip until fonts are parsed, blobs decoded, and
           // the loader has been visible for at least 300ms.
@@ -317,24 +330,9 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
             return synced;
           });
 
-          // Warm the full-res cache in the background so modal opens get
-          // instant blob URLs. Do NOT await — this must never gate the
-          // "ready" flip or interfere with video metadata/thumb sync.
-          syncFullResCache(freshMetas)
-            .then(() => loadFullResUrlsFromCache(freshMetas))
-            .then((urls) => {
-              if (cancelled) {
-                releaseCachedUrlMap(urls);
-                return;
-              }
-              setFullResBlobUrls((prev) => {
-                releaseCachedUrlMap(prev);
-                return urls;
-              });
-            })
-            .catch((err) => {
-              console.warn("[Gallery] Full-res cache warm failed:", err);
-            });
+          // Do NOT await — warming must never gate the "ready" flip or
+          // interfere with video metadata/thumb sync.
+          warmFullResCache(freshMetas, { isCancelled: () => cancelled });
         }
 
         // ── Phase 4: Await video metadata (already in-flight since Phase 2) ──
@@ -410,7 +408,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     return () => {
       cancelled = true;
     };
-  }, [initializing, resetState, user]);
+  }, [initializing, resetState, user, warmFullResCache]);
 
   const resolveThumbUrl = useCallback(
     (meta: ImageMeta) =>
@@ -526,18 +524,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
           return synced;
         });
 
-        // Warm the full-res cache in the background.
-        syncFullResCache(freshMetas)
-          .then(() => loadFullResUrlsFromCache(freshMetas))
-          .then((urls) => {
-            setFullResBlobUrls((prev) => {
-              releaseCachedUrlMap(prev);
-              return urls;
-            });
-          })
-          .catch((err) => {
-            console.warn("[Gallery] Full-res cache warm failed:", err);
-          });
+        warmFullResCache(freshMetas);
       }
 
       // Fetch video metadata
@@ -577,7 +564,7 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     } finally {
       setIsGalleryLoading(false);
     }
-  }, []);
+  }, [warmFullResCache]);
 
   const value = useMemo(
     () => ({

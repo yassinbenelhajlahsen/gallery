@@ -343,15 +343,11 @@ export async function syncVideoThumbCache(
   db.close();
 }
 
-/**
- * Load cached video thumbnail object URLs for the provided videos.
- *
- * Returned keys are raw video IDs (without the `video:` prefix).
- */
-export async function loadVideoThumbUrlsFromCache(
-  videoMetas: VideoMeta[],
+async function loadBlobUrlsFromCache(
+  entries: Array<{ id: string; key: string }>,
+  store: string,
 ): Promise<Map<string, string>> {
-  if (!videoMetas.length) return new Map();
+  if (!entries.length) return new Map();
   if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
     return new Map();
   }
@@ -361,10 +357,10 @@ export async function loadVideoThumbUrlsFromCache(
     db = await openDB();
     const database = db;
     const pairs = await Promise.all(
-      videoMetas.map(async (meta) => {
-        const blob = await idbGet<Blob>(database, BLOB_STORE, videoKey(meta.id));
+      entries.map(async ({ id, key }) => {
+        const blob = await idbGet<Blob>(database, store, key);
         if (!blob) return null;
-        return [meta.id, URL.createObjectURL(blob)] as [string, string];
+        return [id, URL.createObjectURL(blob)] as [string, string];
       }),
     );
 
@@ -372,11 +368,25 @@ export async function loadVideoThumbUrlsFromCache(
       pairs.filter((pair): pair is [string, string] => pair !== null),
     );
   } catch (err) {
-    console.warn("[ImageCache] Failed to load cached video thumbs:", err);
+    console.warn("[ImageCache] Failed to load cached blob urls:", err);
     return new Map();
   } finally {
     db?.close();
   }
+}
+
+/**
+ * Load cached video thumbnail object URLs for the provided videos.
+ *
+ * Returned keys are raw video IDs (without the `video:` prefix).
+ */
+export async function loadVideoThumbUrlsFromCache(
+  videoMetas: VideoMeta[],
+): Promise<Map<string, string>> {
+  return loadBlobUrlsFromCache(
+    videoMetas.map((meta) => ({ id: meta.id, key: videoKey(meta.id) })),
+    BLOB_STORE,
+  );
 }
 
 /* ─── full-resolution cache ────────────────────────────── */
@@ -419,11 +429,11 @@ export async function syncFullResCache(
   const budgetBytes = options?.budgetBytes ?? FULLRES_BUDGET_BYTES;
   const onProgress = options?.onProgress;
 
+  type FetchResult = { meta: ImageMeta; size: number; blob: Blob | null };
+
   const db = await openDB();
   try {
     const existing = await readAllFullResBlobs(db);
-    const cachedSizes = new Map<string, number>();
-    existing.forEach((blob, id) => cachedSizes.set(id, blob.size));
 
     const sortedDesc = [...freshMetas].sort(
       (a, b) => Date.parse(b.date) - Date.parse(a.date),
@@ -441,11 +451,9 @@ export async function syncFullResCache(
       const batch = sortedDesc.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.all(
-        batch.map(async (meta) => {
-          const cachedSize = cachedSizes.get(meta.id);
-          if (cachedSize !== undefined) {
-            return { meta, size: cachedSize, blob: null as Blob | null };
-          }
+        batch.map(async (meta): Promise<FetchResult | null> => {
+          const cached = existing.get(meta.id);
+          if (cached) return { meta, size: cached.size, blob: null };
           try {
             const response = await fetch(meta.downloadUrl, { mode: "cors" });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -461,6 +469,7 @@ export async function syncFullResCache(
         }),
       );
 
+      const toPersist: Array<{ id: string; blob: Blob }> = [];
       for (const r of results) {
         loaded++;
         if (!r) {
@@ -474,25 +483,34 @@ export async function syncFullResCache(
         }
         runningSize += r.size;
         keepers.add(r.meta.id);
-        if (r.blob) {
-          try {
-            await idbPut(db, FULLRES_STORE, r.meta.id, r.blob);
-            cachedSizes.set(r.meta.id, r.size);
-          } catch (err) {
-            console.warn(
-              `[ImageCache] Failed to persist full-res ${r.meta.id}:`,
-              err,
-            );
-          }
-        }
+        if (r.blob) toPersist.push({ id: r.meta.id, blob: r.blob });
         onProgress?.(loaded, total);
+      }
+
+      if (toPersist.length) {
+        await Promise.all(
+          toPersist.map(({ id, blob }) =>
+            idbPut(db, FULLRES_STORE, id, blob).catch((err) =>
+              console.warn(
+                `[ImageCache] Failed to persist full-res ${id}:`,
+                err,
+              ),
+            ),
+          ),
+        );
       }
     }
 
-    const toEvict = [...cachedSizes.keys()].filter((id) => !keepers.has(id));
-    await Promise.all(
-      toEvict.map((id) => idbDelete(db, FULLRES_STORE, id)),
-    );
+    const toEvict = [...existing.keys()].filter((id) => !keepers.has(id));
+    if (toEvict.length) {
+      const tx = db.transaction(FULLRES_STORE, "readwrite");
+      const store = tx.objectStore(FULLRES_STORE);
+      toEvict.forEach((id) => store.delete(id));
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
   } catch (err) {
     console.warn("[ImageCache] Failed to sync full-res cache:", err);
   } finally {
@@ -508,29 +526,8 @@ export async function syncFullResCache(
 export async function loadFullResUrlsFromCache(
   metas: ImageMeta[],
 ): Promise<Map<string, string>> {
-  if (!metas.length) return new Map();
-  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
-    return new Map();
-  }
-
-  let db: IDBDatabase | null = null;
-  try {
-    db = await openDB();
-    const database = db;
-    const pairs = await Promise.all(
-      metas.map(async (meta) => {
-        const blob = await idbGet<Blob>(database, FULLRES_STORE, meta.id);
-        if (!blob) return null;
-        return [meta.id, URL.createObjectURL(blob)] as [string, string];
-      }),
-    );
-    return new Map(
-      pairs.filter((pair): pair is [string, string] => pair !== null),
-    );
-  } catch (err) {
-    console.warn("[ImageCache] Failed to load cached full-res urls:", err);
-    return new Map();
-  } finally {
-    db?.close();
-  }
+  return loadBlobUrlsFromCache(
+    metas.map((meta) => ({ id: meta.id, key: meta.id })),
+    FULLRES_STORE,
+  );
 }
