@@ -312,7 +312,7 @@ describe("UploadTab", () => {
 
     const dateInputs = getDateInputs();
     expect(dateInputs[0]?.value).toBe("2024-07-04");
-    expect((screen.getByLabelText(/Event Name/i) as HTMLInputElement).value).toBe(
+    expect((screen.getByLabelText(/Image Label/i) as HTMLInputElement).value).toBe(
       "Beach Trip",
     );
   });
@@ -339,7 +339,7 @@ describe("UploadTab", () => {
     const dateInputs = getDateInputs();
     fireEvent.change(dateInputs[0], { target: { value: "2024-09-15" } });
 
-    fireEvent.change(screen.getByLabelText(/Event Name/i), {
+    fireEvent.change(screen.getByLabelText(/Image Label/i), {
       target: { value: "Trip" },
     });
 
