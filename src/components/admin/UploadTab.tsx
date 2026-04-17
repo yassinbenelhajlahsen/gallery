@@ -306,17 +306,17 @@ export default function AdminUploadPage() {
           })}
         </select>
         <p className="text-xs text-[#888]">
-          Select an event to automatically fill date and event name, or enter
+          Select an event to automatically fill date and image label, or enter
           custom details below
         </p>
       </div>
 
-      {/* Event Name */}
+      {/* Image Label */}
       <div className="space-y-2">
         <FloatingInput
-          id="event-name"
+          id="image-label"
           type="text"
-          label="Event Name"
+          label="Image Label"
           className="w-full"
           value={eventName}
           onChange={(e) => handleEventNameChange(e.target.value)}
@@ -325,7 +325,8 @@ export default function AdminUploadPage() {
           labelColor="#333"
         />
         <p className="text-xs text-[#888]">
-          Used to link media to timeline events
+          A label for this media. If it matches an existing timeline event's
+          name, it will be linked automatically.
         </p>
       </div>
 
