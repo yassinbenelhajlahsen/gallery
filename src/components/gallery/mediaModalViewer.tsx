@@ -578,12 +578,13 @@ const ModalVideo: React.FC<{
     };
   }, [posterUrl]);
 
-  // When the aspect is known, size the element to match so `object-contain`
-  // never has to letterbox inside the element box. This keeps the native
-  // video controls overlay (which draws on the element's box, not on the
-  // letterboxed content) aligned with the visible frame.
+  // When the aspect is known, size the wrapper to `width: 100%` + aspect-ratio
+  // so the box is fully sized from first paint — without this the box falls
+  // back to its content's intrinsic size (the small poster dims), and "snaps"
+  // to full size once the video metadata arrives. `max-h-[60vh]` caps portrait
+  // videos; the browser reduces width correspondingly to preserve aspect.
   const mediaSizeClass = dims
-    ? "max-w-full max-h-[60vh] rounded-[28px]"
+    ? "w-full max-h-[60vh] rounded-[28px]"
     : "w-full max-h-[60vh] rounded-[28px] object-contain";
   const aspectStyle = dims
     ? { aspectRatio: `${dims.width} / ${dims.height}` }
@@ -650,7 +651,6 @@ const ModalVideo: React.FC<{
       videoRef={videoRef}
       objectUrl={objectUrl}
       posterUrl={posterUrl}
-      dims={dims}
       mediaSizeClass={mediaSizeClass}
       aspectStyle={aspectStyle}
       captureRef={captureRef}
@@ -666,19 +666,21 @@ const ModalVideo: React.FC<{
  * Once metadata arrives, iOS re-lays the overlay to match the real frame,
  * producing the visible "small box in the top-left → snaps to fill" glitch.
  *
- * Workaround: cover the <video> with the poster (and a spinner) until
- * `loadedmetadata` fires. By the time the cover lifts, iOS has the real
- * dimensions and paints the overlay correctly from the first frame.
+ * The native controls are drawn by the OS and sit above DOM layering, so a
+ * React poster overlay cannot hide them. The only reliable workaround is to
+ * withhold the `controls` attribute until metadata has loaded — iOS then
+ * paints the overlay only once, already at the correct size. The poster
+ * cover hides the video content (and its initial black frame) during that
+ * gap, so the transition looks instantaneous.
  */
 const VideoWithMetadataGate: React.FC<{
   videoRef: React.RefObject<HTMLVideoElement | null>;
   objectUrl: string;
   posterUrl: string;
-  dims: PosterDims | null;
   mediaSizeClass: string;
   aspectStyle: React.CSSProperties | undefined;
   captureRef: (img: HTMLImageElement | null) => void;
-}> = ({ videoRef, objectUrl, posterUrl, dims, mediaSizeClass, aspectStyle, captureRef }) => {
+}> = ({ videoRef, objectUrl, posterUrl, mediaSizeClass, aspectStyle, captureRef }) => {
   const [metadataLoaded, setMetadataLoaded] = React.useState(false);
 
   React.useEffect(() => {
@@ -692,10 +694,8 @@ const VideoWithMetadataGate: React.FC<{
         src={objectUrl}
         poster={posterUrl}
         autoPlay
-        controls
+        controls={metadataLoaded}
         playsInline
-        width={dims?.width}
-        height={dims?.height}
         onLoadedMetadata={() => setMetadataLoaded(true)}
         className="h-full w-full rounded-[28px] object-contain relative z-30"
       />
