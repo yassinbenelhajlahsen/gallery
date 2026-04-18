@@ -129,7 +129,7 @@ Router is defined in `src/App.tsx`.
 | `/timeline` | same as above | `TimelinePage` | Firestore events + mixed-media modal launch |
 | `/photos` | same as above | `PhotosPage` | Photos grouped by year/month |
 | `/videos` | same as above | `VideosPage` | Videos grouped by year/month |
-| `/admin` | same as above | lazy `AdminPage` | Tab via query string (`?tab=upload|delete`) |
+| `/admin` | same as above | `AdminPage` | Tab via query string (`?tab=upload|delete`) |
 | `*` | same as above | `NotFoundPage` | Catch-all |
 
 Guard behavior summary:

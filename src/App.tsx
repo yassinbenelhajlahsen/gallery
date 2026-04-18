@@ -13,6 +13,7 @@ import HomePage from "./pages/HomePage";
 import TimelinePage from "./pages/TimelinePage";
 import PhotosPage from "./pages/PhotosPage";
 import VideosPage from "./pages/VideosPage";
+import AdminPage from "./pages/AdminPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GalleryProvider, useGallery } from "./context/GalleryContext";
 import Navbar from "./components/layout/Navbar";
@@ -22,8 +23,6 @@ import GalleryModalRenderer from "./components/gallery/GalleryModalRenderer";
 import { ToastProvider } from "./context/ToastContext";
 import NotFoundPage from "./pages/NotFoundPage";
 import { config } from "./config";
-
-const AdminPage = React.lazy(() => import("./pages/AdminPage"));
 
 const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div
@@ -172,20 +171,7 @@ const router = createBrowserRouter([
           { path: "home", element: <Navigate to="/" replace /> },
           { path: "timeline", element: <TimelinePage /> },
           { path: "photos", element: <PhotosPage /> },
-          {
-            path: "upload",
-            element: <Navigate to="/admin?tab=upload" replace />,
-          },
-          {
-            path: "admin",
-            element: (
-              <React.Suspense
-                fallback={<GateFallback message="Loading admin…" />}
-              >
-                <AdminPage />
-              </React.Suspense>
-            ),
-          },
+          { path: "admin", element: <AdminPage />, },
           { path: "videos", element: <VideosPage /> },
           { path: "*", element: <NotFoundPage /> },
         ],
