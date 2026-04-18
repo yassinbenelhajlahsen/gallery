@@ -529,7 +529,8 @@ const ModalImage: React.FC<{
 // lets the <video> element render with the correct aspect-ratio on its very
 // first paint, which keeps the native controls overlay aligned with the
 // displayed video frame while the source is still buffering.
-const posterAspectCache = new Map<string, string>();
+type PosterDims = { width: number; height: number };
+const posterAspectCache = new Map<string, PosterDims>();
 
 const capturePosterAspect = (
   img: HTMLImageElement | null,
@@ -538,7 +539,7 @@ const capturePosterAspect = (
   if (!img || !posterUrl) return;
   const w = img.naturalWidth;
   const h = img.naturalHeight;
-  if (w > 0 && h > 0) posterAspectCache.set(posterUrl, `${w} / ${h}`);
+  if (w > 0 && h > 0) posterAspectCache.set(posterUrl, { width: w, height: h });
 };
 
 const ModalVideo: React.FC<{
@@ -547,18 +548,18 @@ const ModalVideo: React.FC<{
   posterUrl: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }> = ({ isActive, objectUrl, posterUrl, videoRef }) => {
-  const [aspectRatio, setAspectRatio] = React.useState<string | null>(
+  const [dims, setDims] = React.useState<PosterDims | null>(
     () => posterAspectCache.get(posterUrl) ?? null,
   );
 
   React.useLayoutEffect(() => {
     const cached = posterAspectCache.get(posterUrl);
     if (cached) {
-      setAspectRatio(cached);
+      setDims(cached);
       return;
     }
     if (!posterUrl) {
-      setAspectRatio(null);
+      setDims(null);
       return;
     }
     let cancelled = false;
@@ -566,8 +567,8 @@ const ModalVideo: React.FC<{
     const apply = () => {
       if (cancelled) return;
       capturePosterAspect(img, posterUrl);
-      const ar = posterAspectCache.get(posterUrl);
-      if (ar) setAspectRatio(ar);
+      const next = posterAspectCache.get(posterUrl);
+      if (next) setDims(next);
     };
     img.onload = apply;
     img.src = posterUrl;
@@ -581,10 +582,12 @@ const ModalVideo: React.FC<{
   // never has to letterbox inside the element box. This keeps the native
   // video controls overlay (which draws on the element's box, not on the
   // letterboxed content) aligned with the visible frame.
-  const mediaSizeClass = aspectRatio
+  const mediaSizeClass = dims
     ? "max-w-full max-h-[60vh] rounded-[28px]"
     : "w-full max-h-[60vh] rounded-[28px] object-contain";
-  const aspectStyle = aspectRatio ? { aspectRatio } : undefined;
+  const aspectStyle = dims
+    ? { aspectRatio: `${dims.width} / ${dims.height}` }
+    : undefined;
 
   const captureRef = React.useCallback(
     (img: HTMLImageElement | null) => {
@@ -643,16 +646,88 @@ const ModalVideo: React.FC<{
   }
 
   return (
-    <video
-      ref={(el) => { videoRef.current = el; }}
-      src={objectUrl}
-      poster={posterUrl}
-      autoPlay
-      controls
-      playsInline
-      className={`${mediaSizeClass} relative z-30 object-contain`}
-      style={aspectStyle}
+    <VideoWithMetadataGate
+      videoRef={videoRef}
+      objectUrl={objectUrl}
+      posterUrl={posterUrl}
+      dims={dims}
+      mediaSizeClass={mediaSizeClass}
+      aspectStyle={aspectStyle}
+      captureRef={captureRef}
     />
+  );
+};
+
+/**
+ * iOS (Safari / PWA / WKWebView) paints the native <video> controls overlay
+ * on the video's intrinsic content rectangle. Until `loadedmetadata` fires,
+ * that rectangle is the default 300×150 — no HTML width/height attribute or
+ * CSS aspect-ratio overrides it for the purpose of control-overlay sizing.
+ * Once metadata arrives, iOS re-lays the overlay to match the real frame,
+ * producing the visible "small box in the top-left → snaps to fill" glitch.
+ *
+ * Workaround: cover the <video> with the poster (and a spinner) until
+ * `loadedmetadata` fires. By the time the cover lifts, iOS has the real
+ * dimensions and paints the overlay correctly from the first frame.
+ */
+const VideoWithMetadataGate: React.FC<{
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  objectUrl: string;
+  posterUrl: string;
+  dims: PosterDims | null;
+  mediaSizeClass: string;
+  aspectStyle: React.CSSProperties | undefined;
+  captureRef: (img: HTMLImageElement | null) => void;
+}> = ({ videoRef, objectUrl, posterUrl, dims, mediaSizeClass, aspectStyle, captureRef }) => {
+  const [metadataLoaded, setMetadataLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    setMetadataLoaded(false);
+  }, [objectUrl]);
+
+  return (
+    <div className={`${mediaSizeClass} relative`} style={aspectStyle}>
+      <video
+        ref={(el) => { videoRef.current = el; }}
+        src={objectUrl}
+        poster={posterUrl}
+        autoPlay
+        controls
+        playsInline
+        width={dims?.width}
+        height={dims?.height}
+        onLoadedMetadata={() => setMetadataLoaded(true)}
+        className="h-full w-full rounded-[28px] object-contain relative z-30"
+      />
+      {!metadataLoaded && (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+          <img
+            ref={captureRef}
+            onLoad={(e) => capturePosterAspect(e.currentTarget, posterUrl)}
+            src={posterUrl}
+            alt="Video thumbnail"
+            className="h-full w-full rounded-[28px] object-contain"
+            decoding="async"
+            loading="eager"
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg
+              className="h-8 w-8 animate-spin text-white/40"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
