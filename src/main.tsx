@@ -20,6 +20,22 @@ document.addEventListener(
   { passive: false },
 );
 
+// Block the iOS PWA/Safari horizontal edge-swipe that triggers history
+// back/forward. CSS touch-action does not block this gesture; the only
+// reliable way is a non-passive touchstart listener that preventDefaults
+// when the touch starts within ~20px of either viewport edge.
+// Requires iOS Safari 13.4+. Does not affect inner React touch handlers
+// (they still fire — only the browser's default edge-swipe is cancelled).
+document.addEventListener(
+  "touchstart",
+  (e) => {
+    const x = e.touches[0]?.pageX ?? 0;
+    if (x > 20 && x < window.innerWidth - 20) return;
+    e.preventDefault();
+  },
+  { passive: false },
+);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
