@@ -77,21 +77,44 @@ const GalleryGrid: React.FC<GalleryGridProps> = ({ tiles, columns }) => {
 };
 
 const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
+  const hasFullRes = Boolean(tile.fullUrl && tile.fullUrl !== tile.url);
+  // Only skip the thumbnail if the full-res URL is a local blob (cached in
+  // IndexedDB). If it's a Firebase download URL, we still want the thumb as a
+  // progressive placeholder while the network fetch happens. The ref captures
+  // the state at mount so a later URL change doesn't retroactively hide the
+  // thumbnail mid-display.
+  const isLocalFullRes = Boolean(tile.fullUrl?.startsWith("blob:"));
+  const localFullResOnMountRef = React.useRef(isLocalFullRes);
+  const skipThumb = localFullResOnMountRef.current && isLocalFullRes;
+
   const [thumbLoaded, setThumbLoaded] = React.useState(false);
   const [fullLoaded, setFullLoaded] = React.useState(false);
   const [hasError, setHasError] = React.useState(false);
 
-  const hasFullRes = Boolean(tile.fullUrl && tile.fullUrl !== tile.url);
   const isVideo = tile.mediaType === "video";
   const durationLabel =
     isVideo && typeof tile.durationSeconds === "number"
       ? formatDurationSeconds(tile.durationSeconds)
       : null;
 
-  // Check if the image is already decoded (browser cache / blob URL hot)
+  // Wait for decode() before revealing the image. `onLoad` fires when bytes
+  // are fetched but the pixels may not be rasterized yet — opacity fading
+  // from 0→100 during that gap leaves a blank/white frame, most visible on
+  // full-res JPEGs which decode slower than thumbnails.
+  const awaitDecode = (
+    img: HTMLImageElement,
+    setLoaded: (v: boolean) => void,
+  ) => {
+    img
+      .decode()
+      .then(() => setLoaded(true))
+      .catch(() => setLoaded(true));
+  };
+
   const thumbRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setThumbLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0)
+        awaitDecode(img, setThumbLoaded);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tile.url],
@@ -99,11 +122,14 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
   const fullRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0)
+        awaitDecode(img, setFullLoaded);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tile.fullUrl],
   );
+
+  const showSkeleton = skipThumb ? !fullLoaded : !thumbLoaded;
 
   return (
     <button
@@ -114,22 +140,24 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
     >
       {/* Inner clipping wrapper for mobile Safari stability: keep rounding and overflow consistent */}
       <div className="absolute inset-0 rounded-2xl overflow-hidden [contain:paint] [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden]">
-        {!thumbLoaded && !hasError && (
+        {showSkeleton && !hasError && (
           <div className="skeleton-loader absolute inset-0 rounded-2xl" />
         )}
 
-        <img
-          ref={thumbRef}
-          src={tile.url}
-          alt={tile.caption ?? "Gallery image"}
-          className={`cursor-pointer absolute inset-0 block h-full w-full object-cover rounded-2xl transition-opacity duration-200 [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden] ${
-            thumbLoaded ? "opacity-100" : "opacity-0"
-          }`}
-          decoding="async"
-          loading="lazy"
-          onLoad={() => setThumbLoaded(true)}
-          onError={() => setHasError(true)}
-        />
+        {!skipThumb && (
+          <img
+            ref={thumbRef}
+            src={tile.url}
+            alt={tile.caption ?? "Gallery image"}
+            className={`cursor-pointer absolute inset-0 block h-full w-full object-cover rounded-2xl transition-opacity duration-200 [transform:translateZ(0)] [backface-visibility:hidden] [-webkit-backface-visibility:hidden] ${
+              thumbLoaded ? "opacity-100" : "opacity-0"
+            }`}
+            decoding="async"
+            loading="lazy"
+            onLoad={(e) => awaitDecode(e.currentTarget, setThumbLoaded)}
+            onError={() => setHasError(true)}
+          />
+        )}
 
         {hasFullRes && tile.fullUrl && (
           <img
@@ -141,7 +169,8 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             } transition-opacity duration-200`}
             decoding="async"
             loading="lazy"
-            onLoad={() => setFullLoaded(true)}
+            onLoad={(e) => awaitDecode(e.currentTarget, setFullLoaded)}
+            onError={skipThumb ? () => setHasError(true) : undefined}
           />
         )}
 

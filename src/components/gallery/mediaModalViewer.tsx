@@ -420,9 +420,18 @@ const ModalImage: React.FC<{
   isFullRes: boolean;
   thumbSrc?: string;
 }> = ({ src, alt, isActive, isFullRes, thumbSrc }) => {
+  const currentFullSrc = isFullRes ? src : null;
+  // Only skip the thumbnail when the full-res URL is a local blob (cached in
+  // IndexedDB). If it's a Firebase download URL the image is still fetching
+  // over the network, so the thumb should remain as a progressive placeholder.
+  // The ref captures the state at mount so a later URL change doesn't
+  // retroactively hide the thumbnail mid-display.
+  const isLocalFullRes = Boolean(currentFullSrc?.startsWith("blob:"));
+  const localFullResOnMountRef = React.useRef(isLocalFullRes);
+  const skipThumb = localFullResOnMountRef.current && isLocalFullRes;
+
   const [thumbLoaded, setThumbLoaded] = React.useState(false);
   const [fullLoaded, setFullLoaded] = React.useState(false);
-  const currentFullSrc = isFullRes ? src : null;
 
   React.useEffect(() => {
     setThumbLoaded(false);
@@ -433,9 +442,23 @@ const ModalImage: React.FC<{
     setFullLoaded(false);
   }, [currentFullSrc]);
 
+  // Wait for decode() before revealing — opacity fading from 0→100 before
+  // the pixels are rasterized leaves a blank/white frame, most visible on
+  // full-res JPEGs which decode slower than thumbnails.
+  const awaitDecode = (
+    img: HTMLImageElement,
+    setLoaded: (v: boolean) => void,
+  ) => {
+    img
+      .decode()
+      .then(() => setLoaded(true))
+      .catch(() => setLoaded(true));
+  };
+
   const thumbImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setThumbLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0)
+        awaitDecode(img, setThumbLoaded);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [thumbSrc],
@@ -443,14 +466,15 @@ const ModalImage: React.FC<{
 
   const fullImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0)
+        awaitDecode(img, setFullLoaded);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentFullSrc],
   );
 
-  const showSpinner = !thumbLoaded;
-  const actualThumbSrc = thumbSrc ?? (isFullRes ? undefined : src);
+  const showSpinner = skipThumb ? !fullLoaded : !thumbLoaded;
+  const actualThumbSrc = skipThumb ? undefined : (thumbSrc ?? (isFullRes ? undefined : src));
   return (
     <div className="relative flex w-full items-center justify-center">
       {showSpinner && (
@@ -478,7 +502,7 @@ const ModalImage: React.FC<{
           className={`max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${thumbLoaded ? "opacity-100" : "opacity-0"}`}
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
-          onLoad={() => setThumbLoaded(true)}
+          onLoad={(e) => awaitDecode(e.currentTarget, setThumbLoaded)}
         />
       )}
       {isFullRes && currentFullSrc && (
@@ -486,10 +510,10 @@ const ModalImage: React.FC<{
           ref={fullImgRef}
           src={currentFullSrc}
           alt={alt}
-          className={`absolute inset-0 max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
+          className={`${skipThumb ? "" : "absolute inset-0"} max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
-          onLoad={() => setFullLoaded(true)}
+          onLoad={(e) => awaitDecode(e.currentTarget, setFullLoaded)}
         />
       )}
     </div>
