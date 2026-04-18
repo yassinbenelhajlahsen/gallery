@@ -107,7 +107,6 @@ img {
 }
 
 .modal-backdrop-reveal {
-  animation: modalBackdropReveal 0.25s ease-out forwards;
   /* Extend to cover safe areas on mobile */
   min-height: 100vh;
   min-height: 100dvh; /* dynamic viewport height */

@@ -427,23 +427,34 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   // Use layout effect to set background BEFORE paint, ensuring consistent timing.
   // position:fixed is required on iOS — overflow:hidden alone doesn't stop momentum scroll.
   React.useLayoutEffect(() => {
+    const nav = document.querySelector<HTMLElement>(".app-bottom-nav");
     if (isOpen) {
+      // Pin navbar at its current pixel position (via top) before the body
+      // lock changes the viewport height, preventing the iOS URL-bar shift.
+      if (nav) {
+        nav.style.top = `${nav.getBoundingClientRect().top}px`;
+        nav.style.bottom = "auto";
+      }
       savedScrollYRef.current = window.scrollY;
       setModalViewportHeight(window.innerHeight);
-      document.documentElement.style.backgroundColor = "#000";
-      document.body.style.backgroundColor = "#000";
+      setHasInitialized(false);
+      document.documentElement.style.backgroundColor = "#FAFAF7";
       document.body.style.overflow = "hidden";
       document.body.style.position = "fixed";
       document.body.style.top = `-${savedScrollYRef.current}px`;
       document.body.style.width = "100%";
     } else {
       document.documentElement.style.backgroundColor = "";
-      document.body.style.backgroundColor = "";
       document.body.style.overflow = "";
       document.body.style.position = "";
       document.body.style.top = "";
       document.body.style.width = "";
       window.scrollTo(0, savedScrollYRef.current);
+      // Unpin navbar after body unlock restores the viewport
+      if (nav) {
+        nav.style.top = "";
+        nav.style.bottom = "";
+      }
     }
   }, [isOpen]);
 
@@ -595,8 +606,8 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
       onClick={handleBackdropClick}
     >
       <div
-        className={`modal-card-reveal relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-all duration-300 ${
-          isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100"
+        className={`relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-[opacity,transform] duration-300 ${
+          hasInitialized && !isClosing ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -648,6 +659,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
           >
             {media.map((item, index) => {
               const isActiveSlide = index === dataIndex;
+              const isNearby = Math.abs(index - dataIndex) <= 3;
               const isItemVideo = isVideoMeta(item);
 
               return (
@@ -659,38 +671,42 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
                       : "scale-95 opacity-100"
                   }`}
                 >
-                  {isItemVideo ? (
-                    <ModalVideo
-                      isActive={isActiveSlide}
-                      objectUrl={isActiveSlide ? activeVideoUrl : null}
-                      posterUrl={resolveVideoThumbUrl?.(item) ?? item.thumbUrl}
-                      videoRef={videoElRef}
-                    />
-                  ) : (
-                    (() => {
-                      const image = item as ImageMeta;
-                      const thumbUrl =
-                        resolveThumbUrl?.(image) ?? image.thumbUrl;
-                      const fullUrl = fullResUrls.get(image.id);
-                      const imgUrl = fullUrl ?? thumbUrl;
-                      const isFullRes = fullResUrls.has(image.id);
-
-                      return imgUrl ? (
-                        <ModalImage
-                          src={imgUrl}
-                          thumbSrc={thumbUrl}
-                          alt={image.event ?? "Gallery image"}
+                  {isNearby && (
+                    <>
+                      {isItemVideo ? (
+                        <ModalVideo
                           isActive={isActiveSlide}
-                          isFullRes={isFullRes}
+                          objectUrl={isActiveSlide ? activeVideoUrl : null}
+                          posterUrl={resolveVideoThumbUrl?.(item) ?? item.thumbUrl}
+                          videoRef={videoElRef}
                         />
                       ) : (
-                        <p className="text-center text-sm text-white/80">
-                          Unable to load image.
-                        </p>
-                      );
-                    })()
+                        (() => {
+                          const image = item as ImageMeta;
+                          const thumbUrl =
+                            resolveThumbUrl?.(image) ?? image.thumbUrl;
+                          const fullUrl = fullResUrls.get(image.id);
+                          const imgUrl = fullUrl ?? thumbUrl;
+                          const isFullRes = fullResUrls.has(image.id);
+
+                          return imgUrl ? (
+                            <ModalImage
+                              src={imgUrl}
+                              thumbSrc={thumbUrl}
+                              alt={image.event ?? "Gallery image"}
+                              isActive={isActiveSlide}
+                              isFullRes={isFullRes}
+                            />
+                          ) : (
+                            <p className="text-center text-sm text-white/80">
+                              Unable to load image.
+                            </p>
+                          );
+                        })()
+                      )}
+                      <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
+                    </>
                   )}
-                  <div className="pointer-events-none absolute inset-y-0 -right-4 hidden w-10 bg-linear-to-l from-black/60 to-transparent sm:block" />
                 </div>
               );
             })}

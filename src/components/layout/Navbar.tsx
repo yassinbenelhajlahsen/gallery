@@ -130,7 +130,7 @@ const Navbar = () => {
 
       {/* Mobile bottom tab bar */}
       <nav
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#E0E0E0] bg-[#FAFAF7]"
+        className="app-bottom-nav sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#E0E0E0] bg-[#FAFAF7]"
         aria-label="Primary"
       >
         <div className="flex items-stretch">
