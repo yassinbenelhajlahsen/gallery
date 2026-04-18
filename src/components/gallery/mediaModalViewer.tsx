@@ -9,6 +9,7 @@ import { useModalViewportLock } from "../../hooks/useModalViewportLock";
 import { useModalVideoManager } from "../../hooks/useModalVideoManager";
 import { useFullResPreloader } from "../../hooks/useFullResPreloader";
 import { useMediaSwipeGesture } from "../../hooks/useMediaSwipeGesture";
+import { useReverseGeocode } from "../../hooks/useReverseGeocode";
 
 export type MediaModalViewer = {
   media: MediaMeta[];
@@ -166,6 +167,8 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
     document.addEventListener("keydown", trap);
     return () => document.removeEventListener("keydown", trap);
   }, [isOpen]);
+
+  const { placeName } = useReverseGeocode(currentItem?.location ?? null, isOpen);
 
   if (!isOpen || !media.length) return null;
 
@@ -343,6 +346,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
           >
             <p className="text-base font-semibold text-white">{eventLabel}</p>
             {dateLabel && <p className="text-xs text-white/60">{dateLabel}</p>}
+            {placeName && <p className="text-xs text-white/60">{placeName}</p>}
           </div>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
             <div className="flex items-center gap-2">
