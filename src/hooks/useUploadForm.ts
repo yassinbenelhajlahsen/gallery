@@ -29,7 +29,11 @@ export function useUploadForm(fileInputRef: RefObject<HTMLInputElement | null>) 
     filesToProbe.forEach((f, i) => { metaMap[f.name] = dates[i] ?? null; });
     setFileMetaDates(metaMap);
     setIsReadingMeta(false);
-  }, []);
+    if (filesToProbe.length === 1 && dates[0] && (dateSource === "none" || dateSource === "metadata")) {
+      setDate(dates[0]);
+      setDateSource("metadata");
+    }
+  }, [dateSource]);
 
   const handleFileInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +42,10 @@ export function useUploadForm(fileInputRef: RefObject<HTMLInputElement | null>) 
       setFileMetaDates({});
       if (!selectedFiles || selectedFiles.length === 0) return;
       if (dateSource === "event") return;
+      if (dateSource === "metadata") {
+        setDate("");
+        setDateSource("none");
+      }
       await probeFilesMetadata(Array.from(selectedFiles));
     },
     [dateSource, probeFilesMetadata],

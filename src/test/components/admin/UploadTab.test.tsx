@@ -338,10 +338,10 @@ describe("UploadTab", () => {
       expect(inferUploadDateFromMetadataMock).toHaveBeenCalledTimes(1);
     });
 
-    // For a single file the per-file table is hidden; the EXIF date is stored
-    // internally and used during upload. The date input remains empty.
     const dateInputs = getDateInputs();
-    expect(dateInputs[0]?.value).toBe("");
+    await waitFor(() => {
+      expect(dateInputs[0]?.value).toBe("2025-01-02");
+    });
   });
 
   it("uploads an image, writes Firestore metadata, and refreshes gallery", async () => {
