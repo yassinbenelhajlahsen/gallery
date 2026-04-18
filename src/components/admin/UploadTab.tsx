@@ -285,88 +285,92 @@ export default function AdminUploadPage() {
 
       {/* Error Alert */}
       {uploader.error && (
-        <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div className="flex-1">
-              <p className="font-semibold text-red-800">Upload Failed</p>
-              <p className="mt-1 text-sm text-red-700">{uploader.error}</p>
-            </div>
-          </div>
+        <div className="rounded-xl border border-[#f1dada] bg-[#ffebeb] p-4 shadow-sm">
+          <p className="text-sm font-semibold text-[#7d1f1f]">Upload failed</p>
+          <p className="mt-1 text-sm text-[#8a2222]">{uploader.error}</p>
         </div>
       )}
 
       {/* Upload Progress */}
       {uploader.uploadProgress.length > 0 && (
-        <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-[#333]">
+        <div className="space-y-4 rounded-2xl border border-[#F0F0F0] bg-[#FAFAF7] p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-[#333]">
               Upload Progress
             </h2>
-            <span className="rounded-full bg-[#D8ECFF]/70 px-2.5 py-0.5 text-xs font-semibold text-[#333]">
+            <span className="rounded-full bg-[#F7DEE2] px-3 py-1 text-xs font-semibold text-[#333]">
               {uploader.uploadProgress.filter((p) => p.status === "success").length} /{" "}
               {uploader.uploadProgress.length}
             </span>
           </div>
 
           <div className="space-y-3">
-            {uploader.uploadProgress.map((item) => (
-              <div
-                key={item.fileName}
-                className="space-y-2 rounded-lg bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="flex-1 truncate text-sm font-medium text-[#333]">
-                    {item.fileName}
-                  </p>
-                  <span
-                    className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${
-                      item.status === "success"
-                        ? "bg-green-100 text-green-800"
-                        : item.status === "error"
-                          ? "bg-red-100 text-red-800"
-                          : item.status === "uploading"
-                            ? "bg-blue-100 text-blue-800"
-                            : item.status === "converting"
-                              ? "bg-purple-100 text-purple-800"
-                              : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {item.status === "success" && "✓ Done"}
-                    {item.status === "error" && "✗ Failed"}
-                    {item.status === "uploading" && "⬆ Uploading"}
-                    {item.status === "converting" && "⚙ Converting"}
-                    {item.status === "pending" && "⏳ Pending"}
-                  </span>
-                </div>
+            {uploader.uploadProgress.map((item) => {
+              const pillClasses =
+                item.status === "success"
+                  ? "bg-[#E7F1EC] text-[#2f5d4d]"
+                  : item.status === "error"
+                    ? "bg-[#ffebeb] text-[#8a2222]"
+                    : item.status === "uploading"
+                      ? "bg-[#F7DEE2] text-[#7a3b48]"
+                      : item.status === "converting"
+                        ? "bg-[#FBE9D8] text-[#8a5a2a]"
+                        : "bg-[#F0F0F0] text-[#666]";
 
-                {/* Progress Bar */}
-                <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      item.status === "success"
-                        ? "bg-green-500"
-                        : item.status === "error"
-                          ? "bg-red-500"
-                          : "bg-blue-500"
-                    }`}
-                    style={{ width: `${item.progress}%` }}
-                  />
-                </div>
+              const statusLabel =
+                item.status === "success"
+                  ? "Done"
+                  : item.status === "error"
+                    ? "Failed"
+                    : item.status === "uploading"
+                      ? "Uploading"
+                      : item.status === "converting"
+                        ? "Converting"
+                        : "Pending";
 
-                {/* Progress Text and Error */}
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-600">
-                    {item.progress}%
-                  </p>
-                  {item.error && (
-                    <p className="text-xs font-medium text-red-600">
-                      {item.error}
+              const barClasses =
+                item.status === "success"
+                  ? "bg-[#9FC7B3]"
+                  : item.status === "error"
+                    ? "bg-[#E5A3A3]"
+                    : "bg-[#F3CED6]";
+
+              return (
+                <div
+                  key={item.fileName}
+                  className="space-y-2 rounded-xl border border-[#F0F0F0] bg-white p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="flex-1 truncate text-sm font-medium text-[#333]">
+                      {item.fileName}
                     </p>
-                  )}
+                    <span
+                      className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${pillClasses}`}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+
+                  <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-[#F0F0F0]">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${barClasses}`}
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-[#888]">
+                      {item.progress}%
+                    </p>
+                    {item.error && (
+                      <p className="truncate text-xs font-medium text-[#8a2222]">
+                        {item.error}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

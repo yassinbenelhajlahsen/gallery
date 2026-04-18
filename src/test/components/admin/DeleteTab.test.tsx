@@ -25,8 +25,13 @@ const {
   getDocMock,
   writeBatchMock,
   toastMock,
-  refreshGalleryMock,
-  refreshEventsMock,
+  patchImageMetaMock,
+  removeImageMetaMock,
+  patchVideoMetaMock,
+  removeVideoMetaMock,
+  patchEventMock,
+  removeEventMock,
+  upsertEventMock,
   galleryState,
 } = vi.hoisted(() => ({
   deleteObjectMock: vi.fn(),
@@ -42,8 +47,13 @@ const {
   getDocMock: vi.fn(),
   writeBatchMock: vi.fn(),
   toastMock: vi.fn(),
-  refreshGalleryMock: vi.fn(),
-  refreshEventsMock: vi.fn(),
+  patchImageMetaMock: vi.fn(),
+  removeImageMetaMock: vi.fn(),
+  patchVideoMetaMock: vi.fn(),
+  removeVideoMetaMock: vi.fn(),
+  patchEventMock: vi.fn(),
+  removeEventMock: vi.fn(),
+  upsertEventMock: vi.fn(),
   galleryState: {
     imageMetas: [
       {
@@ -103,10 +113,15 @@ vi.mock("../../../context/GalleryContext", () => ({
     imageMetas: galleryState.imageMetas,
     videoMetas: galleryState.videoMetas,
     events: galleryState.events,
-    refreshGallery: refreshGalleryMock,
-    refreshEvents: refreshEventsMock,
     resolveThumbUrl: (meta: { thumbUrl: string }) => meta.thumbUrl,
     resolveVideoThumbUrl: () => "",
+    patchImageMeta: patchImageMetaMock,
+    removeImageMeta: removeImageMetaMock,
+    patchVideoMeta: patchVideoMetaMock,
+    removeVideoMeta: removeVideoMetaMock,
+    patchEvent: patchEventMock,
+    removeEvent: removeEventMock,
+    upsertEvent: upsertEventMock,
   }),
 }));
 
@@ -151,8 +166,13 @@ describe("DeleteTab", () => {
       commit: vi.fn().mockResolvedValue(undefined),
     });
     toastMock.mockReset();
-    refreshGalleryMock.mockReset().mockResolvedValue(undefined);
-    refreshEventsMock.mockReset().mockResolvedValue(undefined);
+    patchImageMetaMock.mockReset();
+    removeImageMetaMock.mockReset();
+    patchVideoMetaMock.mockReset();
+    removeVideoMetaMock.mockReset();
+    patchEventMock.mockReset();
+    removeEventMock.mockReset();
+    upsertEventMock.mockReset();
   });
 
   it("deletes image storage objects + metadata after two-step confirm", async () => {
@@ -162,10 +182,10 @@ describe("DeleteTab", () => {
 
     fireEvent.click(deleteButton);
     expect(
-      screen.getByRole("button", { name: "Confirm Delete" }),
+      screen.getByRole("button", { name: "Confirm?" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm?" }));
 
     await waitFor(() => {
       expect(deleteObjectMock).toHaveBeenCalledTimes(2);
@@ -184,8 +204,7 @@ describe("DeleteTab", () => {
     expect(updateDocMock).toHaveBeenCalledWith("event-ref", {
       imageIds: "img-1.jpg",
     });
-    expect(refreshGalleryMock).toHaveBeenCalledTimes(1);
-    expect(refreshEventsMock).toHaveBeenCalledTimes(1);
+    expect(removeImageMetaMock).toHaveBeenCalledWith("img-1.jpg");
     expect(toastMock).toHaveBeenCalledWith(
       "Deleted image img-1.jpg",
       "success",
@@ -257,7 +276,7 @@ describe("DeleteTab", () => {
 
     const deleteButton = screen.getByRole("button", { name: "Delete" });
     fireEvent.click(deleteButton);
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm?" }));
 
     await waitFor(() => {
       expect(deleteDocMock).toHaveBeenCalledWith({
@@ -315,7 +334,7 @@ describe("DeleteTab", () => {
 
     const deleteButton = screen.getByRole("button", { name: "Delete" });
     fireEvent.click(deleteButton);
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm?" }));
 
     await waitFor(() => {
       expect(deleteDocMock).toHaveBeenCalledWith({
@@ -325,14 +344,19 @@ describe("DeleteTab", () => {
     });
 
     expect(batchUpdateMock).toHaveBeenCalledWith(
-      { collectionName: "images", id: "img-1.jpg" },
+      { collectionName: "images", id: "img-by-event" },
       { event: null },
     );
     expect(batchUpdateMock).toHaveBeenCalledWith(
-      { collectionName: "videos", id: "vid-1.mp4" },
+      { collectionName: "videos", id: "vid-by-event" },
       { event: null },
     );
     expect(batchCommitMock).toHaveBeenCalledTimes(1);
+    expect(removeEventMock).toHaveBeenCalledWith("event-1");
+    expect(patchImageMetaMock).toHaveBeenCalledWith("img-1.jpg", { event: undefined });
+    expect(patchImageMetaMock).toHaveBeenCalledWith("vid-1.mp4", { event: undefined });
+    expect(patchVideoMetaMock).toHaveBeenCalledWith("img-1.jpg", { event: undefined });
+    expect(patchVideoMetaMock).toHaveBeenCalledWith("vid-1.mp4", { event: undefined });
     expect(toastMock).toHaveBeenCalledWith("Deleted timeline event", "success");
   });
 
@@ -360,8 +384,10 @@ describe("DeleteTab", () => {
       );
     });
 
-    expect(refreshGalleryMock).toHaveBeenCalledTimes(1);
-    expect(refreshEventsMock).toHaveBeenCalledTimes(1);
+    expect(patchImageMetaMock).toHaveBeenCalledWith("img-1.jpg", {
+      date: "2024-05-12",
+      event: "Road Trip",
+    });
     expect(toastMock).toHaveBeenCalledWith("Updated image metadata", "success");
   });
 
@@ -430,16 +456,23 @@ describe("DeleteTab", () => {
     });
 
     expect(batchUpdateMock).toHaveBeenCalledWith(
-      { collectionName: "images", id: "img-1.jpg" },
+      { collectionName: "images", id: "img-by-event" },
       { event: "Vacation" },
     );
     expect(batchUpdateMock).toHaveBeenCalledWith(
-      { collectionName: "videos", id: "vid-1.mp4" },
+      { collectionName: "videos", id: "vid-by-event" },
       { event: "Vacation" },
     );
     expect(batchCommitMock).toHaveBeenCalledTimes(1);
-    expect(refreshGalleryMock).toHaveBeenCalledTimes(1);
-    expect(refreshEventsMock).toHaveBeenCalledTimes(1);
+    expect(patchEventMock).toHaveBeenCalledWith("event-1", {
+      date: "2024-03-10",
+      title: "Vacation",
+      emojiOrDot: undefined,
+    });
+    expect(patchImageMetaMock).toHaveBeenCalledWith("img-1.jpg", { event: "Vacation" });
+    expect(patchImageMetaMock).toHaveBeenCalledWith("vid-1.mp4", { event: "Vacation" });
+    expect(patchVideoMetaMock).toHaveBeenCalledWith("img-1.jpg", { event: "Vacation" });
+    expect(patchVideoMetaMock).toHaveBeenCalledWith("vid-1.mp4", { event: "Vacation" });
     expect(toastMock).toHaveBeenCalledWith("Updated timeline event", "success");
   });
 });

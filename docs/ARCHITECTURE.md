@@ -44,7 +44,6 @@ src/
 │   │   └── TimelineEventItem.tsx
 │   └── ui/
 │       ├── FloatingInput.tsx
-│       ├── DeleteConfirmModal.tsx
 │       ├── EditMetadataModal.tsx         # hosts LocationField for image/video edits
 │       ├── LocationField.tsx             # search (Nominatim) + map picker + current/pending coords
 │       └── ErrorBoundary.tsx             # class ErrorBoundary + RouteErrorPage
@@ -67,11 +66,11 @@ src/
 │   # UploadTab
 │   ├── useEventCreation.ts               # event-creation form state + submit
 │   ├── useUploadForm.ts                  # file picker + metadata/date/event state
-│   ├── useUploadOrchestrator.ts          # upload queue + per-file progress
+│   ├── useUploadOrchestrator.ts          # 3-way concurrent worker pool + real byte progress
 │   # DeleteTab (+ TimelinePage for useMediaSearch)
 │   ├── useMediaSearch.ts                 # shared token-based search (images/videos/events)
-│   ├── useMetadataEditor.ts              # edit draft state + save
-│   ├── useDeleteConfirmation.ts          # delete confirmation flow
+│   ├── useMetadataEditor.ts              # edit draft state + save (patches GalleryContext, no refetch)
+│   ├── useDeleteConfirmation.ts          # delete confirmation flow (patches GalleryContext, no refetch)
 │   # mediaModalViewer
 │   ├── useCarouselNavigation.ts          # indices, wrapping, slide transitions
 │   ├── useModalViewportLock.ts           # body scroll lock + iOS navbar pinning
@@ -199,8 +198,7 @@ Admin UI and data operations are split across components and services:
 
 - `src/components/admin/UploadTab.tsx`: upload/event forms, progress UI, and orchestration.
 - `src/services/uploadService.ts`: media conversion/extraction helpers, Storage uploads, Firestore writes, and unique-name resolution.
-- `src/components/admin/DeleteTab.tsx`: search/filter UI and delete/edit orchestration.
-- `src/components/ui/DeleteConfirmModal.tsx`: reusable admin delete confirmation modal UI.
+- `src/components/admin/DeleteTab.tsx`: search/filter UI and delete/edit orchestration. Delete buttons use a two-step arm/confirm flow (first press arms and relabels to "Confirm?", second press within 3s deletes; auto-reverts otherwise) — no confirmation modal.
 - `src/components/ui/EditMetadataModal.tsx`: unified edit flow for date/event/title/emoji; for image/video drafts it embeds `LocationField` so the GPS pin is edited alongside the other metadata in one save.
 - `src/components/ui/LocationField.tsx`: search (Nominatim) + inline picker map + current/pending coord display + remove-pin control. Imports `LocationPickerMap` from `components/map/`.
 - `src/services/deleteService.ts`: metadata update helpers (`updateMediaMetadata` takes an optional `location` arg — `undefined` = leave alone, `null` = clear, object = set), Storage deletes, Firestore deletes, and linked event/media cleanup.

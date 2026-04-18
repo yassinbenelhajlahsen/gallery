@@ -18,7 +18,7 @@ const {
   getDocMock,
   serverTimestampMock,
   refMock,
-  uploadBytesMock,
+  uploadBytesResumableMock,
   getDownloadURLMock,
   getMetadataMock,
   toastMock,
@@ -34,7 +34,7 @@ const {
   getDocMock: vi.fn(),
   serverTimestampMock: vi.fn(),
   refMock: vi.fn(),
-  uploadBytesMock: vi.fn(),
+  uploadBytesResumableMock: vi.fn(),
   getDownloadURLMock: vi.fn(),
   getMetadataMock: vi.fn(),
   toastMock: vi.fn(),
@@ -64,7 +64,7 @@ vi.mock("firebase/firestore", () => ({
 
 vi.mock("firebase/storage", () => ({
   ref: refMock,
-  uploadBytes: uploadBytesMock,
+  uploadBytesResumable: uploadBytesResumableMock,
   getDownloadURL: getDownloadURLMock,
   getMetadata: getMetadataMock,
 }));
@@ -219,7 +219,16 @@ describe("UploadTab", () => {
     serverTimestampMock.mockReset().mockReturnValue("SERVER_TS");
 
     refMock.mockReset().mockImplementation((_storage, path: string) => ({ path }));
-    uploadBytesMock.mockReset().mockResolvedValue(undefined);
+    uploadBytesResumableMock.mockReset().mockImplementation(() => ({
+      on: (
+        _event: string,
+        _onNext: (snapshot: { bytesTransferred: number; totalBytes: number }) => void,
+        _onError: (err: unknown) => void,
+        onComplete: () => void,
+      ) => {
+        queueMicrotask(() => onComplete());
+      },
+    }));
     getDownloadURLMock
       .mockReset()
       .mockImplementation(async ({ path }: { path: string }) => {
@@ -360,12 +369,12 @@ describe("UploadTab", () => {
       expect(setDocMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(uploadBytesMock).toHaveBeenCalledWith(
+    expect(uploadBytesResumableMock).toHaveBeenCalledWith(
       { path: "images/full/beach.jpg" },
       expect.any(Blob),
       { contentType: "image/jpeg" },
     );
-    expect(uploadBytesMock).toHaveBeenCalledWith(
+    expect(uploadBytesResumableMock).toHaveBeenCalledWith(
       { path: "images/thumb/beach.jpg" },
       expect.any(Blob),
       { contentType: "image/jpeg" },
@@ -444,7 +453,7 @@ describe("UploadTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upload Media" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Upload Failed")).toBeInTheDocument();
+      expect(screen.getByText("Upload failed")).toBeInTheDocument();
     });
     expect(screen.getByText("No files were successfully uploaded")).toBeInTheDocument();
     expect(refreshGalleryMock).not.toHaveBeenCalled();

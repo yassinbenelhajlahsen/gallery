@@ -11,7 +11,7 @@ import type { EditDraft } from "../components/ui/EditMetadataModal";
 export function useMetadataEditor() {
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const { refreshGallery, refreshEvents } = useGallery();
+  const { patchImageMeta, patchVideoMeta, patchEvent } = useGallery();
   const { toast } = useToast();
 
   const openImageEditor = useCallback(
@@ -90,14 +90,28 @@ export function useMetadataEditor() {
           toast("Event title is required.", "error");
           return;
         }
+        const emoji = (draft.emojiOrDot ?? "").trim();
         await updateTimelineEventMetadata({
           id: draft.id,
           date: draft.date,
           title,
-          emojiOrDot: draft.emojiOrDot,
+          emojiOrDot: emoji,
           originalTitle: draft.originalTitle,
-          mediaIds: draft.mediaIds,
         });
+
+        patchEvent(draft.id, {
+          date: draft.date,
+          title,
+          emojiOrDot: emoji.length > 0 ? emoji : undefined,
+        });
+
+        if (draft.originalTitle !== title) {
+          const nextEvent = title;
+          for (const mediaId of draft.mediaIds) {
+            patchImageMeta(mediaId, { event: nextEvent });
+            patchVideoMeta(mediaId, { event: nextEvent });
+          }
+        }
       } else {
         const locationChanged =
           JSON.stringify(draft.currentLocation) !==
@@ -109,10 +123,22 @@ export function useMetadataEditor() {
           draft.event,
           locationChanged ? draft.pendingLocation : undefined,
         );
+
+        const trimmedEvent = draft.event.trim();
+        const partial: { date: string; event?: string; location?: { lat: number; lng: number } } = {
+          date: draft.date,
+          event: trimmedEvent.length > 0 ? trimmedEvent : undefined,
+        };
+        if (locationChanged) {
+          partial.location = draft.pendingLocation ?? undefined;
+        }
+        if (draft.kind === "image") {
+          patchImageMeta(draft.id, partial);
+        } else {
+          patchVideoMeta(draft.id, partial);
+        }
       }
 
-      await refreshGallery();
-      await refreshEvents();
       toast(draft.kind === "event" ? "Updated timeline event" : `Updated ${draft.kind} metadata`, "success");
       setEditDraft(null);
     } catch (error) {
@@ -121,7 +147,7 @@ export function useMetadataEditor() {
     } finally {
       setIsSavingEdit(false);
     }
-  }, [editDraft, isSavingEdit, refreshGallery, refreshEvents, toast]);
+  }, [editDraft, isSavingEdit, patchEvent, patchImageMeta, patchVideoMeta, toast]);
 
   return {
     editDraft,

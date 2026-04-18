@@ -111,9 +111,9 @@ Main responsibilities:
 
 - metadata search/date normalization helpers used by delete/edit UI
 - media metadata update (`updateMediaMetadata(kind, id, date, event, location?)`) — the optional `location` argument uses a three-state contract (`undefined` leaves unchanged, `null` clears, object sets) so a single `updateDoc` covers the date/event edit **and** the GPS edit in one write
-- timeline event metadata update with linked media propagation (`updateTimelineEventMetadata`)
+- timeline event metadata update with linked-media propagation (`updateTimelineEventMetadata`) — when the title changes, `updateEventFieldOnLinkedMedia` batch-updates every doc found via `where("event","==",oldTitle)` in a single Firestore batch
 - media delete with Storage + Firestore cleanup (`deleteImageWithMetadata`, `deleteVideoWithMetadata`)
-- event delete with linked media `event` cleanup (`deleteEventWithLinkedMediaCleanup`)
+- event delete with linked-media `event` cleanup (`deleteEventWithLinkedMediaCleanup(eventId, eventTitle)` — `mediaIds` is no longer required; the `where`-query already covers every linked doc)
 
 ## Context Layer
 
@@ -146,14 +146,18 @@ State includes:
 
 Helpers:
 
-- `resolveThumbUrl(imageMeta)`
+- `resolveThumbUrl(imageMeta)` — O(1) lookup via memoized `Map<id, objectUrl>` over `preloadedImages`
 - `resolveVideoThumbUrl(videoMeta)`
 - `resolveFullResUrl(imageMeta)` — returns a cached full-res blob URL if available, else `null`
 - `openModalWithImages(...)`
 - `openModalWithMedia(...)`
 - `openModalForImageId(...)`
-- `refreshGallery()`
-- `refreshEvents()`
+- `refreshGallery()` — full refetch of images + videos + thumb cache sync (used only by upload, to pick up newly uploaded thumbs)
+- `refreshEvents()` — refetch of events (kept for parity; mutations no longer call it)
+- **Local patch helpers** — mutation hooks use these instead of refreshing, so edits/deletes are instant:
+  - `patchImageMeta(id, partial)` / `removeImageMeta(id)` (also revokes associated blob URLs)
+  - `patchVideoMeta(id, partial)` / `removeVideoMeta(id)`
+  - `patchEvent(id, partial)` / `removeEvent(id)` / `upsertEvent(event)` (re-sorts by date)
 
 ### `GalleryContext` load sequence (on auth user ready)
 
@@ -239,17 +243,20 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 - images: convert to JPEG + generate 480px thumb, upload both, then write Firestore image doc
 - videos: generate poster + read duration, upload video/poster, then write Firestore video doc
 - resolves unique names to avoid collisions
-- refreshes gallery after successful uploads
+- **Concurrent uploads**: `useUploadOrchestrator` runs a bounded worker pool (3 concurrent) pulling from a shared queue instead of a sequential `for`-loop
+- **Real byte-level progress**: `uploadImageWithMetadata` / `uploadVideoWithMetadata` accept an `onProgress: (fraction: number) => void` callback and use `uploadBytesResumable`. The orchestrator combines full + thumb byte transfer into a single 0–1 fraction and maps it to a 5–98 % UI range (2 % while converting, 100 % on Firestore write). This replaces the old hardcoded 10 → 20 → 60 → 100 stepping that made the bar appear stuck at 60 %.
+- refreshes gallery once after the batch completes (needed to sync newly uploaded thumbs into IndexedDB)
 
-### Delete (`DeleteTab`)
+### Delete / Edit (`DeleteTab`)
 
 - component owns list/search/modal UI and delegates Firebase operations to `deleteService`
-- delete uses confirmation modal (`Delete` -> modal `Confirm Delete`)
+- delete uses an **inline two-tap arm/confirm** pattern — first tap on `Delete` flips the button to `Confirm?`; a second tap within 3s actually deletes, and the armed state auto-disarms after 3s if the user doesn't confirm (see `useDeleteConfirmation`). There is no confirmation modal for the row-level delete
 - image/video delete removes Storage objects and Firestore metadata doc
 - media delete also removes ids from event `imageIds`
-- event delete clears linked media `event` field and deletes event doc
+- event delete clears linked media `event` field (via a single `where("event","==",title)` batch, no per-id probes) and deletes event doc
 - includes search across date/event/id tokens
-- **edit**: image/video rows open `EditMetadataModal`, which now embeds `LocationField` — date/event/location save in a single `updateMediaMetadata` call; the hook (`useMetadataEditor`) JSON-diffs `currentLocation` vs `pendingLocation` so unchanged location is passed as `undefined` and stays out of the write payload
+- **edit**: image/video rows open `EditMetadataModal`, which embeds `LocationField` — date/event/location save in a single `updateMediaMetadata` call; the hook (`useMetadataEditor`) JSON-diffs `currentLocation` vs `pendingLocation` so unchanged location is passed as `undefined` and stays out of the write payload
+- **No post-mutation refetch**: after every edit / delete, the hooks patch `GalleryContext` state directly (`patchImageMeta`, `removeVideoMeta`, `patchEvent`, etc.) instead of calling `refreshGallery()` / `refreshEvents()`. Photos / Videos / Timeline / DeleteTab all read from the same context state, so they update in the same tick with no network round-trip or loading flicker
 
 ## Memory and URL Lifecycle
 

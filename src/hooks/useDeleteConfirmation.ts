@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGallery } from "../context/GalleryContext";
 import { useToast } from "../context/ToastContext";
 import {
@@ -6,119 +6,154 @@ import {
   deleteImageWithMetadata,
   deleteVideoWithMetadata,
 } from "../services/deleteService";
-import type { DeleteConfirmModalDraft } from "../components/ui/DeleteConfirmModal";
 
-type DeleteConfirmDraft = DeleteConfirmModalDraft & {
-  key: string;
-  onConfirm: () => Promise<void>;
-};
+const ARMED_TIMEOUT_MS = 3000;
 
 export function useDeleteConfirmation(isSavingEdit: boolean) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [deleteDraft, setDeleteDraft] = useState<DeleteConfirmDraft | null>(null);
-  const { refreshGallery, refreshEvents } = useGallery();
+  const [armedKey, setArmedKey] = useState<string | null>(null);
+  const armedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    events,
+    removeImageMeta,
+    removeVideoMeta,
+    removeEvent,
+    patchEvent,
+    patchImageMeta,
+    patchVideoMeta,
+  } = useGallery();
   const { toast } = useToast();
 
-  const openDeleteConfirm = useCallback(
-    (nextDraft: DeleteConfirmDraft) => {
-      if (busyKey || isSavingEdit) return;
-      setDeleteDraft(nextDraft);
+  const clearArmedTimer = useCallback(() => {
+    if (armedTimerRef.current) {
+      clearTimeout(armedTimerRef.current);
+      armedTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearArmedTimer, [clearArmedTimer]);
+
+  const armKey = useCallback(
+    (key: string) => {
+      setArmedKey(key);
+      clearArmedTimer();
+      armedTimerRef.current = setTimeout(() => {
+        setArmedKey((current) => (current === key ? null : current));
+        armedTimerRef.current = null;
+      }, ARMED_TIMEOUT_MS);
     },
-    [busyKey, isSavingEdit],
+    [clearArmedTimer],
+  );
+
+  const stripMediaFromEvents = useCallback(
+    (mediaId: string) => {
+      for (const ev of events) {
+        if (ev.imageIds?.includes(mediaId)) {
+          patchEvent(ev.id, {
+            imageIds: ev.imageIds.filter((x) => x !== mediaId),
+          });
+        }
+      }
+    },
+    [events, patchEvent],
+  );
+
+  const runDelete = useCallback(
+    async (
+      key: string,
+      kind: "image" | "video" | "event",
+      onConfirm: () => Promise<void>,
+    ) => {
+      setBusyKey(key);
+      clearArmedTimer();
+      setArmedKey(null);
+      try {
+        await onConfirm();
+      } catch (error) {
+        if (kind === "event") {
+          console.error("Failed to delete event", error);
+          toast("Failed to delete timeline event.", "error");
+        } else {
+          console.error(`Failed to delete ${kind}`, error);
+          toast(`Failed to delete ${kind}. Check console for details.`, "error");
+        }
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [clearArmedTimer, toast],
+  );
+
+  const handlePress = useCallback(
+    (
+      key: string,
+      kind: "image" | "video" | "event",
+      onConfirm: () => Promise<void>,
+    ) => {
+      if (busyKey || isSavingEdit) return;
+      if (armedKey === key) {
+        void runDelete(key, kind, onConfirm);
+        return;
+      }
+      armKey(key);
+    },
+    [armKey, armedKey, busyKey, isSavingEdit, runDelete],
   );
 
   const requestDeleteImage = useCallback(
     (id: string, fullPath: string, thumbPath: string) => {
-      openDeleteConfirm({
-        key: `image:${id}`,
-        kind: "image",
-        title: id,
-        onConfirm: async () => {
-          await deleteImageWithMetadata(id, fullPath, thumbPath);
-          await refreshGallery();
-          await refreshEvents();
-          toast(`Deleted image ${id}`, "success");
-        },
+      handlePress(`image:${id}`, "image", async () => {
+        await deleteImageWithMetadata(id, fullPath, thumbPath);
+        removeImageMeta(id);
+        stripMediaFromEvents(id);
+        toast(`Deleted image ${id}`, "success");
       });
     },
-    [openDeleteConfirm, refreshGallery, refreshEvents, toast],
+    [handlePress, removeImageMeta, stripMediaFromEvents, toast],
   );
 
   const requestDeleteVideo = useCallback(
     (id: string, fullPath: string, thumbPath: string) => {
-      openDeleteConfirm({
-        key: `video:${id}`,
-        kind: "video",
-        title: id,
-        onConfirm: async () => {
-          await deleteVideoWithMetadata(id, fullPath, thumbPath);
-          await refreshGallery();
-          await refreshEvents();
-          toast(`Deleted video ${id}`, "success");
-        },
+      handlePress(`video:${id}`, "video", async () => {
+        await deleteVideoWithMetadata(id, fullPath, thumbPath);
+        removeVideoMeta(id);
+        stripMediaFromEvents(id);
+        toast(`Deleted video ${id}`, "success");
       });
     },
-    [openDeleteConfirm, refreshGallery, refreshEvents, toast],
+    [handlePress, removeVideoMeta, stripMediaFromEvents, toast],
   );
 
   const requestDeleteEvent = useCallback(
     (eventId: string, eventTitle: string, mediaIds: string[]) => {
-      openDeleteConfirm({
-        key: `event:${eventId}`,
-        kind: "event",
-        title: eventTitle,
-        onConfirm: async () => {
-          await deleteEventWithLinkedMediaCleanup(eventId, eventTitle, mediaIds);
-          await refreshGallery();
-          await refreshEvents();
-          toast("Deleted timeline event", "success");
-        },
+      handlePress(`event:${eventId}`, "event", async () => {
+        await deleteEventWithLinkedMediaCleanup(eventId, eventTitle);
+        removeEvent(eventId);
+        for (const mediaId of mediaIds) {
+          patchImageMeta(mediaId, { event: undefined });
+          patchVideoMeta(mediaId, { event: undefined });
+        }
+        toast("Deleted timeline event", "success");
       });
     },
-    [openDeleteConfirm, refreshGallery, refreshEvents, toast],
+    [handlePress, patchImageMeta, patchVideoMeta, removeEvent, toast],
   );
-
-  const closeDeleteConfirm = useCallback(() => {
-    if (busyKey) return;
-    setDeleteDraft(null);
-  }, [busyKey]);
-
-  const confirmDelete = useCallback(async () => {
-    if (!deleteDraft || busyKey) return;
-    const draft = deleteDraft;
-    setBusyKey(draft.key);
-    try {
-      await draft.onConfirm();
-      setDeleteDraft(null);
-    } catch (error) {
-      if (draft.kind === "event") {
-        console.error("Failed to delete event", error);
-        toast("Failed to delete timeline event.", "error");
-      } else {
-        console.error(`Failed to delete ${draft.kind}`, error);
-        toast(`Failed to delete ${draft.kind}. Check console for details.`, "error");
-      }
-    } finally {
-      setBusyKey(null);
-    }
-  }, [busyKey, deleteDraft, toast]);
 
   const buttonLabel = useCallback(
-    (key: string) => (busyKey === key ? "Deleting..." : "Delete"),
-    [busyKey],
+    (key: string) => {
+      if (busyKey === key) return "Deleting...";
+      if (armedKey === key) return "Confirm?";
+      return "Delete";
+    },
+    [armedKey, busyKey],
   );
-
-  const isDeletingCurrentDraft = Boolean(deleteDraft) && busyKey === deleteDraft?.key;
 
   return {
     busyKey,
-    deleteDraft,
-    isDeletingCurrentDraft,
+    armedKey,
     requestDeleteImage,
     requestDeleteVideo,
     requestDeleteEvent,
-    closeDeleteConfirm,
-    confirmDelete,
     buttonLabel,
   };
 }

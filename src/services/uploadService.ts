@@ -1,11 +1,38 @@
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getDownloadURL, getMetadata, ref, uploadBytes } from "firebase/storage";
+import {
+  getDownloadURL,
+  getMetadata,
+  ref,
+  uploadBytesResumable,
+  type StorageReference,
+  type UploadMetadata,
+} from "firebase/storage";
 import exifr from "exifr";
 import { db } from "./firebaseFirestore";
 import { storage } from "./firebaseStorage";
 import { getVideoExtension } from "../utils/uploadMediaUtils";
 
 export type GpsLocation = { lat: number; lng: number };
+
+/** Reports upload progress as a fraction in [0, 1] covering the byte-transfer phase only. */
+export type UploadProgressCallback = (fraction: number) => void;
+
+function uploadBlobWithProgress(
+  storageRef: StorageReference,
+  data: Blob | File,
+  metadata: UploadMetadata,
+  onSnapshot: (transferred: number, total: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, data, metadata);
+    task.on(
+      "state_changed",
+      (snapshot) => onSnapshot(snapshot.bytesTransferred, snapshot.totalBytes),
+      (error) => reject(error),
+      () => resolve(),
+    );
+  });
+}
 
 async function readGpsLocation(file: File): Promise<GpsLocation | null> {
   try {
@@ -298,6 +325,7 @@ export async function uploadVideoWithMetadata(
   file: File,
   date: string,
   eventName: string,
+  onProgress?: UploadProgressCallback,
 ) {
   const cleanName = file.name.replace(/\.[^.]+$/, "");
   const ext = getVideoExtension(file);
@@ -311,10 +339,29 @@ export async function uploadVideoWithMetadata(
   const fullRef = ref(storage, `videos/full/${videoId}`);
   const thumbRef = ref(storage, `videos/thumb/${thumbName}`);
 
+  let fullXfer = 0;
+  let fullTotal = file.size;
+  let thumbXfer = 0;
+  let thumbTotal = posterBlob.size;
+  const report = () => {
+    const total = fullTotal + thumbTotal;
+    if (total <= 0) return;
+    onProgress?.(Math.min(1, (fullXfer + thumbXfer) / total));
+  };
+
   await Promise.all([
-    uploadBytes(fullRef, file, { contentType: file.type }),
-    uploadBytes(thumbRef, posterBlob, { contentType: "image/jpeg" }),
+    uploadBlobWithProgress(fullRef, file, { contentType: file.type }, (x, t) => {
+      fullXfer = x;
+      fullTotal = t;
+      report();
+    }),
+    uploadBlobWithProgress(thumbRef, posterBlob, { contentType: "image/jpeg" }, (x, t) => {
+      thumbXfer = x;
+      thumbTotal = t;
+      report();
+    }),
   ]);
+  onProgress?.(1);
 
   const payload: Record<string, unknown> = {
     id: videoId,
@@ -337,6 +384,7 @@ export async function uploadImageWithMetadata(
   file: File,
   date: string,
   eventName: string,
+  onProgress?: UploadProgressCallback,
 ) {
   const cleanName = file.name.replace(/\.[^.]+$/, "");
   const [img, location] = await Promise.all([
@@ -352,10 +400,29 @@ export async function uploadImageWithMetadata(
   const fullRef = ref(storage, `images/full/${jpgName}`);
   const thumbRef = ref(storage, `images/thumb/${jpgName}`);
 
+  let fullXfer = 0;
+  let fullTotal = jpegBlob.size;
+  let thumbXfer = 0;
+  let thumbTotal = thumbBlob.size;
+  const report = () => {
+    const total = fullTotal + thumbTotal;
+    if (total <= 0) return;
+    onProgress?.(Math.min(1, (fullXfer + thumbXfer) / total));
+  };
+
   await Promise.all([
-    uploadBytes(fullRef, jpegBlob, { contentType: "image/jpeg" }),
-    uploadBytes(thumbRef, thumbBlob, { contentType: "image/jpeg" }),
+    uploadBlobWithProgress(fullRef, jpegBlob, { contentType: "image/jpeg" }, (x, t) => {
+      fullXfer = x;
+      fullTotal = t;
+      report();
+    }),
+    uploadBlobWithProgress(thumbRef, thumbBlob, { contentType: "image/jpeg" }, (x, t) => {
+      thumbXfer = x;
+      thumbTotal = t;
+      report();
+    }),
   ]);
+  onProgress?.(1);
 
   const payload: Record<string, unknown> = {
     id: jpgName,

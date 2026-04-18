@@ -69,20 +69,21 @@ Use `GalleryGrid` and compose tile data from context + `useFullResLoader`:
 
 Mirror `UploadTab` behavior:
 
-1. Prefer `src/services/uploadService.ts` entrypoints (`uploadImageWithMetadata`, `uploadVideoWithMetadata`) instead of in-component Firebase logic.
+1. Prefer `src/services/uploadService.ts` entrypoints (`uploadImageWithMetadata`, `uploadVideoWithMetadata`) instead of in-component Firebase logic. Both accept an optional `onProgress: (fraction: number) => void` callback that reports combined full+thumb byte progress via `uploadBytesResumable`.
 2. Generate/upload image full + thumb OR video + poster.
 3. Write Firestore metadata doc (`images` or `videos`) with storage paths and app metadata.
 4. Keep metadata in Firestore, not Storage custom metadata.
-5. Refresh gallery state after successful writes (`refreshGallery`).
+5. For batch uploads, run a bounded worker pool (3 concurrent by default — see `useUploadOrchestrator`) rather than a sequential loop.
+6. Call `refreshGallery()` **once** after the whole batch completes — newly uploaded thumbs need the IndexedDB cache sync. Individual uploads don't need a refresh on their own.
 
 ### Delete or Edit Metadata Programmatically
 
 Mirror `DeleteTab` behavior via `src/services/deleteService.ts`:
 
 1. For media metadata edits, use `updateMediaMetadata(kind, id, date, event, location?)`. The optional `location` argument follows a three-state contract: `undefined` leaves the field alone, `null` clears it, an object sets it. Diff against the original on the caller side (see `useMetadataEditor.saveEdit`) so untouched edits don't cause spurious writes.
-2. For timeline event edits, use `updateTimelineEventMetadata(...)` so linked media is updated on title changes.
-3. For destructive operations, use `deleteImageWithMetadata(...)`, `deleteVideoWithMetadata(...)`, or `deleteEventWithLinkedMediaCleanup(...)`.
-4. Refresh gallery/events after successful mutations (`refreshGallery`, `refreshEvents`).
+2. For timeline event edits, use `updateTimelineEventMetadata(...)` so linked media is updated on title changes. The service no longer requires a `mediaIds` parameter — the `where("event","==",oldTitle)` batch covers every linked doc.
+3. For destructive operations, use `deleteImageWithMetadata(...)`, `deleteVideoWithMetadata(...)`, or `deleteEventWithLinkedMediaCleanup(eventId, eventTitle)`.
+4. **Do not** call `refreshGallery()` / `refreshEvents()` after a single mutation. Instead, patch `GalleryContext` state directly via `patchImageMeta` / `removeImageMeta` / `patchVideoMeta` / `removeVideoMeta` / `patchEvent` / `removeEvent` / `upsertEvent`. Every page (Photos, Videos, Timeline, DeleteTab) reads the same context state, so patches propagate everywhere in one render with no Firestore round-trip or loading flicker. Reserve full refreshes for the post-upload case, where thumb cache sync is required.
 
 ### Extract Component Logic into Hooks
 

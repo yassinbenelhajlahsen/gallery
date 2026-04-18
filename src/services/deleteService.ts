@@ -4,7 +4,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   query,
   updateDoc,
@@ -124,7 +123,6 @@ const removeMediaFromEventRefs = async (mediaId: string) => {
 
 export const updateEventFieldOnLinkedMedia = async (
   eventTitle: string,
-  mediaIds: string[],
   nextEventValue: string | null,
 ) => {
   const batch = writeBatch(db);
@@ -144,17 +142,6 @@ export const updateEventFieldOnLinkedMedia = async (
 
   imagesByEvent.docs.forEach((imageDoc) => queueUpdateEvent("images", imageDoc.id));
   videosByEvent.docs.forEach((videoDoc) => queueUpdateEvent("videos", videoDoc.id));
-
-  await Promise.all(
-    mediaIds.map(async (mediaId) => {
-      const [imageDoc, videoDoc] = await Promise.all([
-        getDoc(doc(db, "images", mediaId)),
-        getDoc(doc(db, "videos", mediaId)),
-      ]);
-      if (imageDoc.exists()) queueUpdateEvent("images", mediaId);
-      if (videoDoc.exists()) queueUpdateEvent("videos", mediaId);
-    }),
-  );
 
   if (queuedRefs.size > 0) {
     await batch.commit();
@@ -206,9 +193,8 @@ export const deleteVideoWithMetadata = async (
 export const deleteEventWithLinkedMediaCleanup = async (
   eventId: string,
   eventTitle: string,
-  mediaIds: string[],
 ) => {
-  await updateEventFieldOnLinkedMedia(eventTitle, mediaIds, null);
+  await updateEventFieldOnLinkedMedia(eventTitle, null);
   await deleteDoc(doc(db, "events", eventId));
 };
 
@@ -240,14 +226,12 @@ export const updateTimelineEventMetadata = async ({
   title,
   emojiOrDot,
   originalTitle,
-  mediaIds,
 }: {
   id: string;
   date: string;
   title: string;
   emojiOrDot?: string;
   originalTitle: string;
-  mediaIds: string[];
 }) => {
   const trimmedTitle = title.trim();
   const trimmedEmoji = (emojiOrDot ?? "").trim();
@@ -259,6 +243,6 @@ export const updateTimelineEventMetadata = async ({
   });
 
   if (originalTitle !== trimmedTitle) {
-    await updateEventFieldOnLinkedMedia(originalTitle, mediaIds, trimmedTitle);
+    await updateEventFieldOnLinkedMedia(originalTitle, trimmedTitle);
   }
 };

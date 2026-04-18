@@ -54,32 +54,51 @@ export function useUploadOrchestrator({
     setUploadProgress(filesArr.map((f) => ({ fileName: f.name, status: "pending" as const, progress: 0 })));
     const results: string[] = [];
 
-    try {
-      for (const originalFile of filesArr) {
-        const fileName = originalFile.name;
-        const effectiveDate = dateSource === "event" ? date : (fileMetaDates[originalFile.name] ?? date);
+    const CONCURRENCY = 3;
 
-        if (!effectiveDate) {
-          updateProgress(fileName, { status: "error", error: "No date — set a Fallback Date above", progress: 0 });
-          continue;
-        }
+    const processOne = async (originalFile: File) => {
+      const fileName = originalFile.name;
+      const effectiveDate = dateSource === "event" ? date : (fileMetaDates[originalFile.name] ?? date);
 
-        updateProgress(fileName, { status: "converting", progress: 10 });
-
-        try {
-          updateProgress(fileName, { progress: 20 });
-          updateProgress(fileName, { status: "uploading", progress: 60 });
-          const { url } = isVideoFile(originalFile)
-            ? await uploadVideoWithMetadata(originalFile, effectiveDate, eventName)
-            : await uploadImageWithMetadata(originalFile, effectiveDate, eventName);
-          updateProgress(fileName, { progress: 100, status: "success", url });
-          results.push(url);
-        } catch (fileError) {
-          const errorMessage = fileError instanceof Error ? fileError.message : String(fileError);
-          console.error(`[Upload] ✗ Failed to upload ${fileName}:`, fileError);
-          updateProgress(fileName, { status: "error", error: errorMessage, progress: 0 });
-        }
+      if (!effectiveDate) {
+        updateProgress(fileName, { status: "error", error: "No date — set a Fallback Date above", progress: 0 });
+        return;
       }
+
+      updateProgress(fileName, { status: "converting", progress: 2 });
+
+      try {
+        let seenFirstByte = false;
+        const onBytes = (fraction: number) => {
+          if (!seenFirstByte && fraction > 0) {
+            seenFirstByte = true;
+            updateProgress(fileName, { status: "uploading" });
+          }
+          updateProgress(fileName, { progress: Math.round(5 + fraction * 93) });
+        };
+        const { url } = isVideoFile(originalFile)
+          ? await uploadVideoWithMetadata(originalFile, effectiveDate, eventName, onBytes)
+          : await uploadImageWithMetadata(originalFile, effectiveDate, eventName, onBytes);
+        updateProgress(fileName, { progress: 100, status: "success", url });
+        results.push(url);
+      } catch (fileError) {
+        const errorMessage = fileError instanceof Error ? fileError.message : String(fileError);
+        console.error(`[Upload] Failed to upload ${fileName}:`, fileError);
+        updateProgress(fileName, { status: "error", error: errorMessage, progress: 0 });
+      }
+    };
+
+    try {
+      const queue = [...filesArr];
+      const workerCount = Math.min(CONCURRENCY, queue.length);
+      const workers = Array.from({ length: workerCount }, async () => {
+        while (queue.length > 0) {
+          const file = queue.shift();
+          if (!file) break;
+          await processOne(file);
+        }
+      });
+      await Promise.all(workers);
 
       if (results.length === 0) {
         setError("No files were successfully uploaded");

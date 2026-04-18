@@ -56,6 +56,20 @@ type GalleryContextValue = {
   resolveVideoThumbUrl: (meta: VideoMeta) => string;
   /** Resolves a cached full-res blob URL if present, otherwise null */
   resolveFullResUrl: (meta: ImageMeta) => string | null;
+  /** Locally patch an image meta after a mutation — avoids full refetch. */
+  patchImageMeta: (id: string, partial: Partial<ImageMeta>) => void;
+  /** Remove an image meta from local state. */
+  removeImageMeta: (id: string) => void;
+  /** Locally patch a video meta after a mutation. */
+  patchVideoMeta: (id: string, partial: Partial<VideoMeta>) => void;
+  /** Remove a video meta from local state. */
+  removeVideoMeta: (id: string) => void;
+  /** Locally patch a timeline event after a mutation. */
+  patchEvent: (id: string, partial: Partial<TimelineEvent>) => void;
+  /** Remove a timeline event from local state. */
+  removeEvent: (id: string) => void;
+  /** Insert or replace a timeline event in local state, preserving sort. */
+  upsertEvent: (event: TimelineEvent) => void;
   isModalOpen: boolean;
   /** Modal media (images only for most callers; timeline may mix images + videos) */
   modalMedia: MediaMeta[];
@@ -409,11 +423,17 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
     };
   }, [initializing, resetState, user, warmFullResCache]);
 
+  const preloadedThumbUrls = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of preloadedImages) {
+      map.set(item.meta.id, item.objectUrl);
+    }
+    return map;
+  }, [preloadedImages]);
+
   const resolveThumbUrl = useCallback(
-    (meta: ImageMeta) =>
-      preloadedImages.find((item) => item.meta.id === meta.id)?.objectUrl ??
-      meta.thumbUrl,
-    [preloadedImages],
+    (meta: ImageMeta) => preloadedThumbUrls.get(meta.id) ?? meta.thumbUrl,
+    [preloadedThumbUrls],
   );
 
   const resolveVideoThumbUrl = useCallback((meta: VideoMeta) => {
@@ -487,6 +507,87 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
 
   const updateModalIndex = useCallback((index: number) => {
     setModalInitialIndex(index);
+  }, []);
+
+  const patchImageMeta = useCallback(
+    (id: string, partial: Partial<ImageMeta>) => {
+      setImageMetas((prev) =>
+        prev.map((meta) => (meta.id === id ? { ...meta, ...partial } : meta)),
+      );
+    },
+    [],
+  );
+
+  const removeImageMeta = useCallback((id: string) => {
+    setImageMetas((prev) => prev.filter((meta) => meta.id !== id));
+    setPreloadedImages((prev) => {
+      const next: PreloadedImage[] = [];
+      for (const item of prev) {
+        if (item.meta.id === id) {
+          if (item.objectUrl?.startsWith("blob:")) {
+            URL.revokeObjectURL(item.objectUrl);
+          }
+        } else {
+          next.push(item);
+        }
+      }
+      return next;
+    });
+    setFullResBlobUrls((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      const url = next.get(id);
+      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const patchVideoMeta = useCallback(
+    (id: string, partial: Partial<VideoMeta>) => {
+      setVideoMetas((prev) =>
+        prev.map((meta) => (meta.id === id ? { ...meta, ...partial } : meta)),
+      );
+    },
+    [],
+  );
+
+  const removeVideoMeta = useCallback((id: string) => {
+    setVideoMetas((prev) => prev.filter((meta) => meta.id !== id));
+    setVideoThumbUrls((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      const url = next.get(id);
+      if (url?.startsWith("blob:")) URL.revokeObjectURL(url);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const patchEvent = useCallback(
+    (id: string, partial: Partial<TimelineEvent>) => {
+      setEvents((prev) => {
+        const next = prev.map((e) => (e.id === id ? { ...e, ...partial } : e));
+        if (partial.date !== undefined) {
+          next.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const removeEvent = useCallback((id: string) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  const upsertEvent = useCallback((event: TimelineEvent) => {
+    setEvents((prev) => {
+      const idx = prev.findIndex((e) => e.id === event.id);
+      const next = idx >= 0 ? prev.map((e) => (e.id === event.id ? event : e)) : [...prev, event];
+      next.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+      return next;
+    });
   }, []);
 
   const refreshEvents = useCallback(async () => {
@@ -581,6 +682,13 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       resolveThumbUrl,
       resolveVideoThumbUrl,
       resolveFullResUrl,
+      patchImageMeta,
+      removeImageMeta,
+      patchVideoMeta,
+      removeVideoMeta,
+      patchEvent,
+      removeEvent,
+      upsertEvent,
       isModalOpen,
       modalMedia,
       modalInitialIndex,
@@ -606,6 +714,13 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
       resolveThumbUrl,
       resolveVideoThumbUrl,
       resolveFullResUrl,
+      patchImageMeta,
+      removeImageMeta,
+      patchVideoMeta,
+      removeVideoMeta,
+      patchEvent,
+      removeEvent,
+      upsertEvent,
       isModalOpen,
       modalMedia,
       modalInitialIndex,

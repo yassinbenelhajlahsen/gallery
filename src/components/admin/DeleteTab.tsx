@@ -4,7 +4,6 @@ import { useDeleteConfirmation } from "../../hooks/useDeleteConfirmation";
 import { normalizeImageSrc, toDateLabel } from "../../services/deleteService";
 import { useGallery } from "../../context/GalleryContext";
 import EditMetadataModal from "../ui/EditMetadataModal";
-import DeleteConfirmModal from "../ui/DeleteConfirmModal";
 
 export default function DeleteTab() {
   const { resolveThumbUrl, resolveVideoThumbUrl } = useGallery();
@@ -277,13 +276,6 @@ export default function DeleteTab() {
           )}
         </div>
       </section>
-
-      <DeleteConfirmModal
-        draft={deleteOps.deleteDraft}
-        isDeleting={deleteOps.isDeletingCurrentDraft}
-        onClose={deleteOps.closeDeleteConfirm}
-        onConfirm={() => { void deleteOps.confirmDelete(); }}
-      />
 
       <EditMetadataModal
         draft={metaEditor.editDraft}

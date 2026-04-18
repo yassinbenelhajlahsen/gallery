@@ -233,7 +233,7 @@ Behavior:
 - Logic decomposition:
   - `useEventCreation` — new-event form state + `createTimelineEvent` call
   - `useUploadForm` — file picker, per-file metadata probe, date-source resolution, event selection
-  - `useUploadOrchestrator` — sequential upload loop with per-file progress and errors
+  - `useUploadOrchestrator` — bounded concurrent worker pool (3 in-flight) pulling from a shared queue; per-file progress driven by real byte transfer via `uploadBytesResumable`
 
 Capabilities:
 
@@ -241,13 +241,14 @@ Capabilities:
 - event selection auto-filling date + event title
 - upload images and videos in one flow
 - date inference from first file metadata unless event date is selected
-- per-file progress and status
+- per-file progress: "Converting" (2%) → real byte-level "Uploading" (5–98%) → "Done" (100%). Status pills and progress bar use the app's pink/pastel palette (`#F7DEE2`, `#F3CED6`, `#E7F1EC`, `#FBE9D8`) — no emoji icons
 - delegates upload/event create operations to `uploadService` helpers
 
 Upload pipeline:
 
-- images: `convertToJpeg` + `generateThumbnail` -> upload to `images/full` + `images/thumb` -> write Firestore doc
-- videos: `extractVideoPoster` + duration extraction -> upload to `videos/full` + `videos/thumb` -> write Firestore doc
+- images: `convertToJpeg` + `generateThumbnail` -> upload to `images/full` + `images/thumb` (both via `uploadBytesResumable` for progress) -> write Firestore doc
+- videos: `extractVideoPoster` + duration extraction -> upload to `videos/full` + `videos/thumb` (both via `uploadBytesResumable`) -> write Firestore doc
+- combined full+thumb byte transfer is summed to a single 0–1 fraction and reported through the `onProgress` callback on the service entrypoints
 
 ### `DeleteTab`
 
@@ -256,16 +257,17 @@ Upload pipeline:
 - Logic decomposition:
   - `useMediaSearch` — tokenized search across images/videos/events (also used by `TimelinePage`)
   - `useMetadataEditor` — edit draft state, validation, save
-  - `useDeleteConfirmation` — confirmation modal state + delete orchestration
+  - `useDeleteConfirmation` — two-step arm/confirm state + delete orchestration
 
 Capabilities:
 
 - search across images, videos, events
 - metadata editing via `EditMetadataModal` — for image/video rows the modal includes `LocationField`, so date, event, and GPS location all save in one `updateMediaMetadata` call
-- confirmation modal delete flow (`Delete` -> modal `Confirm Delete`) via `src/components/ui/DeleteConfirmModal.tsx`
+- inline two-tap arm/confirm delete: the `Delete` button flips to `Confirm?` on first tap and auto-disarms after 3 s. Second tap within that window runs the delete. This replaces the previous `DeleteConfirmModal` flow
 - media delete removes Storage + Firestore metadata + event id references
 - event delete clears linked media `event` field and removes event doc
 - delegates metadata update + destructive operations to `deleteService` helpers
+- **No post-mutation refetch**: edit/delete hooks patch `GalleryContext` state directly (`patchImageMeta`, `removeImageMeta`, `patchEvent`, `removeEvent`, etc.). The list re-renders from the patched state in the same tick — no `refreshGallery()` / `refreshEvents()` round-trip, no loading flicker
 
 ### `NotFoundPage`
 
