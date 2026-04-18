@@ -170,27 +170,50 @@ describe("useReverseGeocode", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("aborts the in-flight request when the location changes", async () => {
-    let capturedSignal: AbortSignal | undefined;
-    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
-      capturedSignal = init?.signal ?? undefined;
-      return new Promise(() => {});
-    });
+  it("completes in-flight requests after navigating away and caches the result", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        address: { neighbourhood: "TriBeCa", borough: "Manhattan" },
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const { rerender } = renderHook(
       ({ loc }: { loc: { lat: number; lng: number } }) =>
         useReverseGeocode(loc, true),
-      { initialProps: { loc: { lat: 1, lng: 2 } } },
+      { initialProps: { loc: { lat: 40.7163, lng: -74.0086 } } },
     );
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1001);
-    });
-    expect(capturedSignal?.aborted).toBe(false);
+    rerender({ loc: { lat: 40.758, lng: -73.9855 } });
 
-    rerender({ loc: { lat: 3, lng: 4 } });
+    await flushQueueAndFetch();
+    await flushQueueAndFetch();
 
-    expect(capturedSignal?.aborted).toBe(true);
+    const revisit = renderHook(() =>
+      useReverseGeocode({ lat: 40.7163, lng: -74.0086 }, true),
+    );
+    expect(revisit.result.current.placeName).toBe("TriBeCa, Manhattan");
+  });
+
+  it("dedupes concurrent requests for the same coord", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        address: { neighbourhood: "Harlem", borough: "Manhattan" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const a = renderHook(() =>
+      useReverseGeocode({ lat: 40.8116, lng: -73.9465 }, true),
+    );
+    const b = renderHook(() =>
+      useReverseGeocode({ lat: 40.8116, lng: -73.9465 }, true),
+    );
+
+    await flushQueueAndFetch();
+
+    expect(a.result.current.placeName).toBe("Harlem, Manhattan");
+    expect(b.result.current.placeName).toBe("Harlem, Manhattan");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

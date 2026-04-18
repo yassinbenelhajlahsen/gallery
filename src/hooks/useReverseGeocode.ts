@@ -36,6 +36,7 @@ const NAMED_VENUE_CATEGORIES = new Set([
 const REQUEST_SPACING_MS = 1000;
 
 const cache = new Map<string, string | null>();
+const inflight = new Map<string, Promise<string | null>>();
 let queueTail: Promise<void> = Promise.resolve();
 
 const keyFor = (loc: Location) => `${loc.lat.toFixed(4)}|${loc.lng.toFixed(4)}`;
@@ -67,28 +68,42 @@ function formatPlace(r: NominatimReverseResult): string | null {
   return parts[0] ?? null;
 }
 
-async function fetchPlaceName(
-  loc: Location,
-  signal: AbortSignal,
-): Promise<string | null> {
-  const slot = queueTail.then(
-    () => new Promise<void>((resolve) => setTimeout(resolve, REQUEST_SPACING_MS)),
-  );
-  queueTail = slot.catch(() => undefined);
-  await queueTail;
+function ensurePlaceName(loc: Location): Promise<string | null> {
+  const key = keyFor(loc);
+  if (cache.has(key)) return Promise.resolve(cache.get(key) ?? null);
 
-  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+  const existing = inflight.get(key);
+  if (existing) return existing;
 
-  const url =
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18` +
-    `&lat=${encodeURIComponent(loc.lat)}&lon=${encodeURIComponent(loc.lng)}`;
-  const res = await fetch(url, {
-    signal,
-    headers: { "Accept-Language": navigator.language || "en" },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = (await res.json()) as NominatimReverseResult;
-  return formatPlace(data);
+  const promise = (async () => {
+    const slot = queueTail.then(
+      () => new Promise<void>((resolve) => setTimeout(resolve, REQUEST_SPACING_MS)),
+    );
+    queueTail = slot.catch(() => undefined);
+    await queueTail;
+
+    try {
+      const url =
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18` +
+        `&lat=${encodeURIComponent(loc.lat)}&lon=${encodeURIComponent(loc.lng)}`;
+      const res = await fetch(url, {
+        headers: { "Accept-Language": navigator.language || "en" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as NominatimReverseResult;
+      const placeName = formatPlace(data);
+      cache.set(key, placeName);
+      return placeName;
+    } catch {
+      cache.set(key, null);
+      return null;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+
+  inflight.set(key, promise);
+  return promise;
 }
 
 export type UseReverseGeocodeResult = {
@@ -99,6 +114,7 @@ export type UseReverseGeocodeResult = {
 export const __testing = {
   resetCache: () => {
     cache.clear();
+    inflight.clear();
     queueTail = Promise.resolve();
   },
   formatPlace,
@@ -121,24 +137,15 @@ export function useReverseGeocode(
     if (!key || lat === undefined || lng === undefined) return;
     if (cache.has(key)) return;
 
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const placeName = await fetchPlaceName(
-          { lat, lng },
-          controller.signal,
-        );
-        if (controller.signal.aborted) return;
-        cache.set(key, placeName);
-        bumpCacheVersion((n) => n + 1);
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        cache.set(key, null);
-        bumpCacheVersion((n) => n + 1);
-      }
-    })();
+    let cancelled = false;
+    ensurePlaceName({ lat, lng }).then(() => {
+      if (cancelled) return;
+      bumpCacheVersion((n) => n + 1);
+    });
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [key, lat, lng]);
 
   if (!key) return { placeName: null, isLoading: false };
