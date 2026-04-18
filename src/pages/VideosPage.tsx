@@ -5,65 +5,14 @@ import GalleryGrid from "../components/gallery/GalleryGrid";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
 import { useVideoPagePrefetch } from "../hooks/useVideoPagePrefetch";
-
-type YearGroup = {
-  year: string;
-  totalItems: number;
-  months: MonthGroup[];
-};
-
-type MonthGroup = {
-  key: string;
-  monthLabel: string;
-  items: VideoMeta[];
-};
-
-const MONTH_FORMATTER = new Intl.DateTimeFormat(undefined, { month: "long" });
+import { useYearMonthGrouping } from "../hooks/useYearMonthGrouping";
 
 const VideosPage: React.FC = () => {
   const isVisible = usePageReveal();
   const { videoMetas, isVideoMetadataReady, openModalWithMedia, resolveVideoThumbUrl } = useGallery();
   useVideoPagePrefetch(videoMetas);
 
-  const yearGroups = React.useMemo<YearGroup[]>(() => {
-    if (!videoMetas.length) return [];
-    const yearMap = new Map<number, Map<number, VideoMeta[]>>();
-
-    videoMetas.forEach((meta) => {
-      const localDate = getLocalDate(meta.date);
-      const year = localDate.getFullYear();
-      const monthIndex = localDate.getMonth();
-      const monthMap = yearMap.get(year) ?? new Map<number, VideoMeta[]>();
-      const bucket = monthMap.get(monthIndex) ?? [];
-      bucket.push(meta);
-      monthMap.set(monthIndex, bucket);
-      yearMap.set(year, monthMap);
-    });
-
-    return Array.from(yearMap.entries())
-      .sort(([yearA], [yearB]) => yearB - yearA)
-      .map(([year, monthMap]) => {
-        const months = Array.from(monthMap.entries())
-          .sort(([monthA], [monthB]) => monthB - monthA)
-          .map(([monthIndex, items]) => ({
-            key: `${year}-${String(monthIndex + 1).padStart(2, "0")}`,
-            monthLabel: MONTH_FORMATTER.format(new Date(year, monthIndex, 1)),
-            items: items.sort(
-              (a, b) =>
-                getLocalDate(b.date).getTime() - getLocalDate(a.date).getTime(),
-            ),
-          }));
-
-        return {
-          year: year.toString(),
-          totalItems: months.reduce(
-            (count, monthGroup) => count + monthGroup.items.length,
-            0,
-          ),
-          months,
-        };
-      });
-  }, [videoMetas]);
+  const yearGroups = useYearMonthGrouping(videoMetas);
 
   const handleTileClick = (meta: VideoMeta) => {
     // Open videos modal using the complete videos list (so navigation across videos is possible)
@@ -130,27 +79,6 @@ const VideosPage: React.FC = () => {
       </div>
     </section>
   );
-};
-
-const getLocalDate = (dateString: string) => {
-  if (!dateString) return new Date(0);
-  const trimmed = dateString.trim();
-
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    const year = Number(isoMatch[1]);
-    const month = Number(isoMatch[2]);
-    const day = Number(isoMatch[3]);
-    return new Date(year, (month ?? 1) - 1, day ?? 1);
-  }
-
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-    const [month, day, year] = trimmed.split("/").map(Number);
-    return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-  }
-
-  const parsed = Date.parse(trimmed);
-  return Number.isNaN(parsed) ? new Date(0) : new Date(parsed);
 };
 
 export default VideosPage;

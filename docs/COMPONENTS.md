@@ -46,6 +46,16 @@ Data behavior:
 - images: preloads full-res download URLs in a moving window (or all when `preloadAll`)
 - videos: resolves active video URL only when video slide is active
 
+Logic decomposition (all under `src/hooks/`):
+
+- `useCarouselNavigation` — visual/data indices, wrap-around teleport, slide timing
+- `useModalViewportLock` — body scroll lock + iOS bottom-nav pinning
+- `useModalVideoManager` — token-cancelled video URL fetch + `<video>` cleanup
+- `useFullResPreloader` — windowed full-res URL preload + eviction
+- `useMediaSwipeGesture` — touch start/move/end with velocity threshold
+
+Keyboard shortcuts and focus trap are inline `useEffect`s; the component owns three refs (slide container, modal root, video element) and passes them into hooks that need DOM access.
+
 ### `GalleryModalRenderer`
 
 - File: `src/components/gallery/GalleryModalRenderer.tsx`
@@ -133,7 +143,7 @@ Includes:
 ### `PhotosPage`
 
 - File: `src/pages/PhotosPage.tsx`
-- Groups images by year then month
+- Groups images by year then month via `useYearMonthGrouping` (shared with `VideosPage`)
 - Month sections observed with `IntersectionObserver`
 - Requests full-res for visible groups plus buffer window (`±3`, or `±1` on low-bandwidth mobile)
 - Evicts off-window full-res URL mappings
@@ -141,7 +151,7 @@ Includes:
 ### `VideosPage`
 
 - File: `src/pages/VideosPage.tsx`
-- Groups videos by year then month
+- Groups videos by year then month via `useYearMonthGrouping`
 - Uses poster thumbs (`resolveVideoThumbUrl` fallback to metadata thumb URL)
 - Opens modal with full video collection at clicked item
 
@@ -149,6 +159,7 @@ Includes:
 
 - File: `src/pages/TimelinePage.tsx`
 - Reads events from `GalleryContext`
+- Search/filter via `useMediaSearch` (shared with `DeleteTab`) — tokenized AND match against title/date/event ids
 - Links media by union of explicit ids and normalized title matching
 - Opens mixed-media modal (`openModalWithMedia`) with `preloadAll: true`
 
@@ -163,6 +174,10 @@ Includes:
 
 - File: `src/components/admin/UploadTab.tsx`
 - Service dependency: `src/services/uploadService.ts`
+- Logic decomposition:
+  - `useEventCreation` — new-event form state + `createTimelineEvent` call
+  - `useUploadForm` — file picker, per-file metadata probe, date-source resolution, event selection
+  - `useUploadOrchestrator` — sequential upload loop with per-file progress and errors
 
 Capabilities:
 
@@ -182,6 +197,10 @@ Upload pipeline:
 
 - File: `src/components/admin/DeleteTab.tsx`
 - Service dependency: `src/services/deleteService.ts`
+- Logic decomposition:
+  - `useMediaSearch` — tokenized search across images/videos/events (also used by `TimelinePage`)
+  - `useMetadataEditor` — edit draft state, validation, save
+  - `useDeleteConfirmation` — confirmation modal state + delete orchestration
 
 Capabilities:
 

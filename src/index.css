@@ -112,24 +112,6 @@ img {
   min-height: 100dvh; /* dynamic viewport height */
 }
 
-/* Dark overlay for safe areas on mobile */
-.modal-backdrop-reveal::before {
-  content: "";
-  position: fixed;
-  top: calc(-1 * env(safe-area-inset-top, 0px));
-  left: 0;
-  right: 0;
-  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-  background: #000;
-  z-index: -1;
-  opacity: 0.85;
-}
-
-@media (min-width: 640px) {
-  .modal-backdrop-reveal::before {
-    display: none;
-  }
-}
 
 .modal-card-reveal {
   animation: modalCardReveal 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
@@ -155,35 +137,6 @@ img {
   animation: kenBurnsSoft 18s ease-in-out infinite alternate;
 }
 
-.modal-safe-area-mask::before,
-.modal-safe-area-mask::after {
-  content: "";
-  position: fixed;
-  left: 0;
-  right: 0;
-  pointer-events: none;
-  z-index: 60;
-  opacity: 0.95;
-}
-
-.modal-safe-area-mask::before {
-  top: 0;
-  height: calc(env(safe-area-inset-top, 0px) + 32px);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
-}
-
-.modal-safe-area-mask::after {
-  bottom: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) + 40px);
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
-}
-
-@media (min-width: 640px) {
-  .modal-safe-area-mask::before,
-  .modal-safe-area-mask::after {
-    opacity: 0.6;
-  }
-}
 
 @keyframes modalBackdropReveal {
   0% {

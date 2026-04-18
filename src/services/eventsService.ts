@@ -41,4 +41,7 @@ export async function fetchEvents(): Promise<TimelineEvent[]> {
   }
 }
 
-export default { fetchEvents };
+export const sortEventsByDateDesc = <T extends { date: string }>(events: T[]): T[] =>
+  [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+
+export default { fetchEvents, sortEventsByDateDesc };

@@ -21,7 +21,7 @@ const isStorageObjectMissing = (error: unknown): boolean => {
   return code === "storage/object-not-found";
 };
 
-const parseLocalDateLike = (dateValue: string): Date | null => {
+export const parseLocalDateLike = (dateValue: string): Date | null => {
   const trimmed = dateValue.trim();
   if (!trimmed) return null;
 

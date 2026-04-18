@@ -1,279 +1,22 @@
-// src/components/admin/AdminUploadPage.tsx
-import { useState, useMemo, useRef } from "react";
-import { useGallery } from "../../context/GalleryContext";
-import { useToast } from "../../context/ToastContext";
+import { useRef } from "react";
+import { useEventCreation } from "../../hooks/useEventCreation";
+import { useUploadForm } from "../../hooks/useUploadForm";
+import { useUploadOrchestrator } from "../../hooks/useUploadOrchestrator";
 import { FloatingInput } from "../ui/FloatingInput";
-import { isVideoFile } from "../../utils/uploadMediaUtils";
-import { inferUploadDateFromMetadata } from "../../utils/uploadDateMetadata";
-import {
-  createTimelineEvent,
-  uploadImageWithMetadata,
-  uploadVideoWithMetadata,
-} from "../../services/uploadService";
-
-interface UploadProgress {
-  fileName: string;
-  status: "pending" | "converting" | "uploading" | "success" | "error";
-  progress: number;
-  error?: string;
-  url?: string;
-}
 
 export default function AdminUploadPage() {
-  const [files, setFiles] = useState<File[] | null>(null);
-  const [date, setDate] = useState("");
-  const [dateSource, setDateSource] = useState<"none" | "event" | "metadata" | "manual">(
-    "none",
-  );
-  const [selectedEventId, setSelectedEventId] = useState<string>("");
-  const [eventName, setEventName] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [fileMetaDates, setFileMetaDates] = useState<Record<string, string | null>>({});
-  const [isReadingMeta, setIsReadingMeta] = useState(false);
-  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // State for creating new event
-  const [newEventDate, setNewEventDate] = useState("");
-  const [newEventEmoji, setNewEventEmoji] = useState("");
-  const [newEventTitle, setNewEventTitle] = useState("");
-  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
-
-  const { events, refreshEvents, refreshGallery } = useGallery();
-  const metadataProbeIdRef = useRef(0);
-  const dateSourceRef = useRef(dateSource);
-
-  dateSourceRef.current = dateSource;
-
-  // Sort events by date (newest first)
-  const sortedEvents = useMemo(() => {
-    return [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-  }, [events]);
-
-  // Handle creating a new event
-  const handleCreateEvent = async () => {
-    if (!newEventDate || !newEventTitle.trim()) {
-      toast("Please fill in date and title.", "error");
-      return;
-    }
-
-    setIsCreatingEvent(true);
-    try {
-      await createTimelineEvent(newEventDate, newEventTitle, newEventEmoji);
-
-      // Refresh events to include the new one
-      await refreshEvents();
-
-      toast("Event created successfully!", "success");
-
-      // Clear form
-      setNewEventDate("");
-      setNewEventEmoji("");
-      setNewEventTitle("");
-    } catch (err) {
-      console.error("Failed to create event:", err);
-      toast("Failed to create event. Please try again.", "error");
-    } finally {
-      setIsCreatingEvent(false);
-    }
-  };
-
-  const probeFilesMetadata = async (filesToProbe: File[]) => {
-    const probeId = metadataProbeIdRef.current + 1;
-    metadataProbeIdRef.current = probeId;
-    setIsReadingMeta(true);
-    const dates = await Promise.all(filesToProbe.map((f) => inferUploadDateFromMetadata(f)));
-    if (metadataProbeIdRef.current !== probeId) return;
-    const metaMap: Record<string, string | null> = {};
-    filesToProbe.forEach((f, i) => { metaMap[f.name] = dates[i] ?? null; });
-    setFileMetaDates(metaMap);
-    setIsReadingMeta(false);
-  };
-
-  // Auto-fill date and event name when an event is selected
-  const handleEventSelect = (eventId: string) => {
-    setSelectedEventId(eventId);
-    if (!eventId) {
-      setDate("");
-      setDateSource("none");
-      setEventName("");
-      if (files && files.length > 0) void probeFilesMetadata(files);
-      return;
-    }
-    const event = sortedEvents.find((e) => e.id === eventId);
-    if (event) {
-      setDate(event.date);
-      setDateSource("event");
-      setEventName(event.title);
-    }
-  };
-
-  // Clear event selection when manually changing date or event name
-  const handleDateChange = (newDate: string) => {
-    setDate(newDate);
-    setDateSource(newDate ? "manual" : "none");
-    setSelectedEventId("");
-  };
-
-  const handleEventNameChange = (newName: string) => {
-    setEventName(newName);
-    setSelectedEventId("");
-  };
-
-  const handleRemoveFile = (fileName: string) => {
-    setFiles((prev) => {
-      const next = prev ? prev.filter((f) => f.name !== fileName) : null;
-      return next && next.length > 0 ? next : null;
-    });
-    setFileMetaDates((prev) => {
-      const next = { ...prev };
-      delete next[fileName];
-      return next;
-    });
-    // Clear the native input so re-selecting the same files triggers onChange again
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleFileInputChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const selectedFiles = event.target.files;
-    setFiles(selectedFiles ? Array.from(selectedFiles) : null);
-    setFileMetaDates({});
-
-    if (!selectedFiles || selectedFiles.length === 0) return;
-
-    // Event selection takes precedence — skip metadata probing entirely.
-    if (dateSourceRef.current === "event") return;
-
-    await probeFilesMetadata(Array.from(selectedFiles));
-  };
-
-  const updateProgress = (
-    fileName: string,
-    updates: Partial<UploadProgress>,
-  ) => {
-    setUploadProgress((prev) => {
-      const existing = prev.find((p) => p.fileName === fileName);
-      if (existing) {
-        return prev.map((p) =>
-          p.fileName === fileName ? { ...p, ...updates } : p,
-        );
-      }
-      return [
-        ...prev,
-        {
-          fileName,
-          status: "pending",
-          progress: 0,
-          ...updates,
-        },
-      ];
-    });
-  };
-
-  const handleUpload = async () => {
-    if (!files || files.length === 0) return;
-
-    setError(null);
-    setIsUploading(true);
-    const results: string[] = [];
-
-    // Initialize upload progress entries so the UI shows 0/TOTAL at start
-    const filesArr = files;
-    setUploadProgress(
-      filesArr.map((f) => ({
-        fileName: f.name,
-        status: "pending",
-        progress: 0,
-      })),
-    );
-
-    try {
-      for (const originalFile of filesArr) {
-        const fileName = originalFile.name;
-
-        const effectiveDate =
-          dateSource === "event"
-            ? date
-            : (fileMetaDates[originalFile.name] ?? date);
-
-        if (!effectiveDate) {
-          updateProgress(fileName, {
-            status: "error",
-            error: "No date — set a Fallback Date above",
-            progress: 0,
-          });
-          continue;
-        }
-
-        updateProgress(fileName, { status: "converting", progress: 10 });
-
-        try {
-          if (isVideoFile(originalFile)) {
-            updateProgress(fileName, { progress: 20 });
-            updateProgress(fileName, { status: "uploading", progress: 60 });
-            const { url } = await uploadVideoWithMetadata(
-              originalFile,
-              effectiveDate,
-              eventName,
-            );
-            updateProgress(fileName, { progress: 100, status: "success", url });
-            results.push(url);
-          } else {
-            updateProgress(fileName, { progress: 20 });
-            updateProgress(fileName, { status: "uploading", progress: 60 });
-            const { url } = await uploadImageWithMetadata(
-              originalFile,
-              effectiveDate,
-              eventName,
-            );
-            updateProgress(fileName, { progress: 100, status: "success", url });
-            results.push(url);
-          }
-        } catch (fileError) {
-          const errorMessage =
-            fileError instanceof Error ? fileError.message : String(fileError);
-          console.error(`[Upload] ✗ Failed to upload ${fileName}:`, fileError);
-          updateProgress(fileName, {
-            status: "error",
-            error: errorMessage,
-            progress: 0,
-          });
-        }
-      }
-
-      if (results.length === 0) {
-        setError("No files were successfully uploaded");
-        return;
-      }
-
-      toast(
-        `${results.length} upload${results.length === 1 ? "" : "s"} completed successfully!`,
-        "success",
-      );
-      // Refresh gallery to show new uploads
-      await refreshGallery();
-      // Reset inputs and progress after successful upload(s)
-      if (fileInputRef && fileInputRef.current) fileInputRef.current.value = "";
-      setFiles(null);
-      setDate("");
-      setDateSource("none");
-      setSelectedEventId("");
-      setEventName("");
-      setUploadProgress([]);
-      setFileMetaDates({});
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "An unknown error occurred";
-      console.error(`[Upload] Fatal error:`, err);
-      setError(errorMessage);
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  const eventCreation = useEventCreation();
+  const form = useUploadForm(fileInputRef);
+  const uploader = useUploadOrchestrator({
+    files: form.files,
+    fileMetaDates: form.fileMetaDates,
+    date: form.date,
+    dateSource: form.dateSource,
+    eventName: form.eventName,
+    clearForm: form.clearForm,
+  });
 
   return (
     <div className="space-y-6">
@@ -299,17 +42,17 @@ export default function AdminUploadPage() {
             type="file"
             multiple
             accept="image/*,video/mp4,video/quicktime,.mp4,.mov"
-            onChange={handleFileInputChange}
+            onChange={form.handleFileInputChange}
             className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
           />
-          {files && files.length > 0 && (
+          {form.files && form.files.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {files.length === 1 ? (
+              {form.files.length === 1 ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F0F0F0] bg-white px-2.5 py-1 text-xs text-[#555]">
-                  <span className="max-w-[200px] truncate">{files[0]?.name}</span>
+                  <span className="max-w-[200px] truncate">{form.files[0]?.name}</span>
                   <button
                     type="button"
-                    onClick={() => handleRemoveFile(files[0]?.name ?? "")}
+                    onClick={() => form.handleRemoveFile(form.files![0]?.name ?? "")}
                     className="cursor-pointer text-[#aaa] hover:text-[#333] transition-colors"
                     aria-label="Remove file"
                   >
@@ -317,7 +60,7 @@ export default function AdminUploadPage() {
                   </button>
                 </span>
               ) : (
-                <p className="text-xs text-[#888]">{files.length} files selected</p>
+                <p className="text-xs text-[#888]">{form.files.length} files selected</p>
               )}
             </div>
           )}
@@ -325,11 +68,11 @@ export default function AdminUploadPage() {
       </div>
 
       {/* Per-file date table — only shown for multiple files */}
-      {files && files.length > 1 && (
+      {form.files && form.files.length > 1 && (
         <div className="space-y-3 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-4">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-[#333]">Files</p>
-            {isReadingMeta && (
+            {form.isReadingMeta && (
               <span className="flex items-center gap-1.5 text-xs text-[#888]">
                 <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -340,7 +83,7 @@ export default function AdminUploadPage() {
             )}
           </div>
 
-          {!isReadingMeta && (
+          {!form.isReadingMeta && (
             <>
               <div className="overflow-hidden rounded-lg border border-[#F0F0F0] bg-white">
                 <table className="w-full text-xs">
@@ -352,9 +95,9 @@ export default function AdminUploadPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {files.map((file) => {
+                    {form.files.map((file) => {
                       const cellDate =
-                        dateSource === "event" ? date : (fileMetaDates[file.name] ?? "");
+                        form.dateSource === "event" ? form.date : (form.fileMetaDates[file.name] ?? "");
 
                       return (
                         <tr key={file.name} className="border-b border-[#F0F0F0] last:border-0">
@@ -362,14 +105,14 @@ export default function AdminUploadPage() {
                             {file.name}
                           </td>
                           <td className="px-3 py-1.5">
-                            {dateSource === "event" ? (
+                            {form.dateSource === "event" ? (
                               <span className="text-[#555]">{cellDate}</span>
                             ) : (
                               <input
                                 type="date"
                                 value={cellDate}
                                 onChange={(e) =>
-                                  setFileMetaDates((prev) => ({
+                                  form.setFileMetaDates((prev) => ({
                                     ...prev,
                                     [file.name]: e.target.value || null,
                                   }))
@@ -381,7 +124,7 @@ export default function AdminUploadPage() {
                           <td className="px-2 py-1.5 text-center">
                             <button
                               type="button"
-                              onClick={() => handleRemoveFile(file.name)}
+                              onClick={() => form.handleRemoveFile(file.name)}
                               className="cursor-pointer text-[#bbb] hover:text-red-400 transition-colors"
                               aria-label={`Remove ${file.name}`}
                             >
@@ -395,9 +138,9 @@ export default function AdminUploadPage() {
                 </table>
               </div>
 
-              {dateSource !== "event" && (() => {
-                const missingCount = files.filter(
-                  (f) => !fileMetaDates[f.name],
+              {form.dateSource !== "event" && (() => {
+                const missingCount = form.files!.filter(
+                  (f) => !form.fileMetaDates[f.name],
                 ).length;
                 return missingCount > 0 ? (
                   <p className="text-xs font-medium text-amber-700">
@@ -418,13 +161,12 @@ export default function AdminUploadPage() {
           Link to Timeline Event
         </label>
         <select
-          value={selectedEventId}
-          onChange={(e) => handleEventSelect(e.target.value)}
+          value={form.selectedEventId}
+          onChange={(e) => form.handleEventSelect(e.target.value)}
           className="cursor-pointer pt-4.5 pb-4.5 w-full rounded-xl border-2 border-[#F0F0F0] bg-white px-4 py-3 text-[#333] shadow-sm transition-all duration-200 hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none focus:ring-2 focus:ring-[#F7DEE2]/30"
         >
           <option value="">Select an event (optional)</option>
-          {sortedEvents.map((event) => {
-            // Parse date as local time to avoid timezone offset issues
+          {form.sortedEvents.map((event) => {
             const [year, month, day] = event.date.split("-").map(Number);
             const eventDate = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
             const formattedDate = eventDate.toLocaleDateString(undefined, {
@@ -452,8 +194,8 @@ export default function AdminUploadPage() {
           type="text"
           label="Label"
           className="w-full"
-          value={eventName}
-          onChange={(e) => handleEventNameChange(e.target.value)}
+          value={form.eventName}
+          onChange={(e) => form.handleEventNameChange(e.target.value)}
           focusColor="#F7DEE2"
           borderColor="#F0F0F0"
           labelColor="#333"
@@ -465,7 +207,7 @@ export default function AdminUploadPage() {
       </div>
 
       {/* Date Input — hidden when multiple files are selected (each file has its own date in the table above) */}
-      {(!files || files.length <= 1) && (
+      {(!form.files || form.files.length <= 1) && (
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-[#333]">
             Date{" "}
@@ -473,8 +215,8 @@ export default function AdminUploadPage() {
           </label>
           <input
             type="date"
-            value={date}
-            onChange={(e) => handleDateChange(e.target.value)}
+            value={form.date}
+            onChange={(e) => form.handleDateChange(e.target.value)}
             className="
                   pt-4.5
                   pb-4.5
@@ -500,20 +242,19 @@ export default function AdminUploadPage() {
 
       {/* Upload Button */}
       <button
-        onClick={handleUpload}
+        onClick={uploader.handleUpload}
         disabled={
-          isUploading ||
-          !files ||
-          files.length === 0 ||
-          isReadingMeta ||
-          // For a single file: require a date unless EXIF already provided one
-          (files.length === 1 &&
-            !date &&
-            !fileMetaDates[files[0]?.name ?? ""])
+          uploader.isUploading ||
+          !form.files ||
+          form.files.length === 0 ||
+          form.isReadingMeta ||
+          (form.files.length === 1 &&
+            !form.date &&
+            !form.fileMetaDates[form.files[0]?.name ?? ""])
         }
         className="cursor-pointer w-full rounded-xl bg-[#F7DEE2] py-4 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
       >
-        {isUploading ? (
+        {uploader.isUploading ? (
           <span className="flex items-center justify-center gap-2">
             <svg
               className="h-5 w-5 animate-spin"
@@ -543,33 +284,33 @@ export default function AdminUploadPage() {
       </button>
 
       {/* Error Alert */}
-      {error && (
+      {uploader.error && (
         <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 shadow-sm">
           <div className="flex items-start gap-3">
             <span className="text-2xl">⚠️</span>
             <div className="flex-1">
               <p className="font-semibold text-red-800">Upload Failed</p>
-              <p className="mt-1 text-sm text-red-700">{error}</p>
+              <p className="mt-1 text-sm text-red-700">{uploader.error}</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Upload Progress */}
-      {uploadProgress.length > 0 && (
+      {uploader.uploadProgress.length > 0 && (
         <div className="space-y-4 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-5">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold text-[#333]">
               Upload Progress
             </h2>
             <span className="rounded-full bg-[#D8ECFF]/70 px-2.5 py-0.5 text-xs font-semibold text-[#333]">
-              {uploadProgress.filter((p) => p.status === "success").length} /{" "}
-              {uploadProgress.length}
+              {uploader.uploadProgress.filter((p) => p.status === "success").length} /{" "}
+              {uploader.uploadProgress.length}
             </span>
           </div>
 
           <div className="space-y-3">
-            {uploadProgress.map((item) => (
+            {uploader.uploadProgress.map((item) => (
               <div
                 key={item.fileName}
                 className="space-y-2 rounded-lg bg-white p-4 shadow-sm"
@@ -643,8 +384,8 @@ export default function AdminUploadPage() {
             </label>
             <input
               type="date"
-              value={newEventDate}
-              onChange={(e) => setNewEventDate(e.target.value)}
+              value={eventCreation.newEventDate}
+              onChange={(e) => eventCreation.setNewEventDate(e.target.value)}
               className="
                     pt-4.5
                     pb-4.5
@@ -672,8 +413,8 @@ export default function AdminUploadPage() {
               type="text"
               label="Title*"
               className="w-full"
-              value={newEventTitle}
-              onChange={(e) => setNewEventTitle(e.target.value)}
+              value={eventCreation.newEventTitle}
+              onChange={(e) => eventCreation.setNewEventTitle(e.target.value)}
               focusColor="#F7DEE2"
               borderColor="#F0F0F0"
               labelColor="#333"
@@ -685,8 +426,8 @@ export default function AdminUploadPage() {
               type="text"
               label="Emoji"
               className="w-full"
-              value={newEventEmoji}
-              onChange={(e) => setNewEventEmoji(e.target.value)}
+              value={eventCreation.newEventEmoji}
+              onChange={(e) => eventCreation.setNewEventEmoji(e.target.value)}
               focusColor="#F7DEE2"
               borderColor="#F0F0F0"
               labelColor="#333"
@@ -694,11 +435,11 @@ export default function AdminUploadPage() {
           </div>
         </div>
         <button
-          onClick={handleCreateEvent}
-          disabled={isCreatingEvent || !newEventDate || !newEventTitle.trim()}
+          onClick={eventCreation.handleCreateEvent}
+          disabled={eventCreation.isCreatingEvent || !eventCreation.newEventDate || !eventCreation.newEventTitle.trim()}
           className="cursor-pointer w-full rounded-xl mt-3 bg-[#F7DEE2] py-3 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
         >
-          {isCreatingEvent ? (
+          {eventCreation.isCreatingEvent ? (
             <span className="flex items-center justify-center gap-2">
               <svg
                 className="h-5 w-5 animate-spin"
@@ -730,4 +471,3 @@ export default function AdminUploadPage() {
     </div>
   );
 }
-

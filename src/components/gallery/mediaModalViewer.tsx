@@ -1,11 +1,14 @@
-// src/components/gallery/mediaModalViewer.tsx
 import React from "react";
 import type { ImageMeta } from "../../services/storageService";
 import type { MediaMeta, VideoMeta } from "../../types/mediaTypes";
-import { isImageMeta, isVideoMeta } from "../../types/mediaTypes";
-import { getVideoDownloadUrl } from "../../services/storageService";
+import { isVideoMeta } from "../../types/mediaTypes";
 import { isLowBandwidthMobileClient } from "../../utils/runtime";
 import { useVideoPrefetch, VIDEO_BOOSTER_POOL_SIZE } from "../../hooks/useVideoPrefetch";
+import { useCarouselNavigation } from "../../hooks/useCarouselNavigation";
+import { useModalViewportLock } from "../../hooks/useModalViewportLock";
+import { useModalVideoManager } from "../../hooks/useModalVideoManager";
+import { useFullResPreloader } from "../../hooks/useFullResPreloader";
+import { useMediaSwipeGesture } from "../../hooks/useMediaSwipeGesture";
 
 export type MediaModalViewer = {
   media: MediaMeta[];
@@ -23,31 +26,27 @@ export type MediaModalViewer = {
   preloadAll?: boolean;
 };
 
-const clampIndex = (index: number, length: number) => {
-  if (length === 0) return 0;
-  if (index < 0) return length - 1;
-  if (index >= length) return 0;
-  return index;
-};
-
 const toLocalDate = (dateString: string) => {
   if (!dateString) return new Date(0);
-
   const trimmed = dateString.trim();
-
   const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
     const [, year, month, day] = isoMatch.map(Number);
     return new Date(year, (month ?? 1) - 1, day ?? 1);
   }
-
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
     const [month, day, year] = trimmed.split("/").map(Number);
     return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
   }
-
   return new Date(trimmed);
 };
+
+function clampIndex(index: number, length: number) {
+  if (length === 0) return 0;
+  if (index < 0) return length - 1;
+  if (index >= length) return 0;
+  return index;
+}
 
 const MediaModalViewer: React.FC<MediaModalViewer> = ({
   media,
@@ -60,69 +59,46 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
   resolveFullResUrl,
   preloadAll = false,
 }) => {
-  // visualIndex: used only for transform/animation (may go out of range)
-  const [visualIndex, setVisualIndex] = React.useState(initialIndex);
-  // dataIndex: used for selecting media, metadata, preload, and video lifecycle (always clamped)
-  const [dataIndex, setDataIndex] = React.useState(initialIndex);
-  const [isAnimating, setIsAnimating] = React.useState(false);
-  const [isClosing, setIsClosing] = React.useState(false);
-  const [hasInitialized, setHasInitialized] = React.useState(false);
-  // When true, force transitions to 0ms for instant snapping (used for teleport snap)
-  const [suppressTransition, setSuppressTransition] = React.useState(false);
-  const touchStartX = React.useRef<number | null>(null);
-  const touchStartTimeRef = React.useRef<number>(0);
-  const dragOffsetRef = React.useRef<number>(0);
-  const isDraggingRef = React.useRef<boolean>(false);
   const slideContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const animationTimeoutRef = React.useRef<number | null>(null);
   const modalRootRef = React.useRef<HTMLDivElement | null>(null);
-  const savedScrollYRef = React.useRef<number>(0);
-  // Viewport height captured the moment the modal opens (before the body lock can
-  // cause the iOS URL bar to reappear and shrink window.innerHeight). Stored in
-  // state so the pinned height propagates to the rendered style without a ref read.
-  const [modalViewportHeight, setModalViewportHeight] = React.useState<number>(0);
-
-  // ── Full-res URL management ──
-  // Map of image id → full-res blob URL (only for the windowed preload area)
-  const [fullResUrls, setFullResUrls] = React.useState<Map<string, string>>(
-    new Map(),
-  );
-  const loadingIdsRef = React.useRef<Set<string>>(new Set());
-
-  // ── Video URL (remote URL) management ──
-  // We keep only a single active video URL (Firebase download URL) and let
-  // the browser stream it. No blob/object URL creation.
-  const [activeVideoUrl, setActiveVideoUrl] = React.useState<string | null>(
-    null,
-  );
   const videoElRef = React.useRef<HTMLVideoElement | null>(null);
-  const videoLoadTokenRef = React.useRef(0);
-
-  const cleanupVideo = React.useCallback(() => {
-    const el = videoElRef.current;
-    if (el) {
-      try {
-        el.pause();
-        el.removeAttribute("src");
-        el.load();
-      } catch {
-        // ignore
-      }
-    }
-    videoElRef.current = null;
-
-    // We no longer create blob URLs for video; just clear the stored URL.
-    setActiveVideoUrl(null);
-  }, []);
 
   const isMobile = isLowBandwidthMobileClient();
-
   const PRELOAD_AHEAD = isMobile ? 3 : 10;
   const PRELOAD_BEHIND = isMobile ? 2 : 5;
 
+  const nav = useCarouselNavigation({
+    mediaLength: media.length,
+    initialIndex,
+    isOpen,
+    onChangeIndex,
+    onClose,
+  });
+
+  useModalViewportLock(isOpen);
+  const currentItem = media[nav.dataIndex];
+  const { activeVideoUrl } = useModalVideoManager(isOpen, currentItem, videoElRef);
+  const { fullResUrls } = useFullResPreloader({
+    isOpen,
+    media,
+    dataIndex: nav.dataIndex,
+    preloadAll,
+    preloadAhead: PRELOAD_AHEAD,
+    preloadBehind: PRELOAD_BEHIND,
+    resolveFullResUrl,
+  });
+  const swipe = useMediaSwipeGesture({
+    mediaLength: media.length,
+    visualIndex: nav.visualIndex,
+    slideDuration: nav.slideDuration,
+    goToNext: nav.goToNext,
+    goToPrev: nav.goToPrev,
+    slideContainerRef,
+  });
+
   const { prefetchedUrls } = useVideoPrefetch({
     media,
-    dataIndex,
+    dataIndex: nav.dataIndex,
     isOpen,
     preloadAll,
     isMobile,
@@ -133,338 +109,44 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
     [prefetchedUrls],
   );
 
-  const SLIDE_DURATION = 300;
-  const totalItems = media.length;
+  // Entry animation flag — false until two RAF ticks after open
+  const [hasInitialized, setHasInitialized] = React.useState(false);
 
-  const clearAnimationTimeout = () => {
-    if (animationTimeoutRef.current != null) {
-      window.clearTimeout(animationTimeoutRef.current);
-      animationTimeoutRef.current = null;
-    }
-  };
-
-  // Update theme-color meta so iOS status bar area goes dark when modal is open
-  React.useEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) return;
-    const original = meta.getAttribute("content") ?? "#FAFAF7";
-    if (isOpen) {
-      meta.setAttribute("content", "#000000");
-    }
-    return () => {
-      meta.setAttribute("content", original);
-    };
+  React.useLayoutEffect(() => {
+    if (isOpen) setHasInitialized(false);
   }, [isOpen]);
 
-  // Reset state when modal closes completely
-  React.useEffect(() => {
-    if (!isOpen) {
-      const timer = setTimeout(() => {
-        setVisualIndex(0);
-        setDataIndex(0);
-        setIsAnimating(false);
-        setIsClosing(false);
-        setHasInitialized(false);
-        // Clear stored full-res URLs and active video URL. We no longer
-        // create blob object URLs for media; the browser will load the
-        // Firebase download URLs directly.
-        setFullResUrls(new Map());
-        setActiveVideoUrl(null);
-        loadingIdsRef.current.clear();
-        clearAnimationTimeout();
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  // Initialize index when opening
   React.useEffect(() => {
     if (isOpen) {
-      const safeIndex = clampIndex(initialIndex, media.length);
-      setVisualIndex(safeIndex);
-      setDataIndex(safeIndex);
-      setIsClosing(false);
-      // Set initialized flag after a brief delay to allow DOM to settle
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setHasInitialized(true);
-        });
+        requestAnimationFrame(() => { setHasInitialized(true); });
       });
     }
-  }, [initialIndex, isOpen, media.length]);
+  }, [isOpen]);
 
-  // current item is selected from dataIndex (always in-range)
-  const currentItem = media[dataIndex];
-
-  // Fetch video bytes ONLY when a video becomes active (after user opened modal)
+  // Keyboard navigation + escape
   React.useEffect(() => {
     if (!isOpen) return;
-
-    if (!isVideoMeta(currentItem)) {
-      // If we moved away from a video, ensure it's fully cleaned up.
-      cleanupVideo();
-      return;
-    }
-
-    // New active video: cleanup any previous video first.
-    cleanupVideo();
-
-    const token = ++videoLoadTokenRef.current;
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        // Resolve a downloadable URL and let the browser stream it.
-        const url = await getVideoDownloadUrl(currentItem.videoPath);
-        if (cancelled || token !== videoLoadTokenRef.current) return;
-        setActiveVideoUrl(url);
-      } catch (err) {
-        console.warn("[Modal] Failed to load video", err);
-      }
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cleanupVideo, currentItem, isOpen]);
-
-  // ── Full-res windowed preloading ──
-  // Load full-res for the active image + window, or ALL if preloadAll is set.
-  // Evict any blob URLs outside the window (only when not preloadAll).
-  React.useEffect(() => {
-    if (!isOpen || !media.length) return;
-
-    // Map media index -> image index for preloading window, keeping behavior for images-only modals.
-    // In mixed modals, we only preload images that are in-window AND are images.
-    const wantedMediaIndices = new Set<number>();
-    if (preloadAll) {
-      for (let i = 0; i < media.length; i++) wantedMediaIndices.add(i);
-    } else {
-      for (let offset = -PRELOAD_BEHIND; offset <= PRELOAD_AHEAD; offset++) {
-        const idx = dataIndex + offset;
-        if (idx >= 0 && idx < media.length) wantedMediaIndices.add(idx);
-      }
-    }
-
-    const wantedImageIds = new Set<string>();
-    wantedMediaIndices.forEach((idx) => {
-      const item = media[idx];
-      if (isImageMeta(item)) wantedImageIds.add(item.id);
-    });
-
-    // Evict entries outside the window (we store download URLs only)
-    setFullResUrls((prev) => {
-      let changed = false;
-      const next = new Map(prev);
-      for (const [id] of prev) {
-        if (!wantedImageIds.has(id)) {
-          next.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-
-    // Clean loadingIdsRef for evicted images so they can be re-fetched
-    for (const id of loadingIdsRef.current) {
-      if (!wantedImageIds.has(id)) {
-        loadingIdsRef.current.delete(id);
-      }
-    }
-
-    // Start loading wanted images that aren't already loaded or in-flight
-    wantedMediaIndices.forEach((idx) => {
-      const item = media[idx];
-      if (!isImageMeta(item)) return;
-      const img = item;
-      if (loadingIdsRef.current.has(img.id)) return;
-
-      loadingIdsRef.current.add(img.id);
-
-      // Prefer a cached full-res blob URL when one is available; otherwise
-      // record the Firebase download URL so the browser streams it.
-      const cachedUrl = resolveFullResUrl?.(img) ?? null;
-      setFullResUrls((prev) => {
-        if (prev.has(img.id)) return prev;
-        const next = new Map(prev);
-        next.set(img.id, cachedUrl ?? img.downloadUrl);
-        return next;
-      });
-      loadingIdsRef.current.delete(img.id);
-    });
-  }, [
-    dataIndex,
-    isOpen,
-    media,
-    preloadAll,
-    PRELOAD_AHEAD,
-    PRELOAD_BEHIND,
-    resolveFullResUrl,
-  ]);
-
-  const goToIndex = React.useCallback(
-    (next: number, _direction?: "left" | "right", immediate = false) => {
-      if (!media.length) return;
-      if (media.length <= 1 && !immediate) return;
-
-      const wrapForward = next >= media.length;
-      const wrapBackward = next < 0;
-
-      const safeIndex = clampIndex(next, media.length);
-      if (
-        safeIndex === dataIndex &&
-        !immediate &&
-        !wrapForward &&
-        !wrapBackward
-      )
-        return;
-
-      if (immediate) {
-        // Immediate jumps (init/external) should land instantly at the clamped index.
-        setSuppressTransition(false);
-        setVisualIndex(safeIndex);
-        setDataIndex(safeIndex);
-        onChangeIndex?.(safeIndex);
-        return;
-      }
-
-      // Handle wrapping (teleport) cases by animating the visual index out-of-range
-      // while keeping the dataIndex clamped to a real item so that rendering
-      // (media, metadata, preload, video) continues to show valid content.
-      if (wrapForward || wrapBackward) {
-        const tempVisual = wrapForward ? media.length : -1;
-
-        // For forward wrap: we animate visually past the end, but keep dataIndex
-        // pointing to the last item so it remains rendered during the motion.
-        // For backward wrap: we animate visually before the first, but keep
-        // dataIndex pointing to the first item.
-        setIsAnimating(true);
-        setSuppressTransition(false);
-        setVisualIndex(tempVisual);
-        setDataIndex(wrapForward ? media.length - 1 : 0);
-
-        clearAnimationTimeout();
-        animationTimeoutRef.current = window.setTimeout(() => {
-          // Snap instantly (no transition) to the final wrapped position where
-          // visualIndex and dataIndex are aligned to the wrapped item.
-          setSuppressTransition(true);
-          const finalIndex = wrapForward ? 0 : media.length - 1;
-          setVisualIndex(finalIndex);
-          setDataIndex(finalIndex);
-          onChangeIndex?.(finalIndex);
-
-          // Restore animated transitions and clear animating flag on next tick
-          window.setTimeout(() => {
-            setSuppressTransition(false);
-            setIsAnimating(false);
-          }, 20);
-
-          animationTimeoutRef.current = null;
-        }, SLIDE_DURATION);
-
-        return;
-      }
-
-      // Non-wrap navigation: regular animated behavior.
-      setIsAnimating(true);
-      setSuppressTransition(false);
-      setVisualIndex(safeIndex);
-      setDataIndex(safeIndex);
-      onChangeIndex?.(safeIndex);
-
-      clearAnimationTimeout();
-      animationTimeoutRef.current = window.setTimeout(() => {
-        setIsAnimating(false);
-        animationTimeoutRef.current = null;
-      }, SLIDE_DURATION);
-    },
-    [SLIDE_DURATION, dataIndex, media.length, onChangeIndex],
-  );
-
-  React.useEffect(() => {
-    return () => {
-      clearAnimationTimeout();
-    };
-  }, []);
-
-  const goToNext = React.useCallback(() => {
-    goToIndex(dataIndex + 1, "left");
-  }, [dataIndex, goToIndex]);
-
-  const goToPrev = React.useCallback(() => {
-    goToIndex(dataIndex - 1, "right");
-  }, [dataIndex, goToIndex]);
-
-  const handleClose = React.useCallback(() => {
-    setIsClosing(true);
-    // Let the layout effect handle background reset when isOpen changes
-    setTimeout(() => {
-      onClose();
-    }, 200);
-  }, [onClose]);
-
-  React.useEffect(() => {
-    if (!isOpen) return;
-
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        handleClose();
+        nav.handleClose();
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        goToNext();
+        nav.goToNext();
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        goToPrev();
+        nav.goToPrev();
       }
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [goToNext, goToPrev, handleClose, isOpen]);
+  }, [isOpen, nav]);
 
-  // Use layout effect to set background BEFORE paint, ensuring consistent timing.
-  // position:fixed is required on iOS — overflow:hidden alone doesn't stop momentum scroll.
-  React.useLayoutEffect(() => {
-    const nav = document.querySelector<HTMLElement>(".app-bottom-nav");
-    if (isOpen) {
-      // Pin navbar at its current pixel position (via top) before the body
-      // lock changes the viewport height, preventing the iOS URL-bar shift.
-      if (nav) {
-        nav.style.top = `${nav.getBoundingClientRect().top}px`;
-        nav.style.bottom = "auto";
-      }
-      savedScrollYRef.current = window.scrollY;
-      setModalViewportHeight(window.innerHeight);
-      setHasInitialized(false);
-      document.documentElement.style.backgroundColor = "#FAFAF7";
-      document.body.style.overflow = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${savedScrollYRef.current}px`;
-      document.body.style.width = "100%";
-    } else {
-      document.documentElement.style.backgroundColor = "";
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      window.scrollTo(0, savedScrollYRef.current);
-      // Unpin navbar after body unlock restores the viewport
-      if (nav) {
-        nav.style.top = "";
-        nav.style.bottom = "";
-      }
-    }
-  }, [isOpen]);
-
-  // Focus trap: keep Tab/Shift+Tab cycling within the modal
+  // Focus trap: keep Tab cycling within modal
   React.useEffect(() => {
     if (!isOpen) return;
-
     const FOCUSABLE =
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
     const trap = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
       const root = modalRootRef.current;
@@ -476,91 +158,16 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
       const first = nodes[0]!;
       const last = nodes[nodes.length - 1]!;
       if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
       } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     };
-
     document.addEventListener("keydown", trap);
     return () => document.removeEventListener("keydown", trap);
   }, [isOpen]);
-  const handleBackdropClick = (event: React.MouseEvent) => {
-    if (event.target === event.currentTarget) {
-      handleClose();
-    }
-  };
 
-  const handleTouchStart = (event: React.TouchEvent) => {
-    if (media.length <= 1) {
-      touchStartX.current = null;
-      return;
-    }
-    touchStartX.current = event.touches[0]?.clientX ?? null;
-    touchStartTimeRef.current = Date.now();
-    dragOffsetRef.current = 0;
-    isDraggingRef.current = false;
-  };
-
-  const handleTouchMove = (event: React.TouchEvent) => {
-    if (touchStartX.current == null || media.length <= 1) return;
-    const currentX = event.touches[0]?.clientX ?? 0;
-    const delta = currentX - touchStartX.current;
-    dragOffsetRef.current = delta;
-    isDraggingRef.current = true;
-    if (slideContainerRef.current) {
-      const base = `calc(${visualIndex} * (-100% - 1.5rem))`;
-      slideContainerRef.current.style.transitionDuration = "0ms";
-      slideContainerRef.current.style.transform = `translateX(calc(${base} + ${delta}px))`;
-    }
-  };
-
-  const handleTouchEnd = (event: React.TouchEvent) => {
-    if (media.length <= 1) {
-      touchStartX.current = null;
-      return;
-    }
-    if (touchStartX.current == null) return;
-
-    const endX = event.changedTouches[0]?.clientX ?? 0;
-    const deltaX = endX - touchStartX.current;
-    const elapsed = Math.max(Date.now() - touchStartTimeRef.current, 1);
-    const velocity = Math.abs(deltaX) / elapsed; // px/ms
-
-    // Restore CSS transition before snap or spring-back
-    if (slideContainerRef.current) {
-      slideContainerRef.current.style.transitionDuration = `${SLIDE_DURATION}ms`;
-    }
-
-    const distanceThreshold = 50;
-    const velocityThreshold = 0.3; // px/ms — fast flick
-    const shouldNavigate =
-      Math.abs(deltaX) > distanceThreshold || velocity > velocityThreshold;
-
-    if (shouldNavigate && deltaX > 0) {
-      goToPrev();
-    } else if (shouldNavigate && deltaX < 0) {
-      goToNext();
-    } else if (slideContainerRef.current) {
-      // Spring back to current position
-      const base = `calc(${visualIndex} * (-100% - 1.5rem))`;
-      slideContainerRef.current.style.transform = `translateX(${base})`;
-    }
-
-    touchStartX.current = null;
-    dragOffsetRef.current = 0;
-    isDraggingRef.current = false;
-  };
-
-  if (!isOpen || !media.length) {
-    return null;
-  }
+  if (!isOpen || !media.length) return null;
 
   const hasMultipleItems = media.length > 1;
   const eventLabel = currentItem?.event ?? "";
@@ -571,30 +178,25 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
         day: "numeric",
       })
     : "";
+  const totalItems = media.length;
   const progressPercent = totalItems
-    ? Math.min(100, ((dataIndex + 1) / totalItems) * 100)
+    ? Math.min(100, ((nav.dataIndex + 1) / totalItems) * 100)
     : 0;
   const accentPalette = ["#F7DEE2", "#D8ECFF", "#FFE89D", "#E8D4F8", "#B9E4FF"];
-  const accentColor = accentPalette[dataIndex % accentPalette.length];
-  const metadataKey = currentItem?.id ?? `meta-${dataIndex}`;
+  const accentColor = accentPalette[nav.dataIndex % accentPalette.length];
+  const metadataKey = currentItem?.id ?? `meta-${nav.dataIndex}`;
 
   return (
     <div
       ref={modalRootRef}
-      className={`modal-backdrop-reveal modal-safe-area-mask fixed z-50 bg-black/80 px-3 py-6 text-white sm:px-8 sm:py-10 transition-opacity duration-300 ${
-        isClosing ? "opacity-0" : "opacity-100"
+      className={`modal-backdrop-reveal fixed z-50 bg-black/80 px-3 py-6 text-white sm:px-8 sm:py-10 transition-opacity duration-300 ${
+        nav.isClosing ? "opacity-0" : "opacity-100"
       }`}
       style={{
         top: 0,
         left: 0,
         right: 0,
-        // Pin the height to the viewport measured before the body lock fires.
-        // On iOS, locking the body causes the URL bar to reappear and shrink
-        // window.innerHeight. Using bottom:0 would let that reflow move the
-        // centered card upward. A fixed pixel height prevents the jump.
-        // modalViewportHeight is set synchronously in useLayoutEffect (before
-        // paint); window.innerHeight is the safe fallback for the first render.
-        height: `${modalViewportHeight || window.innerHeight}px`,
+        bottom: 0,
         paddingTop: "max(1.5rem, env(safe-area-inset-top))",
         paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
         display: "flex",
@@ -603,15 +205,15 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
       }}
       role="dialog"
       aria-modal="true"
-      onClick={handleBackdropClick}
+      onClick={(event) => { if (event.target === event.currentTarget) nav.handleClose(); }}
     >
       <div
         className={`relative flex w-full max-w-5xl flex-col gap-5 overflow-hidden rounded-[40px] bg-linear-to-br from-[#0a0a0a]/85 via-[#111]/80 to-[#1b1b1b]/70 p-4 text-white shadow-[0_25px_80px_rgba(0,0,0,0.65)] ring-1 ring-white/10 backdrop-blur-xl sm:p-8 transition-[opacity,transform] duration-300 ${
-          hasInitialized && !isClosing ? "opacity-100 scale-100" : "opacity-0 scale-95"
+          hasInitialized && !nav.isClosing ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={swipe.onTouchStart}
+        onTouchMove={swipe.onTouchMove}
+        onTouchEnd={swipe.onTouchEnd}
       >
         <div className="pointer-events-none absolute inset-0">
           <div className="modal-glow absolute -top-16 left-8 h-56 w-56 rounded-full bg-[#F7DEE2]/35 blur-[120px]" />
@@ -620,7 +222,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
         <button
           type="button"
           className="cursor-pointer absolute right-4 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-[#1a1a1a]/80 text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10 backdrop-blur-lg transition-all duration-200 hover:bg-[#2a2a2a] hover:text-white hover:ring-white/20 active:scale-95 sm:h-12 sm:w-12"
-          onClick={handleClose}
+          onClick={nav.handleClose}
           aria-label="Close modal"
         >
           <svg
@@ -644,22 +246,20 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
 
           <div
             ref={slideContainerRef}
-            className={`flex w-full items-center gap-6 ${
-              isAnimating ? "cursor-grabbing" : ""
-            }`}
+            className={`flex w-full items-center gap-6 ${nav.isAnimating ? "cursor-grabbing" : ""}`}
             style={{
-              transform: `translateX(calc(${visualIndex} * (-100% - 1.5rem)))`,
+              transform: `translateX(calc(${nav.visualIndex} * (-100% - 1.5rem)))`,
               transitionDuration:
-                hasInitialized && !suppressTransition
-                  ? `${SLIDE_DURATION}ms`
+                hasInitialized && !nav.suppressTransition
+                  ? `${nav.slideDuration}ms`
                   : "0ms",
               transitionTimingFunction: "cubic-bezier(0.22,0.61,0.36,1)",
               transitionProperty: "transform",
             }}
           >
             {media.map((item, index) => {
-              const isActiveSlide = index === dataIndex;
-              const isNearby = Math.abs(index - dataIndex) <= 3;
+              const isActiveSlide = index === nav.dataIndex;
+              const isNearby = Math.abs(index - nav.dataIndex) <= 3;
               const isItemVideo = isVideoMeta(item);
 
               return (
@@ -683,8 +283,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
                       ) : (
                         (() => {
                           const image = item as ImageMeta;
-                          const thumbUrl =
-                            resolveThumbUrl?.(image) ?? image.thumbUrl;
+                          const thumbUrl = resolveThumbUrl?.(image) ?? image.thumbUrl;
                           const fullUrl = fullResUrls.get(image.id);
                           const imgUrl = fullUrl ?? thumbUrl;
                           const isFullRes = fullResUrls.has(image.id);
@@ -716,7 +315,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
             <div className="pointer-events-none absolute inset-0 hidden items-center justify-between px-2 sm:flex">
               <button
                 type="button"
-                onClick={goToPrev}
+                onClick={nav.goToPrev}
                 className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
                 aria-label="Previous"
               >
@@ -724,7 +323,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
               </button>
               <button
                 type="button"
-                onClick={goToNext}
+                onClick={nav.goToNext}
                 className="cursor-pointer pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-xl shadow-lg shadow-black/40 backdrop-blur transition-all duration-200 hover:bg-white/30 hover:scale-110 active:scale-95"
                 aria-label="Next"
               >
@@ -748,7 +347,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-white/90">
-                {clampIndex(dataIndex, media.length) + 1}
+                {clampIndex(nav.dataIndex, media.length) + 1}
               </span>
               <span className="text-xs text-white/40">/</span>
               <span className="text-xs text-white/60">{media.length}</span>
@@ -758,19 +357,13 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
                 {Array.from({ length: media.length }, (_, i) => (
                   <button
                     key={i}
-                    onClick={() =>
-                      goToIndex(i, i > dataIndex ? "left" : "right")
-                    }
+                    onClick={() => nav.goToIndex(i, i > nav.dataIndex ? "left" : "right")}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === dataIndex
-                        ? "w-8 opacity-100"
-                        : "w-1.5 opacity-40 hover:opacity-70"
+                      i === nav.dataIndex ? "w-8 opacity-100" : "w-1.5 opacity-40 hover:opacity-70"
                     }`}
                     style={{
                       backgroundColor:
-                        i === dataIndex
-                          ? accentColor
-                          : "rgba(255, 255, 255, 0.6)",
+                        i === nav.dataIndex ? accentColor : "rgba(255, 255, 255, 0.6)",
                     }}
                     aria-label={`Go to image ${i + 1}`}
                   />
@@ -795,8 +388,7 @@ const MediaModalViewer: React.FC<MediaModalViewer> = ({
         </footer>
       </div>
 
-      {/* Hidden video booster elements — decoder warmup for prefetched neighbours (desktop only).
-          Positioned far off-screen (not display:none) so the browser keeps the network requests alive. */}
+      {/* Hidden video booster elements — decoder warmup for prefetched neighbours (desktop only) */}
       {!isMobile && hasInitialized && (
         <div
           aria-hidden
@@ -841,12 +433,9 @@ const ModalImage: React.FC<{
     setFullLoaded(false);
   }, [currentFullSrc]);
 
-  // Instantly mark loaded if the browser already decoded the image
   const thumbImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) {
-        setThumbLoaded(true);
-      }
+      if (img && img.complete && img.naturalWidth > 0) setThumbLoaded(true);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [thumbSrc],
@@ -854,9 +443,7 @@ const ModalImage: React.FC<{
 
   const fullImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) {
-        setFullLoaded(true);
-      }
+      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentFullSrc],
@@ -874,14 +461,7 @@ const ModalImage: React.FC<{
             fill="none"
             viewBox="0 0 24 24"
           >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path
               className="opacity-75"
               fill="currentColor"
@@ -890,29 +470,23 @@ const ModalImage: React.FC<{
           </svg>
         </div>
       )}
-      {/* Thumbnail layer — always visible as base */}
       {actualThumbSrc && (
         <img
           ref={thumbImgRef}
           src={actualThumbSrc}
           alt={alt}
-          className={`max-h-[60vh] w-full rounded-[28px] object-contain ${
-            isActive ? "kenburns-active" : ""
-          } ${thumbLoaded ? "opacity-100" : "opacity-0"}`}
+          className={`max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${thumbLoaded ? "opacity-100" : "opacity-0"}`}
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
           onLoad={() => setThumbLoaded(true)}
         />
       )}
-      {/* Full-res layer — overlays once loaded */}
       {isFullRes && currentFullSrc && (
         <img
           ref={fullImgRef}
           src={currentFullSrc}
           alt={alt}
-          className={`absolute inset-0 max-h-[60vh] w-full rounded-[28px] object-contain ${
-            isActive ? "kenburns-active" : ""
-          } ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
+          className={`absolute inset-0 max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
           onLoad={() => setFullLoaded(true)}
@@ -926,9 +500,8 @@ const ModalVideo: React.FC<{
   isActive: boolean;
   objectUrl: string | null;
   posterUrl: string;
-  videoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }> = ({ isActive, objectUrl, posterUrl, videoRef }) => {
-  // If the slide is not active, render only a poster image (no <video> tag)
   if (!isActive) {
     return (
       <img
@@ -942,7 +515,6 @@ const ModalVideo: React.FC<{
   }
 
   if (!objectUrl) {
-    // Still resolving download URL / fetching bytes
     return (
       <div className="relative flex w-full items-center justify-center">
         <img
@@ -959,14 +531,7 @@ const ModalVideo: React.FC<{
             fill="none"
             viewBox="0 0 24 24"
           >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path
               className="opacity-75"
               fill="currentColor"
@@ -980,9 +545,7 @@ const ModalVideo: React.FC<{
 
   return (
     <video
-      ref={(el) => {
-        videoRef.current = el;
-      }}
+      ref={(el) => { videoRef.current = el; }}
       src={objectUrl}
       poster={posterUrl}
       autoPlay

@@ -84,6 +84,21 @@ Mirror `DeleteTab` behavior via `src/services/deleteService.ts`:
 3. For destructive operations, use `deleteImageWithMetadata(...)`, `deleteVideoWithMetadata(...)`, or `deleteEventWithLinkedMediaCleanup(...)`.
 4. Refresh gallery/events after successful mutations (`refreshGallery`, `refreshEvents`).
 
+### Extract Component Logic into Hooks
+
+When a page/component grows past ~300 lines or mixes unrelated concerns, split non-UI logic into hooks under `src/hooks/`. Existing decompositions to mirror:
+
+- `UploadTab` → `useEventCreation`, `useUploadForm`, `useUploadOrchestrator`
+- `DeleteTab` → `useMediaSearch`, `useMetadataEditor`, `useDeleteConfirmation`
+- `mediaModalViewer` → `useCarouselNavigation`, `useModalViewportLock`, `useModalVideoManager`, `useFullResPreloader`, `useMediaSwipeGesture`
+
+Rules:
+
+1. **Component owns DOM refs.** Create the ref in the component with `useRef(null)`, pass it into hooks that need DOM access, and use it directly in JSX. Hooks must not return refs — `eslint-plugin-react-hooks` v7's `react-hooks/refs` rule flags that and poisons every property of the returned object.
+2. **Prefer `useCallback` deps over refs.** Capture the latest value via the dep array rather than threading a `useRef` for "latest value" snapshots.
+3. **Cancellation tokens for async effects.** Use the `let cancelled = false` pattern (see `useModalVideoManager`, `useUploadForm`) to guard async completions.
+4. **Keep shared hooks generic.** `useYearMonthGrouping<T extends { date: string }>`, `useMediaSearch` hitting `useGallery()` — favor these over duplicating logic across pages.
+
 ### Create Timeline Events
 
 Prefer `createTimelineEvent(...)` from `src/services/uploadService.ts`.

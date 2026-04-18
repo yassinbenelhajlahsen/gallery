@@ -48,9 +48,30 @@ src/
 │   └── ToastContext.tsx
 │
 ├── hooks/
-│   ├── useFullResLoader.ts
-│   ├── usePageReveal.ts
-│   └── useGalleryLoadingProgress.ts   # legacy / not used by main app shell
+│   # cross-cutting
+│   ├── usePageReveal.ts                  # route entrance motion
+│   ├── useGalleryLoadingProgress.ts      # legacy / not used by main app shell
+│   # full-res image resolution
+│   ├── useFullResLoader.ts               # Photos/Home: windowed full-res URL resolver
+│   ├── useFullResPreloader.ts            # mediaModalViewer: windowed full-res preload
+│   # video prefetch
+│   ├── useVideoPrefetch.ts               # modal video pool prefetch
+│   ├── useVideoPagePrefetch.ts           # VideosPage poster prefetch
+│   # UploadTab
+│   ├── useEventCreation.ts               # event-creation form state + submit
+│   ├── useUploadForm.ts                  # file picker + metadata/date/event state
+│   ├── useUploadOrchestrator.ts          # upload queue + per-file progress
+│   # DeleteTab (+ TimelinePage for useMediaSearch)
+│   ├── useMediaSearch.ts                 # shared token-based search (images/videos/events)
+│   ├── useMetadataEditor.ts              # edit draft state + save
+│   ├── useDeleteConfirmation.ts          # delete confirmation flow
+│   # mediaModalViewer
+│   ├── useCarouselNavigation.ts          # indices, wrapping, slide transitions
+│   ├── useModalViewportLock.ts           # body scroll lock + iOS navbar pinning
+│   ├── useModalVideoManager.ts           # active video URL + cleanup
+│   ├── useMediaSwipeGesture.ts           # touch handlers
+│   # Photos/Videos grouping
+│   └── useYearMonthGrouping.ts           # shared year→month bucketing (generic)
 │
 ├── pages/
 │   ├── LoginPage.tsx
@@ -146,6 +167,18 @@ Authenticated content pages render inside `MainLayout`, which provides:
 - `Navbar`
 - centered `<main>` container
 - `Footer` (admin entry)
+
+## Hook Composition
+
+Feature-heavy components delegate their non-UI logic to hooks in `src/hooks/`:
+
+- `UploadTab` → `useEventCreation`, `useUploadForm`, `useUploadOrchestrator`
+- `DeleteTab` → `useMediaSearch`, `useMetadataEditor`, `useDeleteConfirmation`
+- `mediaModalViewer` → `useCarouselNavigation`, `useModalViewportLock`, `useModalVideoManager`, `useFullResPreloader`, `useMediaSwipeGesture`
+- `TimelinePage` → `useMediaSearch` (shared with DeleteTab)
+- `PhotosPage` + `VideosPage` → `useYearMonthGrouping` (generic)
+
+Components keep render/layout/wiring only; state, effects, and async orchestration live in hooks. Refs owned by DOM are created in the component and passed into hooks as parameters (never returned from hooks — `eslint-plugin-react-hooks` v7 flags that).
 
 ## Admin Module Split
 

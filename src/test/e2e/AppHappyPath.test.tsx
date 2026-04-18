@@ -48,6 +48,8 @@ vi.mock("../../services/authService", () => ({
 
 vi.mock("../../services/eventsService", () => ({
   fetchEvents: fetchEventsMock,
+  sortEventsByDateDesc: <T extends { date: string }>(events: T[]): T[] =>
+    [...events].sort((a, b) => Date.parse(b.date) - Date.parse(a.date)),
 }));
 
 vi.mock("../../services/storageService", () => ({
