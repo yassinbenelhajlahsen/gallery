@@ -229,10 +229,9 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 
 ### Map
 
-- pulls `imageMetas` from `GalleryContext` and filters to items with a finite, in-range, non-zero `location`
-- photos-only for now (videos with `location` are ignored)
+- pulls `imageMetas` + `videoMetas` from `GalleryContext` and filters to items with a finite, in-range, non-zero `location`; photo and video pins are visually identical
 - `MapView` wraps each item in a Leaflet marker managed by `leaflet.markercluster`; cluster children are tracked in a local `WeakMap<L.Marker, GpsItem>` so cluster taps can be resolved back to media
-- `maxClusterRadius: 30` keeps only tight groups collapsed; single pins stay visible at typical zooms
+- `maxClusterRadius: 30` keeps only tight groups collapsed; `removeOutsideVisibleBounds: false` keeps every marker mounted so mobile panning can't visibly cull pins
 - cluster tap → `openModalWithMedia(clusterItems, { imageId: newestId, preloadAll: true })`, mirroring Timeline's "tap event → modal with all event media" pattern
 
 ## Upload and Delete Flows

@@ -160,7 +160,7 @@ Router is defined in `src/App.tsx`.
 | `/` | `RequireGalleryLoaded` + `MainLayout` | `HomePage` | Main landing page |
 | `/home` | `RequireGalleryLoaded` + `MainLayout` | `Navigate` -> `/` | Backward-compatible home alias |
 | `/timeline` | same as above | `TimelinePage` | Firestore events + mixed-media modal launch |
-| `/map` | same as above | `MapPage` | Clustered pins for photos with GPS; tap cluster opens modal with those items |
+| `/map` | same as above | `MapPage` | Clustered pins for photos + videos with GPS; tap cluster opens modal with those items |
 | `/photos` | same as above | `PhotosPage` | Photos grouped by year/month |
 | `/videos` | same as above | `VideosPage` | Videos grouped by year/month |
 | `/admin` | same as above | `AdminPage` | Tab via query string (`?tab=upload|delete`) |

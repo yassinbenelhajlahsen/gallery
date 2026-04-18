@@ -157,11 +157,11 @@ Global setup file: `src/test/setup.ts`
 
 ### `src/test/pages/MapPage.test.tsx`
 
-- renders only images with valid `location` (videos excluded)
+- renders images and videos with valid `location`
 - rejects invalid GPS (0/0, out-of-range, NaN)
 - cluster tap opens modal with all cluster items + tapped id + `preloadAll: true`
 - single-pin tap opens modal with just that item
-- empty state when no photos have a location
+- empty state when nothing has a location
 - `components/map/MapView` is mocked to a stub with buttons per item (Leaflet doesn't run in jsdom)
 
 ### `src/test/pages/VideosPage.test.tsx`

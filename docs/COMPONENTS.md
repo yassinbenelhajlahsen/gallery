@@ -136,15 +136,15 @@ Props: `value`, `originalValue`, `onChange(location | null)`, `disabled`.
 ### `MapView`
 
 - File: `src/components/map/MapView.tsx`
-- Purpose: map used by `/map` — clusters photo pins and routes cluster taps to the global modal.
+- Purpose: map used by `/map` — clusters photo + video pins and routes cluster taps to the global modal.
 
 Behavior:
 
 - Leaflet `MapContainer` with CartoDB Positron tiles (free, attribution-only, cached by the PWA service worker under `map-tiles-cache`).
-- `leaflet.markercluster` wrapper with `zoomToBoundsOnClick: false` and `maxClusterRadius: 30` — tapping a cluster calls `onClusterSelect(clusterItems, firstNewest)` instead of zooming. Child items are retrieved via a local `WeakMap<L.Marker, GpsItem>`.
+- `leaflet.markercluster` wrapper with `zoomToBoundsOnClick: false`, `maxClusterRadius: 30`, and `removeOutsideVisibleBounds: false` (keeps every pin in the DOM so fast mobile panning never visibly culls markers). Tapping a cluster calls `onClusterSelect(clusterItems, firstNewest)` instead of zooming. Child items are retrieved via a local `WeakMap<L.Marker, GpsItem>`.
 - Cluster items are sorted newest-first for stable modal ordering.
 - `FitBounds` sub-component refits the view when the item set changes (signature-guarded to avoid refit loops).
-- Custom `DivIcon`s — mint dot for photos (`gallery-pin`) and a serif-numbered pill for clusters (`gallery-cluster`); styles live in `components/map/mapStyles.css`.
+- Custom `DivIcon`s — a single mint-dot pin (`gallery-pin`) for both photos and videos and a serif-numbered pill for clusters (`gallery-cluster`); styles live in `components/map/mapStyles.css`.
 
 ### `LocationPickerMap`
 
@@ -213,8 +213,7 @@ Behavior:
 ### `MapPage`
 
 - File: `src/pages/MapPage.tsx`
-- Pulls `imageMetas` from `GalleryContext` and filters to items with a valid `location` (finite lat/lng in range, not `0/0`).
-- Photos-only for now — videos with `location` are ignored; the filter function and scope are centralized for an easy toggle later.
+- Pulls `imageMetas` + `videoMetas` from `GalleryContext` and filters to items with a valid `location` (finite lat/lng in range, not `0/0`). Photo and video pins render identically.
 - Renders `MapView`; cluster/pin taps call `openModalWithMedia(items, { imageId, preloadAll: true })` (same pattern as Timeline event taps).
 - Empty state points users at EXIF upload or the `npm run backfill:gps` script.
 - Map container height scales to viewport with `svh`/`vh` and grows further in PWA standalone mode (`[@media(display-mode:standalone)]:h-[calc(100svh-180px)]`) so it feels full-screen when installed.
