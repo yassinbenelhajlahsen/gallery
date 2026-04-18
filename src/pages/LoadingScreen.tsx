@@ -16,15 +16,15 @@ const LoadingScreen = () => {
       {/* Bouncing bubbles — pink, blue, yellow */}
       <div className="flex items-center justify-center gap-3" aria-hidden="true">
         <span
-          className="h-4 w-4 animate-[bounce_1s_ease-in-out_infinite] rounded-full bg-[#FACAD5] sm:h-5 sm:w-5"
+          className="bubble-float h-4 w-4 rounded-full bg-[#FACAD5] sm:h-5 sm:w-5"
           style={{ animationDelay: "0s" }}
         />
         <span
-          className="h-4 w-4 animate-[bounce_1s_ease-in-out_infinite] rounded-full bg-[#D8ECFF] sm:h-5 sm:w-5"
+          className="bubble-float h-4 w-4 rounded-full bg-[#D8ECFF] sm:h-5 sm:w-5"
           style={{ animationDelay: "0.2s" }}
         />
         <span
-          className="h-4 w-4 animate-[bounce_1s_ease-in-out_infinite] rounded-full bg-[#FFE89D] sm:h-5 sm:w-5"
+          className="bubble-float h-4 w-4 rounded-full bg-[#FFE89D] sm:h-5 sm:w-5"
           style={{ animationDelay: "0.4s" }}
         />
       </div>
