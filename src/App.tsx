@@ -22,6 +22,7 @@ import ScrollToTop from "./components/layout/ScrollToTop";
 import GalleryModalRenderer from "./components/gallery/GalleryModalRenderer";
 import { ToastProvider } from "./context/ToastContext";
 import NotFoundPage from "./pages/NotFoundPage";
+import ErrorBoundary, { RouteErrorPage } from "./components/ui/ErrorBoundary";
 import { config } from "./config";
 
 const AppBackdrop: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -158,6 +159,7 @@ const router = createBrowserRouter([
         <GalleryAppShell />
       </RequireAuth>
     ),
+    errorElement: <RouteErrorPage />,
     children: [
       { path: "loading", element: <LoadingRoute /> },
       {
@@ -219,7 +221,9 @@ function App() {
     <AuthProvider>
       <ToastProvider>
         <AppBackdrop>
-          <RouterProvider router={router} />
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
         </AppBackdrop>
       </ToastProvider>
     </AuthProvider>
