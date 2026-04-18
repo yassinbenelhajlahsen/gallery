@@ -9,7 +9,15 @@ const NAV_ITEMS = [
     to: "/timeline",
     activeClass: "bg-[#D8ECFF]",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" className="w-5 h-5">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        className="w-5 h-5"
+      >
         <rect x="4" y="3" width="16" height="8" />
         <polyline points="10,11 12,13.5 14,11" />
         <polyline points="4,17 3,18 4,19" />
@@ -24,7 +32,15 @@ const NAV_ITEMS = [
     to: "/photos",
     activeClass: "bg-[#FFE39F]",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" className="w-5 h-5">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        className="w-5 h-5"
+      >
         <rect x="3" y="4" width="18" height="16" />
         <polyline points="3,16 8,10 13,14 16,11 21,15" />
         <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
@@ -37,7 +53,16 @@ const NAV_ITEMS = [
     activeClass: "bg-[#F3D0D6]",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
-        <rect x="2" y="5" width="20" height="14" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" />
+        <rect
+          x="2"
+          y="5"
+          width="20"
+          height="14"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+        />
         <polygon points="10,9 10,15 16,12" fill="currentColor" />
       </svg>
     ),
@@ -45,28 +70,34 @@ const NAV_ITEMS = [
 ];
 
 const HomeIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="square" strokeLinejoin="miter" className="w-5 h-5">
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+    strokeLinecap="square"
+    strokeLinejoin="miter"
+    className="w-5 h-5"
+  >
     <polyline points="3,12 12,4 21,12" />
     <polyline points="6,10 6,20 18,20 18,10" />
     <polyline points="9,20 9,14 15,14 15,20" />
   </svg>
 );
 
-
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-  const onScroll = () => {
-    const next = window.scrollY > 40;
-    setScrolled(prev => (prev === next ? prev : next));
-  };
+    const onScroll = () => {
+      const next = window.scrollY > 40;
+      setScrolled((prev) => (prev === next ? prev : next));
+    };
 
-  window.addEventListener("scroll", onScroll, { passive: true });
-  return () => window.removeEventListener("scroll", onScroll);
-}, []);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-  
   return (
     <>
       {/* Desktop navbar */}
@@ -138,7 +169,7 @@ const Navbar = () => {
             to="/"
             end
             className={({ isActive }) =>
-              `relative flex flex-1 flex-col items-center pt-4 pb-2 px-1 gap-1 text-[10px] font-semibold leading-tight transition-colors duration-150 active:opacity-60 touch-manipulation ${
+              `relative flex flex-1 flex-col items-center pt-4 pb-1 px-1 gap-1 text-[10px] font-semibold leading-tight transition-colors duration-150 active:opacity-60 touch-manipulation ${
                 isActive ? "text-[#222]" : "text-[#999]"
               }`
             }
@@ -159,7 +190,7 @@ const Navbar = () => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `relative flex flex-1 flex-col items-center pt-4 pb-2 px-1 gap-1 text-[10px] font-semibold leading-tight transition-colors duration-150 active:opacity-60 touch-manipulation ${
+                `relative flex flex-1 flex-col items-center pt-4 pb-1 px-1 gap-1 text-[10px] font-semibold leading-tight transition-colors duration-150 active:opacity-60 touch-manipulation ${
                   isActive ? "text-[#222]" : "text-[#999]"
                 }`
               }
@@ -179,7 +210,7 @@ const Navbar = () => {
 
         <div
           className="w-full bg-[#FAFAF7]"
-          style={{ height: "env(safe-area-inset-bottom)" }}
+          style={{ height: "25px" }}
           aria-hidden="true"
         />
       </nav>
