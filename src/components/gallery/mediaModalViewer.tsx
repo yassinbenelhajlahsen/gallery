@@ -529,6 +529,34 @@ const ModalVideo: React.FC<{
   posterUrl: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }> = ({ isActive, objectUrl, posterUrl, videoRef }) => {
+  // Preload poster to learn the video's aspect ratio before the <video>
+  // element mounts. Without this, the video element has no intrinsic
+  // dimensions until its metadata loads, so the browser-drawn native
+  // controls overlay is positioned on a default 300x150 box and visibly
+  // snaps into place once metadata arrives.
+  const [aspectRatio, setAspectRatio] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!posterUrl) {
+      setAspectRatio(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    const applyFromImg = () => {
+      if (cancelled) return;
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (w > 0 && h > 0) setAspectRatio(`${w} / ${h}`);
+    };
+    img.onload = applyFromImg;
+    img.src = posterUrl;
+    if (img.complete) applyFromImg();
+    return () => { cancelled = true; };
+  }, [posterUrl]);
+
+  const aspectStyle = aspectRatio ? { aspectRatio } : undefined;
+
   if (!isActive) {
     return (
       <img
@@ -579,6 +607,7 @@ const ModalVideo: React.FC<{
       controls
       playsInline
       className="max-h-[60vh] w-full rounded-[28px] object-contain relative z-30"
+      style={aspectStyle}
     />
   );
 };
