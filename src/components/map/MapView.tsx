@@ -76,6 +76,7 @@ const ClusterLayer: React.FC<Props> = ({ items, onClusterSelect }) => {
       showCoverageOnHover: false,
       zoomToBoundsOnClick: false,
       spiderfyOnMaxZoom: false,
+      removeOutsideVisibleBounds: false,
       maxClusterRadius: 30,
       iconCreateFunction: (c) => buildClusterIcon(c.getChildCount()),
     });
