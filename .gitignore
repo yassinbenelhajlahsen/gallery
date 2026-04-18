@@ -17,6 +17,7 @@ serviceAccountKey.json
 cors.json
 .firebase
 .playwright-mcp
+scripts/unmatched-gps.txt
 
 # Editor directories and files
 .vscode/*

@@ -33,10 +33,21 @@ export type ImageMeta = {
   date: string;
   event?: string;
   caption?: string;
+  location?: { lat: number; lng: number };
   /** Full-resolution download URL */
   downloadUrl: string;
   /** Thumbnail download URL */
   thumbUrl: string;
+};
+
+const parseLocation = (raw: unknown): { lat: number; lng: number } | undefined => {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const r = raw as Record<string, unknown>;
+  const { lat, lng } = r;
+  if (typeof lat !== "number" || typeof lng !== "number") return undefined;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return undefined;
+  return { lat, lng };
 };
 
 export type PreloadedImage = {
@@ -163,6 +174,7 @@ export async function fetchAllImageMetadata(): Promise<ImageMeta[]> {
         date,
         event: typeof data.event === "string" ? data.event : undefined,
         caption: typeof data.caption === "string" ? data.caption : undefined,
+        location: parseLocation(data.location),
         downloadUrl,
         thumbUrl: thumbUrl ?? downloadUrl,
       } satisfies ImageMeta;
@@ -222,6 +234,7 @@ export async function fetchAllVideoMetadata(): Promise<VideoMeta[]> {
           videoPath,
           thumbUrl,
           durationSeconds: normalizeDurationSeconds(data.durationSeconds),
+          location: parseLocation(data.location),
         } satisfies VideoMeta;
       });
 

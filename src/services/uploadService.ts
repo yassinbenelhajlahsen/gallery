@@ -1,8 +1,25 @@
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, getMetadata, ref, uploadBytes } from "firebase/storage";
+import exifr from "exifr";
 import { db } from "./firebaseFirestore";
 import { storage } from "./firebaseStorage";
 import { getVideoExtension } from "../utils/uploadMediaUtils";
+
+export type GpsLocation = { lat: number; lng: number };
+
+async function readGpsLocation(file: File): Promise<GpsLocation | null> {
+  try {
+    const gps = await exifr.gps(file);
+    if (!gps) return null;
+    const { latitude, longitude } = gps;
+    if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+    return { lat: latitude, lng: longitude };
+  } catch {
+    return null;
+  }
+}
 
 function normalizeDurationSeconds(rawDuration: number): number | null {
   if (!Number.isFinite(rawDuration) || rawDuration < 0) return null;
@@ -322,7 +339,10 @@ export async function uploadImageWithMetadata(
   eventName: string,
 ) {
   const cleanName = file.name.replace(/\.[^.]+$/, "");
-  const img = await loadImage(file);
+  const [img, location] = await Promise.all([
+    loadImage(file),
+    readGpsLocation(file),
+  ]);
   const [jpegBlob, thumbBlob] = await Promise.all([
     convertToJpeg(img),
     generateThumbnail(img),
@@ -346,6 +366,7 @@ export async function uploadImageWithMetadata(
     createdAt: serverTimestamp(),
   };
   if (eventName.trim().length > 0) payload.event = eventName.trim();
+  if (location) payload.location = location;
 
   await setDoc(doc(db, "images", jpgName), payload, { merge: true });
   const url = await getDownloadURL(fullRef).catch(() => "");

@@ -18,6 +18,7 @@ export type VideoMeta = BaseMediaMeta & {
   thumbUrl: string;
   /** Video duration in whole seconds */
   durationSeconds?: number;
+  location?: { lat: number; lng: number };
 };
 
 export type ImageMediaMeta = ImageMeta & { type: "image" };
