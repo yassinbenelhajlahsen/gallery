@@ -329,8 +329,10 @@ describe("UploadTab", () => {
       expect(inferUploadDateFromMetadataMock).toHaveBeenCalledTimes(1);
     });
 
+    // For a single file the per-file table is hidden; the EXIF date is stored
+    // internally and used during upload. The date input remains empty.
     const dateInputs = getDateInputs();
-    expect(dateInputs[0]?.value).toBe("2025-01-02");
+    expect(dateInputs[0]?.value).toBe("");
   });
 
   it("uploads an image, writes Firestore metadata, and refreshes gallery", async () => {
@@ -346,6 +348,11 @@ describe("UploadTab", () => {
     const fileInput = getFileInput();
     const file = new File(["image-bytes"], "beach.png", { type: "image/png" });
     fireEvent.change(fileInput, { target: { files: [file] } });
+
+    // Wait for per-file metadata reading to finish before clicking Upload.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Upload Media" })).not.toBeDisabled();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Upload Media" }));
 
@@ -402,6 +409,10 @@ describe("UploadTab", () => {
     const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Upload Media" })).not.toBeDisabled();
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "Upload Media" }));
 
     await waitFor(() => {
@@ -425,6 +436,10 @@ describe("UploadTab", () => {
     const fileInput = getFileInput();
     const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Upload Media" })).not.toBeDisabled();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Upload Media" }));
 

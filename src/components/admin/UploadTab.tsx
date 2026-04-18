@@ -20,7 +20,7 @@ interface UploadProgress {
 }
 
 export default function AdminUploadPage() {
-  const [files, setFiles] = useState<FileList | null>(null);
+  const [files, setFiles] = useState<File[] | null>(null);
   const [date, setDate] = useState("");
   const [dateSource, setDateSource] = useState<"none" | "event" | "metadata" | "manual">(
     "none",
@@ -30,6 +30,8 @@ export default function AdminUploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [fileMetaDates, setFileMetaDates] = useState<Record<string, string | null>>({});
+  const [isReadingMeta, setIsReadingMeta] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -78,9 +80,28 @@ export default function AdminUploadPage() {
     }
   };
 
+  const probeFilesMetadata = async (filesToProbe: File[]) => {
+    const probeId = metadataProbeIdRef.current + 1;
+    metadataProbeIdRef.current = probeId;
+    setIsReadingMeta(true);
+    const dates = await Promise.all(filesToProbe.map((f) => inferUploadDateFromMetadata(f)));
+    if (metadataProbeIdRef.current !== probeId) return;
+    const metaMap: Record<string, string | null> = {};
+    filesToProbe.forEach((f, i) => { metaMap[f.name] = dates[i] ?? null; });
+    setFileMetaDates(metaMap);
+    setIsReadingMeta(false);
+  };
+
   // Auto-fill date and event name when an event is selected
   const handleEventSelect = (eventId: string) => {
     setSelectedEventId(eventId);
+    if (!eventId) {
+      setDate("");
+      setDateSource("none");
+      setEventName("");
+      if (files && files.length > 0) void probeFilesMetadata(files);
+      return;
+    }
     const event = sortedEvents.find((e) => e.id === eventId);
     if (event) {
       setDate(event.date);
@@ -101,32 +122,33 @@ export default function AdminUploadPage() {
     setSelectedEventId("");
   };
 
+  const handleRemoveFile = (fileName: string) => {
+    setFiles((prev) => {
+      const next = prev ? prev.filter((f) => f.name !== fileName) : null;
+      return next && next.length > 0 ? next : null;
+    });
+    setFileMetaDates((prev) => {
+      const next = { ...prev };
+      delete next[fileName];
+      return next;
+    });
+    // Clear the native input so re-selecting the same files triggers onChange again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleFileInputChange = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const selectedFiles = event.target.files;
-    setFiles(selectedFiles);
+    setFiles(selectedFiles ? Array.from(selectedFiles) : null);
+    setFileMetaDates({});
 
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    // Event selection takes precedence for upload date and should never be
-    // overridden by embedded media metadata.
-    if (dateSourceRef.current === "event") {
-      return;
-    }
+    // Event selection takes precedence — skip metadata probing entirely.
+    if (dateSourceRef.current === "event") return;
 
-    const probeId = metadataProbeIdRef.current + 1;
-    metadataProbeIdRef.current = probeId;
-    const inferredDate = await inferUploadDateFromMetadata(selectedFiles[0]);
-    if (!inferredDate) {
-      return;
-    }
-    if (metadataProbeIdRef.current !== probeId) {
-      return;
-    }
-
-    setDate(() => inferredDate);
-    setDateSource("metadata");
+    await probeFilesMetadata(Array.from(selectedFiles));
   };
 
   const updateProgress = (
@@ -154,17 +176,13 @@ export default function AdminUploadPage() {
 
   const handleUpload = async () => {
     if (!files || files.length === 0) return;
-    if (!date) {
-      toast("Please choose a date.", "error");
-      return;
-    }
 
     setError(null);
     setIsUploading(true);
     const results: string[] = [];
 
     // Initialize upload progress entries so the UI shows 0/TOTAL at start
-    const filesArr = Array.from(files);
+    const filesArr = files;
     setUploadProgress(
       filesArr.map((f) => ({
         fileName: f.name,
@@ -176,6 +194,21 @@ export default function AdminUploadPage() {
     try {
       for (const originalFile of filesArr) {
         const fileName = originalFile.name;
+
+        const effectiveDate =
+          dateSource === "event"
+            ? date
+            : (fileMetaDates[originalFile.name] ?? date);
+
+        if (!effectiveDate) {
+          updateProgress(fileName, {
+            status: "error",
+            error: "No date — set a Fallback Date above",
+            progress: 0,
+          });
+          continue;
+        }
+
         updateProgress(fileName, { status: "converting", progress: 10 });
 
         try {
@@ -184,7 +217,7 @@ export default function AdminUploadPage() {
             updateProgress(fileName, { status: "uploading", progress: 60 });
             const { url } = await uploadVideoWithMetadata(
               originalFile,
-              date,
+              effectiveDate,
               eventName,
             );
             updateProgress(fileName, { progress: 100, status: "success", url });
@@ -194,7 +227,7 @@ export default function AdminUploadPage() {
             updateProgress(fileName, { status: "uploading", progress: 60 });
             const { url } = await uploadImageWithMetadata(
               originalFile,
-              date,
+              effectiveDate,
               eventName,
             );
             updateProgress(fileName, { progress: 100, status: "success", url });
@@ -231,6 +264,7 @@ export default function AdminUploadPage() {
       setSelectedEventId("");
       setEventName("");
       setUploadProgress([]);
+      setFileMetaDates({});
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
@@ -269,12 +303,112 @@ export default function AdminUploadPage() {
             className="cursor-pointer w-full rounded-xl border-2 border-dashed border-[#F0F0F0] bg-[#FAFAF7] px-4 py-6 text-sm text-[#666] transition-all duration-200 hover:border-[#F7DEE2] hover:bg-white focus:border-[#F7DEE2] focus:outline-none file:mr-4 file:rounded-full file:border-0 file:bg-[#F7DEE2] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#333] file:transition-all file:duration-200 hover:file:bg-[#F3CED6]"
           />
           {files && files.length > 0 && (
-            <p className="mt-2 text-xs text-[#888]">
-              {files.length} file{files.length === 1 ? "" : "s"} selected
-            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {files.length === 1 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F0F0F0] bg-white px-2.5 py-1 text-xs text-[#555]">
+                  <span className="max-w-[200px] truncate">{files[0]?.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(files[0]?.name ?? "")}
+                    className="cursor-pointer text-[#aaa] hover:text-[#333] transition-colors"
+                    aria-label="Remove file"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ) : (
+                <p className="text-xs text-[#888]">{files.length} files selected</p>
+              )}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Per-file date table — only shown for multiple files */}
+      {files && files.length > 1 && (
+        <div className="space-y-3 rounded-xl border-2 border-[#F0F0F0] bg-[#FAFAF7] p-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[#333]">Files</p>
+            {isReadingMeta && (
+              <span className="flex items-center gap-1.5 text-xs text-[#888]">
+                <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Reading metadata…
+              </span>
+            )}
+          </div>
+
+          {!isReadingMeta && (
+            <>
+              <div className="overflow-hidden rounded-lg border border-[#F0F0F0] bg-white">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-[#F0F0F0] bg-[#FAFAF7]">
+                      <th className="px-3 py-2 text-left font-semibold text-[#555]">File</th>
+                      <th className="px-3 py-2 text-left font-semibold text-[#555]">Date</th>
+                      <th className="w-8" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {files.map((file) => {
+                      const cellDate =
+                        dateSource === "event" ? date : (fileMetaDates[file.name] ?? "");
+
+                      return (
+                        <tr key={file.name} className="border-b border-[#F0F0F0] last:border-0">
+                          <td className="max-w-[140px] truncate px-3 py-2 font-medium text-[#333]">
+                            {file.name}
+                          </td>
+                          <td className="px-3 py-1.5">
+                            {dateSource === "event" ? (
+                              <span className="text-[#555]">{cellDate}</span>
+                            ) : (
+                              <input
+                                type="date"
+                                value={cellDate}
+                                onChange={(e) =>
+                                  setFileMetaDates((prev) => ({
+                                    ...prev,
+                                    [file.name]: e.target.value || null,
+                                  }))
+                                }
+                                className="w-full rounded-lg border border-[#F0F0F0] bg-white px-2 py-1 text-xs text-[#333] hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none"
+                              />
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(file.name)}
+                              className="cursor-pointer text-[#bbb] hover:text-red-400 transition-colors"
+                              aria-label={`Remove ${file.name}`}
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {dateSource !== "event" && (() => {
+                const missingCount = files.filter(
+                  (f) => !fileMetaDates[f.name],
+                ).length;
+                return missingCount > 0 ? (
+                  <p className="text-xs font-medium text-amber-700">
+                    ⚠ {missingCount} file{missingCount === 1 ? "" : "s"} {missingCount === 1 ? "has" : "have"} no date — edit in the table above.
+                  </p>
+                ) : null;
+              })()}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="h-px bg-linear-to-r from-transparent via-[#F0F0F0] to-transparent" />
 
@@ -330,42 +464,53 @@ export default function AdminUploadPage() {
         </p>
       </div>
 
-      {/* Date Input */}
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-[#333]">
-          Date{" "}
-          <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => handleDateChange(e.target.value)}
-          className="
-                pt-4.5
-                pb-4.5
-                w-full
-                min-w-0
-                appearance-none
-                box-border
-                rounded-xl
-                border-2 border-[#F0F0F0]
-                bg-white
-                px-4 py-3
-                text-[#333]
-                shadow-sm
-                transition-all duration-200
-                hover:border-[#F7DEE2]
-                focus:border-[#F7DEE2]
-                focus:outline-none
-                focus:ring-2 focus:ring-[#F7DEE2]/30
-              "
-        />
-      </div>
+      {/* Date Input — hidden when multiple files are selected (each file has its own date in the table above) */}
+      {(!files || files.length <= 1) && (
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-[#333]">
+            Date{" "}
+            <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => handleDateChange(e.target.value)}
+            className="
+                  pt-4.5
+                  pb-4.5
+                  w-full
+                  min-w-0
+                  appearance-none
+                  box-border
+                  rounded-xl
+                  border-2 border-[#F0F0F0]
+                  bg-white
+                  px-4 py-3
+                  text-[#333]
+                  shadow-sm
+                  transition-all duration-200
+                  hover:border-[#F7DEE2]
+                  focus:border-[#F7DEE2]
+                  focus:outline-none
+                  focus:ring-2 focus:ring-[#F7DEE2]/30
+                "
+          />
+        </div>
+      )}
 
       {/* Upload Button */}
       <button
         onClick={handleUpload}
-        disabled={isUploading || !files || files.length === 0 || !date}
+        disabled={
+          isUploading ||
+          !files ||
+          files.length === 0 ||
+          isReadingMeta ||
+          // For a single file: require a date unless EXIF already provided one
+          (files.length === 1 &&
+            !date &&
+            !fileMetaDates[files[0]?.name ?? ""])
+        }
         className="cursor-pointer w-full rounded-xl bg-[#F7DEE2] py-4 font-semibold text-[#333] shadow-[0_12px_30px_rgba(0,0,0,0.08)] transition-all duration-200 hover:bg-[#F3CED6] hover:scale-[1.02] hover:shadow-[0_20px_40px_rgba(0,0,0,0.12)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 touch-manipulation"
       >
         {isUploading ? (
