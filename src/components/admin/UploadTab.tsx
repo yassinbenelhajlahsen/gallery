@@ -2,51 +2,8 @@ import { useRef } from "react";
 import { useEventCreation } from "../../hooks/useEventCreation";
 import { useUploadForm } from "../../hooks/useUploadForm";
 import { useUploadOrchestrator } from "../../hooks/useUploadOrchestrator";
-import { useUploadStaging, type StagingEntry } from "../../hooks/useUploadStaging";
+import { useUploadStaging } from "../../hooks/useUploadStaging";
 import { FloatingInput } from "../ui/FloatingInput";
-
-function StagingBadge({ entry }: { entry: StagingEntry | undefined }) {
-  if (!entry) return null;
-  if (entry.status === "staging") {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#7a3b48]">
-        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#F3CED6]" />
-        Uploading {entry.progress}%
-      </span>
-    );
-  }
-  if (entry.status === "staged") {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#2f5d4d]">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#9FC7B3]" />
-        Ready
-      </span>
-    );
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[10px] font-medium text-[#8a2222]"
-      title={entry.error}
-    >
-      <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E5A3A3]" />
-      Failed
-    </span>
-  );
-}
-
-function StagingProgressBar({ entry }: { entry: StagingEntry | undefined }) {
-  if (!entry || entry.status === "error") return null;
-  return (
-    <div className="relative mt-1 h-0.5 w-full overflow-hidden rounded-full bg-[#F0F0F0]">
-      <div
-        className={`h-full rounded-full transition-all duration-300 ${
-          entry.status === "staged" ? "bg-[#9FC7B3]" : "bg-[#F3CED6]"
-        }`}
-        style={{ width: `${entry.progress}%` }}
-      />
-    </div>
-  );
-}
 
 export default function AdminUploadPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -62,10 +19,8 @@ export default function AdminUploadPage() {
     eventName: form.eventName,
     clearForm: form.clearForm,
     commitAll: staging.commitAll,
+    entries: staging.entries,
   });
-
-  const singleFile = form.files && form.files.length === 1 ? form.files[0] : null;
-  const singleEntry = singleFile ? staging.entries[singleFile.name] : undefined;
 
   return (
     <div className="space-y-6">
@@ -96,32 +51,17 @@ export default function AdminUploadPage() {
           />
           {form.files && form.files.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {form.files.length === 1 && singleFile ? (
-                <span className="inline-flex flex-col items-stretch gap-0.5 rounded-2xl border border-[#F0F0F0] bg-white px-2.5 py-1.5 text-xs text-[#555]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="max-w-[200px] truncate">{singleFile.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => form.handleRemoveFile(singleFile.name)}
-                      className="cursor-pointer text-[#aaa] hover:text-[#333] transition-colors"
-                      aria-label="Remove file"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                  <span className="flex items-center justify-between gap-2">
-                    <StagingBadge entry={singleEntry} />
-                    {singleEntry?.status === "error" && (
-                      <button
-                        type="button"
-                        onClick={() => staging.retry(singleFile.name)}
-                        className="cursor-pointer text-[10px] font-medium text-[#7a3b48] underline hover:text-[#5a2b38]"
-                      >
-                        Retry
-                      </button>
-                    )}
-                  </span>
-                  <StagingProgressBar entry={singleEntry} />
+              {form.files.length === 1 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F0F0F0] bg-white px-2.5 py-1 text-xs text-[#555]">
+                  <span className="max-w-[200px] truncate">{form.files[0]?.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => form.handleRemoveFile(form.files![0]?.name ?? "")}
+                    className="cursor-pointer text-[#aaa] hover:text-[#333] transition-colors"
+                    aria-label="Remove file"
+                  >
+                    ✕
+                  </button>
                 </span>
               ) : (
                 <p className="text-xs text-[#888]">{form.files.length} files selected</p>
@@ -155,7 +95,6 @@ export default function AdminUploadPage() {
                     <tr className="border-b border-[#F0F0F0] bg-[#FAFAF7]">
                       <th className="px-3 py-2 text-left font-semibold text-[#555]">File</th>
                       <th className="px-3 py-2 text-left font-semibold text-[#555]">Date</th>
-                      <th className="px-3 py-2 text-left font-semibold text-[#555]">Status</th>
                       <th className="w-8" />
                     </tr>
                   </thead>
@@ -163,7 +102,6 @@ export default function AdminUploadPage() {
                     {form.files.map((file) => {
                       const cellDate =
                         form.dateSource === "event" ? form.date : (form.fileMetaDates[file.name] ?? "");
-                      const entry = staging.entries[file.name];
 
                       return (
                         <tr key={file.name} className="border-b border-[#F0F0F0] last:border-0">
@@ -186,23 +124,6 @@ export default function AdminUploadPage() {
                                 className="w-full rounded-lg border border-[#F0F0F0] bg-white px-2 py-1 text-xs text-[#333] hover:border-[#F7DEE2] focus:border-[#F7DEE2] focus:outline-none"
                               />
                             )}
-                          </td>
-                          <td className="px-3 py-1.5">
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <StagingBadge entry={entry} />
-                                {entry?.status === "error" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => staging.retry(file.name)}
-                                    className="cursor-pointer text-[10px] font-medium text-[#7a3b48] underline hover:text-[#5a2b38]"
-                                  >
-                                    Retry
-                                  </button>
-                                )}
-                              </div>
-                              <StagingProgressBar entry={entry} />
-                            </div>
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <button
@@ -331,8 +252,6 @@ export default function AdminUploadPage() {
           !form.files ||
           form.files.length === 0 ||
           form.isReadingMeta ||
-          staging.isStaging ||
-          !staging.hasStagedAny ||
           (form.files.length === 1 &&
             !form.date &&
             !form.fileMetaDates[form.files[0]?.name ?? ""])
@@ -361,10 +280,8 @@ export default function AdminUploadPage() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            Publishing…
+            Uploading…
           </span>
-        ) : staging.isStaging ? (
-          "Uploading… (waiting for media)"
         ) : (
           "Upload Media"
         )}
@@ -378,12 +295,12 @@ export default function AdminUploadPage() {
         </div>
       )}
 
-      {/* Per-file commit results — visible briefly during/after Publish */}
+      {/* Upload Progress */}
       {uploader.uploadProgress.length > 0 && (
         <div className="space-y-4 rounded-2xl border border-[#F0F0F0] bg-[#FAFAF7] p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-[#333]">
-              Publish Progress
+              Upload Progress
             </h2>
             <span className="rounded-full bg-[#F7DEE2] px-3 py-1 text-xs font-semibold text-[#333]">
               {uploader.uploadProgress.filter((p) => p.status === "success").length} /{" "}
@@ -405,7 +322,7 @@ export default function AdminUploadPage() {
                   ? "Done"
                   : item.status === "error"
                     ? "Failed"
-                    : "Publishing";
+                    : "Uploading";
 
               const barClasses =
                 item.status === "success"

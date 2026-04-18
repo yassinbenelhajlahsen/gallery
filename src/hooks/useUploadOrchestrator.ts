@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useGallery } from "../context/GalleryContext";
 import { useToast } from "../context/ToastContext";
-import type { UseUploadStagingApi } from "./useUploadStaging";
+import type { StagingEntry, UseUploadStagingApi } from "./useUploadStaging";
 
 export interface UploadProgress {
   fileName: string;
@@ -19,6 +19,7 @@ interface OrchestratorParams {
   eventName: string;
   clearForm: () => void;
   commitAll: UseUploadStagingApi["commitAll"];
+  entries: Record<string, StagingEntry>;
 }
 
 export function useUploadOrchestrator({
@@ -29,24 +30,46 @@ export function useUploadOrchestrator({
   eventName,
   clearForm,
   commitAll,
+  entries,
 }: OrchestratorParams) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
+  const [hasCommitResults, setHasCommitResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { refreshGallery } = useGallery();
   const { toast } = useToast();
+
+  // While uploading and before commit resolves, keep the visible progress in
+  // sync with real byte transfer from the staging hook.
+  useEffect(() => {
+    if (!isUploading || hasCommitResults || !files) return;
+    setUploadProgress(
+      files.map((f) => {
+        const entry = entries[f.name];
+        return {
+          fileName: f.name,
+          status: "uploading" as const,
+          progress: entry?.progress ?? 0,
+        };
+      }),
+    );
+  }, [isUploading, hasCommitResults, files, entries]);
 
   const handleUpload = useCallback(async () => {
     if (!files || files.length === 0) return;
 
     setError(null);
     setIsUploading(true);
+    setHasCommitResults(false);
     setUploadProgress(
-      files.map((f) => ({
-        fileName: f.name,
-        status: "uploading" as const,
-        progress: 50,
-      })),
+      files.map((f) => {
+        const entry = entries[f.name];
+        return {
+          fileName: f.name,
+          status: "uploading" as const,
+          progress: entry?.progress ?? 0,
+        };
+      }),
     );
 
     const resolveDate = (fileName: string): string | null => {
@@ -56,6 +79,7 @@ export function useUploadOrchestrator({
 
     try {
       const results = await commitAll(resolveDate, eventName);
+      setHasCommitResults(true);
       setUploadProgress(
         results.map((r) => ({
           fileName: r.fileName,
@@ -79,6 +103,7 @@ export function useUploadOrchestrator({
       await refreshGallery();
       clearForm();
       setUploadProgress([]);
+      setHasCommitResults(false);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
@@ -93,6 +118,7 @@ export function useUploadOrchestrator({
     date,
     dateSource,
     eventName,
+    entries,
     commitAll,
     clearForm,
     refreshGallery,

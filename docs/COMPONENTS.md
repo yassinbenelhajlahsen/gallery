@@ -241,8 +241,8 @@ Capabilities:
 - event selection auto-filling date + event title
 - upload images and videos in one flow
 - date inference from first file metadata unless event date is selected
-- **Pre-upload (Instagram-style)**: bytes are pushed to Storage as soon as a file is added to the draft, before the user picks date/event/label. Each file chip / table row shows an inline progress bar with `Uploading XX%` → `Ready` → `Failed` (with a `Retry` action). The Upload Media button is disabled until at least one file is `Ready`; clicking it writes the Firestore docs (`commitImage` / `commitVideo`) and is sub-100ms per file when staging already finished.
-- **File removal**: removing a file from the draft aborts the in-flight resumable upload and best-effort deletes any already-staged Storage blobs, so the gallery never sees them.
+- **Silent pre-upload (Instagram-style)**: bytes are pushed to Storage as soon as a file is added to the draft — without any inline status indicator on the chip / table row. The user perceives the upload as starting only when they click `Upload Media`. Behind the scenes, the click writes the Firestore `images` / `videos` docs (`commitImage` / `commitVideo`) — sub-100ms per file when staging already finished, otherwise it awaits the in-flight bytes. The `Upload Progress` panel shown after the click reflects real per-file byte progress (driven by the staging entry map) so it doesn't look fake when staging is still in flight.
+- **File removal**: removing a file from the draft silently aborts the in-flight resumable upload and best-effort deletes any already-staged Storage blobs, so the gallery never sees them.
 - delegates upload/event create operations to `uploadService` helpers
 
 Upload pipeline (per file):

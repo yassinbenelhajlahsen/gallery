@@ -245,8 +245,8 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
   - **Commit on Upload click** — `useUploadOrchestrator` calls `staging.commitAll(resolveDate, eventName)`, which awaits any still-in-flight staging promises and writes the Firestore `images` / `videos` docs. For files where staging already finished, this is a single `setDoc` per file (sub-100ms).
 - **File removal lifecycle** — when a file is removed from the draft before commit, `useUploadStaging` aborts the in-flight resumable upload (`task.cancel()`) and best-effort `deleteObject`s any staged blobs. After successful commit, removed/cleared files are flagged `committed` and skip discard.
 - **Tab-close orphans** — intentionally not cleaned up. Bytes pre-uploaded but never committed remain in Storage with no Firestore doc; sweep manually if they accumulate.
-- **Per-file progress UI** — staging progress (0–100% byte transfer) renders inline on each file chip / table row via the `entries` map from `useUploadStaging`. The "Publish Progress" panel only appears during/after the Upload click and reflects commit results (not byte transfer).
-- **Stage failure** — surfaces a `Failed` badge with a `Retry` action on the chip; does not block other staged files from being committed.
+- **Silent staging UX** — there is intentionally **no** inline staging indicator on the file chip / table row. The user shouldn't perceive any background work; the upload appears to "start" only when they click Upload. The `Upload Progress` panel only appears after the click and is driven by `useUploadOrchestrator`, which subscribes to `staging.entries` so the per-file byte progress shown is real (not a fake jump from 50% → 100%).
+- **Stage failure** — silent until the user clicks Upload, at which point `commitAll` returns an `error` result for that file and the orchestrator surfaces it in the `Upload Progress` panel + the "Upload failed" alert. The user retries by removing and re-adding the file.
 - resolves unique names to avoid collisions
 - refreshes gallery once after the batch commits (needed to sync newly uploaded thumbs into IndexedDB)
 

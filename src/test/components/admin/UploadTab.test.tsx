@@ -475,9 +475,9 @@ describe("UploadTab", () => {
     const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
-    // Wait until staging finishes (Ready badge appears).
+    // Wait for the staged byte transfer to start (full + thumb both kicked off).
     await waitFor(() => {
-      expect(screen.getByText("Ready")).toBeInTheDocument();
+      expect(uploadBytesResumableMock).toHaveBeenCalledTimes(2);
     });
 
     deleteObjectMock.mockClear();
@@ -493,43 +493,38 @@ describe("UploadTab", () => {
     expect(setDocMock).not.toHaveBeenCalled();
   });
 
-  it("surfaces a Failed badge with retry when staging errors", async () => {
-    // First two uploadBytesResumable calls fail (full + thumb of first attempt),
-    // subsequent calls succeed.
-    let callIndex = 0;
-    uploadBytesResumableMock.mockImplementation(() => {
-      const idx = callIndex++;
-      return {
-        cancel: vi.fn(),
-        on: (
-          _event: string,
-          _onNext: (snapshot: { bytesTransferred: number; totalBytes: number }) => void,
-          onError: (err: unknown) => void,
-          onComplete: () => void,
-        ) => {
-          if (idx < 2) {
-            queueMicrotask(() => onError(new Error("network blip")));
-          } else {
-            queueMicrotask(() => onComplete());
-          }
-        },
-      };
-    });
+  it("surfaces stage errors in the Upload Progress panel after Upload click", async () => {
+    uploadBytesResumableMock.mockImplementation(() => ({
+      cancel: vi.fn(),
+      on: (
+        _event: string,
+        _onNext: (snapshot: { bytesTransferred: number; totalBytes: number }) => void,
+        onError: (err: unknown) => void,
+      ) => {
+        queueMicrotask(() => onError(new Error("network blip")));
+      },
+    }));
 
     render(<UploadTab />);
+
+    const dateInputs = getDateInputs();
+    fireEvent.change(dateInputs[0], { target: { value: "2024-09-15" } });
 
     const fileInput = getFileInput();
     const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(screen.getByText("Failed")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Upload Media" })).not.toBeDisabled();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Upload Media" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Ready")).toBeInTheDocument();
+      expect(screen.getByText("Upload failed")).toBeInTheDocument();
     });
+    expect(screen.getByText("No files were successfully uploaded")).toBeInTheDocument();
+    expect(setDocMock).not.toHaveBeenCalled();
+    expect(refreshGalleryMock).not.toHaveBeenCalled();
   });
 });
