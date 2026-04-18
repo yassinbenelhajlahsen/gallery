@@ -1,17 +1,13 @@
 import React from "react";
 import { useGallery } from "../context/GalleryContext";
 import { usePageReveal } from "../hooks/usePageReveal";
-import type { ImageMeta } from "../services/storageService";
 import type { MediaMeta } from "../types/mediaTypes";
 import MapView from "../components/map/MapView";
 import "../components/map/mapStyles.css";
 
-type GpsImage = ImageMeta & {
-  type: "image";
-  location: { lat: number; lng: number };
-};
+type LocatedMedia = MediaMeta & { location: { lat: number; lng: number } };
 
-const hasValidLocation = <T extends ImageMeta>(
+const hasValidLocation = <T extends MediaMeta>(
   m: T,
 ): m is T & { location: { lat: number; lng: number } } => {
   const loc = m.location;
@@ -29,16 +25,16 @@ const hasValidLocation = <T extends ImageMeta>(
 };
 
 const MapPage: React.FC = () => {
-  const { imageMetas, openModalWithMedia } = useGallery();
+  const { imageMetas, videoMetas, openModalWithMedia } = useGallery();
   const isVisible = usePageReveal();
 
-  const locatedItems = React.useMemo<GpsImage[]>(
-    () =>
-      imageMetas
-        .map((m) => ({ ...m, type: "image" as const }))
-        .filter(hasValidLocation),
-    [imageMetas],
-  );
+  const locatedItems = React.useMemo<LocatedMedia[]>(() => {
+    const images: MediaMeta[] = imageMetas.map((m) => ({
+      ...m,
+      type: "image" as const,
+    }));
+    return [...images, ...videoMetas].filter(hasValidLocation);
+  }, [imageMetas, videoMetas]);
 
   const handleClusterSelect = React.useCallback(
     (items: MediaMeta[], tapped: MediaMeta) => {

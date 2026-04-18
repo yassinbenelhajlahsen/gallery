@@ -113,7 +113,6 @@ describe("MapPage", () => {
       },
     ];
 
-    // Videos with locations should NOT be rendered — photos only for now.
     galleryState.videoMetas = [
       {
         id: "vid-located.mp4",
@@ -128,12 +127,12 @@ describe("MapPage", () => {
     openModalWithMediaMock.mockReset();
   });
 
-  it("renders only images with valid location (videos excluded)", () => {
+  it("renders images and videos with valid location", () => {
     render(<MapPage />);
-    expect(screen.getByTestId("pin-count").textContent).toBe("2");
+    expect(screen.getByTestId("pin-count").textContent).toBe("3");
     expect(
-      screen.queryByRole("button", { name: "pin-vid-located.mp4" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "pin-vid-located.mp4" }),
+    ).toBeInTheDocument();
   });
 
   it("opens modal with cluster items and the tapped id", () => {
@@ -147,6 +146,7 @@ describe("MapPage", () => {
     expect((mediaArg as Array<{ id: string }>).map((i) => i.id)).toEqual([
       "img-located.jpg",
       "img-located-2.jpg",
+      "vid-located.mp4",
     ]);
     expect(optionsArg).toEqual({
       imageId: "img-located.jpg",

@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.markercluster";
 import type { MediaMeta } from "../../types/mediaTypes";
-import { isVideoMeta } from "../../types/mediaTypes";
 
 type GpsItem = MediaMeta & { location: { lat: number; lng: number } };
 
@@ -16,12 +15,10 @@ const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &middot; &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-const buildPinIcon = (isVideo: boolean): L.DivIcon =>
+const buildPinIcon = (): L.DivIcon =>
   L.divIcon({
     className: "",
-    html: `<span class="gallery-pin ${
-      isVideo ? "gallery-pin--video" : ""
-    }" role="img" aria-label="${isVideo ? "Video" : "Photo"} location"><span class="gallery-pin__dot"></span></span>`,
+    html: `<span class="gallery-pin" role="img" aria-label="Photo location"><span class="gallery-pin__dot"></span></span>`,
     iconSize: [44, 44],
     iconAnchor: [22, 22],
   });
@@ -85,7 +82,7 @@ const ClusterLayer: React.FC<Props> = ({ items, onClusterSelect }) => {
 
     latestItems.current.forEach((item) => {
       const marker = L.marker([item.location.lat, item.location.lng], {
-        icon: buildPinIcon(isVideoMeta(item)),
+        icon: buildPinIcon(),
         keyboard: true,
         riseOnHover: true,
       });
