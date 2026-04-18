@@ -523,46 +523,85 @@ const ModalImage: React.FC<{
   );
 };
 
+// Poster image natural dimensions shared across ModalVideo mounts. The poster
+// is a frame extracted from the source video at upload time (see
+// uploadService.ts), so its aspect ratio always matches the video's. Caching
+// lets the <video> element render with the correct aspect-ratio on its very
+// first paint, which keeps the native controls overlay aligned with the
+// displayed video frame while the source is still buffering.
+const posterAspectCache = new Map<string, string>();
+
+const capturePosterAspect = (
+  img: HTMLImageElement | null,
+  posterUrl: string,
+) => {
+  if (!img || !posterUrl) return;
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (w > 0 && h > 0) posterAspectCache.set(posterUrl, `${w} / ${h}`);
+};
+
 const ModalVideo: React.FC<{
   isActive: boolean;
   objectUrl: string | null;
   posterUrl: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }> = ({ isActive, objectUrl, posterUrl, videoRef }) => {
-  // Preload poster to learn the video's aspect ratio before the <video>
-  // element mounts. Without this, the video element has no intrinsic
-  // dimensions until its metadata loads, so the browser-drawn native
-  // controls overlay is positioned on a default 300x150 box and visibly
-  // snaps into place once metadata arrives.
-  const [aspectRatio, setAspectRatio] = React.useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = React.useState<string | null>(
+    () => posterAspectCache.get(posterUrl) ?? null,
+  );
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    const cached = posterAspectCache.get(posterUrl);
+    if (cached) {
+      setAspectRatio(cached);
+      return;
+    }
     if (!posterUrl) {
       setAspectRatio(null);
       return;
     }
     let cancelled = false;
     const img = new Image();
-    const applyFromImg = () => {
+    const apply = () => {
       if (cancelled) return;
-      const w = img.naturalWidth;
-      const h = img.naturalHeight;
-      if (w > 0 && h > 0) setAspectRatio(`${w} / ${h}`);
+      capturePosterAspect(img, posterUrl);
+      const ar = posterAspectCache.get(posterUrl);
+      if (ar) setAspectRatio(ar);
     };
-    img.onload = applyFromImg;
+    img.onload = apply;
     img.src = posterUrl;
-    if (img.complete) applyFromImg();
-    return () => { cancelled = true; };
+    if (img.complete) apply();
+    return () => {
+      cancelled = true;
+    };
   }, [posterUrl]);
 
+  // When the aspect is known, size the element to match so `object-contain`
+  // never has to letterbox inside the element box. This keeps the native
+  // video controls overlay (which draws on the element's box, not on the
+  // letterboxed content) aligned with the visible frame.
+  const mediaSizeClass = aspectRatio
+    ? "max-w-full max-h-[60vh] rounded-[28px]"
+    : "w-full max-h-[60vh] rounded-[28px] object-contain";
   const aspectStyle = aspectRatio ? { aspectRatio } : undefined;
+
+  const captureRef = React.useCallback(
+    (img: HTMLImageElement | null) => {
+      if (img && img.complete) capturePosterAspect(img, posterUrl);
+    },
+    [posterUrl],
+  );
 
   if (!isActive) {
     return (
       <img
+        ref={captureRef}
+        onLoad={(e) => capturePosterAspect(e.currentTarget, posterUrl)}
         src={posterUrl}
         alt="Video thumbnail"
-        className="max-h-[60vh] w-full rounded-[28px] object-contain relative z-20"
+        className={`${mediaSizeClass} relative z-20 object-contain`}
+        style={aspectStyle}
         decoding="async"
         loading="lazy"
       />
@@ -571,11 +610,16 @@ const ModalVideo: React.FC<{
 
   if (!objectUrl) {
     return (
-      <div className="relative flex w-full items-center justify-center">
+      <div
+        className={`${mediaSizeClass} relative flex items-center justify-center`}
+        style={aspectStyle}
+      >
         <img
+          ref={captureRef}
+          onLoad={(e) => capturePosterAspect(e.currentTarget, posterUrl)}
           src={posterUrl}
           alt="Video thumbnail"
-          className="max-h-[60vh] w-full rounded-[28px] object-contain opacity-70 relative z-20"
+          className="h-full w-full rounded-[28px] object-contain opacity-70 relative z-20"
           decoding="async"
           loading="eager"
         />
@@ -606,7 +650,7 @@ const ModalVideo: React.FC<{
       autoPlay
       controls
       playsInline
-      className="max-h-[60vh] w-full rounded-[28px] object-contain relative z-30"
+      className={`${mediaSizeClass} relative z-30 object-contain`}
       style={aspectStyle}
     />
   );
