@@ -14,19 +14,21 @@ const NotFoundPage: React.FC = () => {
           className={`space-y-8 transition-all duration-400 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
         >
           <div className="space-y-3">
-            <span className="text-6xl" aria-hidden="true">
-              💔
-            </span>
-            <h1 className="text-5xl font-bold text-[#333]">404</h1>
+            <p className="text-xs uppercase tracking-[0.4em] text-[#999]">
+              Page not found
+            </p>
+            <h1 className="font-display text-8xl leading-[0.9] text-[#333]">
+              404
+            </h1>
             <p className="text-lg text-[#777]">{config.notFoundText}</p>
           </div>
 
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-[#FFE39F] via-[#FFB1C7] to-[#D8ECFF] px-8 py-3 text-lg font-semibold text-[#2c2c2c] shadow-lg shadow-[#ffe1b8]/60 transition-all duration-200 hover:scale-105 active:scale-95 touch-manipulation"
+            className="inline-flex items-center gap-2 border-b border-[#222] pb-1 text-base font-medium text-[#222] touch-manipulation active:opacity-60"
           >
-            <span aria-hidden="true">←</span>
             Go back home
+            <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>
