@@ -28,9 +28,6 @@ export const config = {
   /** Email used for Firebase Auth sign-in */
   authEmail: (env.VITE_AUTH_EMAIL as string) || "",
 
-  /** Toast shown when user logs out */
-  logoutToast: (env.VITE_LOGOUT_TOAST as string) || "Signed out",
-
   /** 404 page message */
   notFoundText:
     (env.VITE_NOT_FOUND_TEXT as string) || "This page doesn't exist.",

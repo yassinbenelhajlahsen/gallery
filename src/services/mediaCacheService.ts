@@ -265,7 +265,7 @@ export async function syncCache(
 }
 
 /**
- * Completely clear the cache (used on logout).
+ * Completely clear the cache (used on auth reset).
  */
 export async function clearCache(): Promise<void> {
   try {

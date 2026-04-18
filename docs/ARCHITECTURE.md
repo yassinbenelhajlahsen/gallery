@@ -145,7 +145,7 @@ Authenticated content pages render inside `MainLayout`, which provides:
 - `ScrollToTop`
 - `Navbar`
 - centered `<main>` container
-- `Footer` (admin entry + logout)
+- `Footer` (admin entry)
 
 ## Admin Module Split
 
@@ -183,7 +183,6 @@ VITE_BRAND_DISPLAY
 VITE_SITE_TITLE
 VITE_SITE_DESCRIPTION
 VITE_LOGIN_HEADING
-VITE_LOGOUT_TOAST
 VITE_NOT_FOUND_TEXT
 ```
 
@@ -232,4 +231,4 @@ videos/thumb/<basename>.jpg
 ## Agent-Critical Notes
 
 - Use direct Firebase module imports (`firebaseApp`, `firebaseAuth`, `firebaseFirestore`, `firebaseStorage`) for all new code.
-- `GalleryContext.resetState()` clears all gallery state on logout: images, videos, events, modal state, progress state, and IndexedDB cache.
+- `GalleryContext.resetState()` clears all gallery state when the user becomes unauthenticated: images, videos, events, modal state, progress state, and IndexedDB cache.

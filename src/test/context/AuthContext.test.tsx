@@ -4,12 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   subscribeToAuthChangesMock,
   signInWithPasswordMock,
-  signOutMock,
   authUser,
 } = vi.hoisted(() => ({
   subscribeToAuthChangesMock: vi.fn(),
   signInWithPasswordMock: vi.fn(),
-  signOutMock: vi.fn(),
   authUser: {
     current: null as { uid: string } | null,
   },
@@ -19,20 +17,18 @@ vi.mock("../../services/authService", () => ({
   authService: {
     subscribeToAuthChanges: subscribeToAuthChangesMock,
     signInWithPassword: signInWithPasswordMock,
-    signOut: signOutMock,
   },
 }));
 
 import { AuthProvider, useAuth } from "../../context/AuthContext";
 
 const Probe = () => {
-  const { user, initializing, login, logout } = useAuth();
+  const { user, initializing, login } = useAuth();
   return (
     <div>
       <span data-testid="uid">{user?.uid ?? "none"}</span>
       <span data-testid="initializing">{String(initializing)}</span>
       <button type="button" onClick={() => login("secret")}>login</button>
-      <button type="button" onClick={() => logout()}>logout</button>
     </div>
   );
 };
@@ -40,7 +36,6 @@ const Probe = () => {
 describe("AuthContext", () => {
   beforeEach(() => {
     signInWithPasswordMock.mockReset().mockResolvedValue(undefined);
-    signOutMock.mockReset().mockResolvedValue(undefined);
     subscribeToAuthChangesMock.mockReset().mockImplementation((cb) => {
       cb(authUser.current);
       return () => {};
@@ -51,7 +46,7 @@ describe("AuthContext", () => {
     expect(() => render(<Probe />)).toThrow("useAuth must be used within an AuthProvider");
   });
 
-  it("provides auth state and delegates login/logout", async () => {
+  it("provides auth state and delegates login", async () => {
     authUser.current = { uid: "owner-1" };
 
     render(
@@ -66,11 +61,9 @@ describe("AuthContext", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "login" }));
-    fireEvent.click(screen.getByRole("button", { name: "logout" }));
 
     await waitFor(() => {
       expect(signInWithPasswordMock).toHaveBeenCalledWith("secret");
-      expect(signOutMock).toHaveBeenCalledTimes(1);
     });
   });
 });

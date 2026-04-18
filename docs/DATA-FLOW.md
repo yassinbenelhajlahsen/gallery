@@ -59,7 +59,6 @@ Key rule: media metadata comes from Firestore docs, not Storage object custom me
 ### `authService.ts`
 
 - `signInWithPassword(password)` -> `signInWithEmailAndPassword(auth, config.authEmail, password)`
-- `signOut()`
 - `subscribeToAuthChanges(cb)`
 
 Use through `useAuth()` instead of calling Firebase Auth directly.
@@ -127,7 +126,6 @@ State:
 Actions:
 
 - `login(password)`
-- `logout()`
 
 ### `GalleryContext`
 
@@ -172,9 +170,9 @@ Helpers:
 
 If gallery fetch fails, `loadError` is set and the loading gate is still released to avoid lockup.
 
-### Logout/reset behavior
+### Reset behavior
 
-`resetState()` clears all gallery state:
+`resetState()` clears all gallery state when the user becomes unauthenticated:
 
 - clears images, videos, events, modal state, progress state
 - clears IndexedDB cache

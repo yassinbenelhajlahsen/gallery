@@ -88,12 +88,12 @@ Global setup file: `src/test/setup.ts`
 ### `src/test/context/AuthContext.test.tsx`
 
 - `useAuth` guard outside provider
-- provider state propagation + login/logout delegation
+- provider state propagation + login delegation
 
 ### `src/test/context/GalleryContext.test.tsx`
 
 - load/refresh flows for images/videos/events
-- auth reset behavior on user logout
+- auth reset behavior on user deauth
 - modal API contracts (`openModalWithImages`, `openModalWithMedia`, `openModalForImageId`)
 - cached thumb URL resolution behavior
 - error-path handling (`loadError`, video refresh fallback)
@@ -103,7 +103,6 @@ Global setup file: `src/test/setup.ts`
 - empty password validation
 - sign-in call wiring to configured auth email
 - auth state subscription delegation
-- sign-out delegation
 
 ### `src/test/services/eventsService.test.ts`
 

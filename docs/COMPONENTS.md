@@ -95,7 +95,6 @@ Current nav items:
 Includes:
 
 - `Admin` link -> `/admin?tab=upload`
-- `Logout` action via `useAuth().logout()` + toast
 
 ### `ScrollToTop`
 

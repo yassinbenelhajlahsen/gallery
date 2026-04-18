@@ -3,7 +3,6 @@ import type { Unsubscribe, User } from "firebase/auth";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signOut,
 } from "firebase/auth";
 import { auth } from "./firebaseAuth";
 import { config } from "../config";
@@ -27,6 +26,5 @@ function subscribeToAuthChanges(
 export const authService = {
   LOGIN_EMAIL,
   signInWithPassword,
-  signOut: async () => signOut(auth),
   subscribeToAuthChanges,
 };

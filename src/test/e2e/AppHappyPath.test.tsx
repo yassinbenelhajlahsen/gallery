@@ -15,7 +15,6 @@ const {
   syncFullResCacheMock,
   loadFullResUrlsFromCacheMock,
   signInWithPasswordMock,
-  signOutMock,
   authState,
 } = vi.hoisted(() => ({
   fetchEventsMock: vi.fn(),
@@ -31,7 +30,6 @@ const {
   syncFullResCacheMock: vi.fn(),
   loadFullResUrlsFromCacheMock: vi.fn(),
   signInWithPasswordMock: vi.fn(),
-  signOutMock: vi.fn(),
   authState: {
     user: { uid: "owner-1" } as { uid: string } | null,
   },
@@ -44,7 +42,6 @@ vi.mock("../../services/authService", () => ({
       return () => {};
     },
     signInWithPassword: signInWithPasswordMock,
-    signOut: signOutMock,
   },
   signInWithPassword: signInWithPasswordMock,
 }));

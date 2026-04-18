@@ -16,7 +16,6 @@ type AuthContextValue = {
   user: User | null;
   initializing: boolean;
   login: (password: string) => Promise<void>;
-  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -37,18 +36,13 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     await authService.signInWithPassword(password);
   }, []);
 
-  const logout = useCallback(async () => {
-    return authService.signOut();
-  }, []);
-
   const value = useMemo(
     () => ({
       user,
       initializing,
       login,
-      logout,
     }),
-    [user, initializing, login, logout],
+    [user, initializing, login],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

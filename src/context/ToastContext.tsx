@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import type { PropsWithChildren } from "react";
 
-type ToastVariant = "success" | "error" | "logout";
+type ToastVariant = "success" | "error";
 
 type Toast = {
   id: number;
@@ -33,7 +33,7 @@ export const ToastProvider = ({ children }: PropsWithChildren) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback(
-    (message: string, variant: ToastVariant = "logout") => {
+    (message: string, variant: ToastVariant = "success") => {
       const id = nextId++;
       setToasts((prev) => [...prev, { id, message, variant, leaving: false }]);
 
@@ -76,14 +76,11 @@ const variantStyles: Record<ToastVariant, string> = {
     "bg-white/90 border-[#c6f0c6] text-[#2d6a2d] shadow-[0_8px_30px_rgba(100,200,100,0.2)]",
   error:
     "bg-white/90 border-[#f5c6c6] text-[#8b2222] shadow-[0_8px_30px_rgba(200,100,100,0.2)]",
-  logout:
-    "bg-white/90 border-[#D8ECFF] text-[#333] shadow-[0_8px_30px_rgba(180,210,255,0.25)]",
 };
 
 const variantIcons: Record<ToastVariant, string> = {
   success: "✓",
   error: "✕",
-  logout: "👋",
 };
 
 const ToastContainer: React.FC<{ toasts: Toast[] }> = ({ toasts }) => {

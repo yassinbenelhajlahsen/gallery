@@ -3,17 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   onAuthStateChangedMock,
   signInWithEmailAndPasswordMock,
-  signOutMock,
 } = vi.hoisted(() => ({
   onAuthStateChangedMock: vi.fn(),
   signInWithEmailAndPasswordMock: vi.fn(),
-  signOutMock: vi.fn(),
 }));
 
 vi.mock("firebase/auth", () => ({
   onAuthStateChanged: onAuthStateChangedMock,
   signInWithEmailAndPassword: signInWithEmailAndPasswordMock,
-  signOut: signOutMock,
 }));
 
 vi.mock("../../services/firebaseAuth", () => ({
@@ -32,7 +29,6 @@ describe("authService", () => {
   beforeEach(() => {
     onAuthStateChangedMock.mockReset();
     signInWithEmailAndPasswordMock.mockReset();
-    signOutMock.mockReset();
   });
 
   it("rejects empty password before calling Firebase", async () => {
@@ -68,12 +64,4 @@ describe("authService", () => {
     expect(returned).toBe(unsubscribe);
   });
 
-  it("delegates signOut to Firebase auth instance", async () => {
-    signOutMock.mockResolvedValue(undefined);
-
-    await authService.signOut();
-
-    expect(signOutMock).toHaveBeenCalledTimes(1);
-    expect(signOutMock).toHaveBeenCalledWith({ mocked: true });
-  });
 });
