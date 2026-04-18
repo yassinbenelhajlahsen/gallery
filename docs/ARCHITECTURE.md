@@ -66,7 +66,8 @@ src/
 │   # UploadTab
 │   ├── useEventCreation.ts               # event-creation form state + submit
 │   ├── useUploadForm.ts                  # file picker + metadata/date/event state
-│   ├── useUploadOrchestrator.ts          # 3-way concurrent worker pool + real byte progress
+│   ├── useUploadStaging.ts               # pre-upload bytes on file add; abort + discard on remove
+│   ├── useUploadOrchestrator.ts          # on Upload click: await staging + commit Firestore docs
 │   # DeleteTab (+ TimelinePage for useMediaSearch)
 │   ├── useMediaSearch.ts                 # shared token-based search (images/videos/events)
 │   ├── useMetadataEditor.ts              # edit draft state + save (patches GalleryContext, no refetch)
@@ -184,7 +185,7 @@ Authenticated content pages render inside `MainLayout`, which provides:
 
 Feature-heavy components delegate their non-UI logic to hooks in `src/hooks/`:
 
-- `UploadTab` → `useEventCreation`, `useUploadForm`, `useUploadOrchestrator`
+- `UploadTab` → `useEventCreation`, `useUploadForm`, `useUploadStaging`, `useUploadOrchestrator`
 - `DeleteTab` → `useMediaSearch`, `useMetadataEditor`, `useDeleteConfirmation`
 - `mediaModalViewer` → `useCarouselNavigation`, `useModalViewportLock`, `useModalVideoManager`, `useFullResPreloader`, `useMediaSwipeGesture`
 - `TimelinePage` → `useMediaSearch` (shared with DeleteTab)
@@ -197,7 +198,7 @@ Components keep render/layout/wiring only; state, effects, and async orchestrati
 Admin UI and data operations are split across components and services:
 
 - `src/components/admin/UploadTab.tsx`: upload/event forms, progress UI, and orchestration.
-- `src/services/uploadService.ts`: media conversion/extraction helpers, Storage uploads, Firestore writes, and unique-name resolution.
+- `src/services/uploadService.ts`: media conversion/extraction helpers, **two-phase upload** (`stageImage` / `commitImage` / `discardStagedImage` and the video equivalents) so bytes can be pre-uploaded to Storage before the Firestore "publication" doc is written, plus unique-name resolution.
 - `src/components/admin/DeleteTab.tsx`: search/filter UI and delete/edit orchestration. Delete buttons use a two-step arm/confirm flow (first press arms and relabels to "Confirm?", second press within 3s deletes; auto-reverts otherwise) — no confirmation modal.
 - `src/components/ui/EditMetadataModal.tsx`: unified edit flow for date/event/title/emoji; for image/video drafts it embeds `LocationField` so the GPS pin is edited alongside the other metadata in one save.
 - `src/components/ui/LocationField.tsx`: search (Nominatim) + inline picker map + current/pending coord display + remove-pin control. Imports `LocationPickerMap` from `components/map/`.

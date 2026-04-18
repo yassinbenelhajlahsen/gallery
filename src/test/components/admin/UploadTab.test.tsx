@@ -21,6 +21,7 @@ const {
   uploadBytesResumableMock,
   getDownloadURLMock,
   getMetadataMock,
+  deleteObjectMock,
   toastMock,
   refreshEventsMock,
   refreshGalleryMock,
@@ -37,6 +38,7 @@ const {
   uploadBytesResumableMock: vi.fn(),
   getDownloadURLMock: vi.fn(),
   getMetadataMock: vi.fn(),
+  deleteObjectMock: vi.fn(),
   toastMock: vi.fn(),
   refreshEventsMock: vi.fn(),
   refreshGalleryMock: vi.fn(),
@@ -67,6 +69,7 @@ vi.mock("firebase/storage", () => ({
   uploadBytesResumable: uploadBytesResumableMock,
   getDownloadURL: getDownloadURLMock,
   getMetadata: getMetadataMock,
+  deleteObject: deleteObjectMock,
 }));
 
 vi.mock("../../../services/firebaseStorage", () => ({
@@ -220,6 +223,7 @@ describe("UploadTab", () => {
 
     refMock.mockReset().mockImplementation((_storage, path: string) => ({ path }));
     uploadBytesResumableMock.mockReset().mockImplementation(() => ({
+      cancel: vi.fn(),
       on: (
         _event: string,
         _onNext: (snapshot: { bytesTransferred: number; totalBytes: number }) => void,
@@ -240,6 +244,7 @@ describe("UploadTab", () => {
     getMetadataMock
       .mockReset()
       .mockRejectedValue({ code: "storage/object-not-found" });
+    deleteObjectMock.mockReset().mockResolvedValue(undefined);
 
     toastMock.mockReset();
     refreshEventsMock.mockReset().mockResolvedValue(undefined);
@@ -344,7 +349,7 @@ describe("UploadTab", () => {
     });
   });
 
-  it("uploads an image, writes Firestore metadata, and refreshes gallery", async () => {
+  it("pre-uploads bytes when files are added, then commits Firestore doc on Upload click", async () => {
     render(<UploadTab />);
 
     const dateInputs = getDateInputs();
@@ -358,7 +363,22 @@ describe("UploadTab", () => {
     const file = new File(["image-bytes"], "beach.png", { type: "image/png" });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
-    // Wait for per-file metadata reading to finish before clicking Upload.
+    // Bytes should be staged before the user even clicks Upload.
+    await waitFor(() => {
+      expect(uploadBytesResumableMock).toHaveBeenCalledWith(
+        { path: "images/full/beach.jpg" },
+        expect.any(Blob),
+        { contentType: "image/jpeg" },
+      );
+    });
+    expect(uploadBytesResumableMock).toHaveBeenCalledWith(
+      { path: "images/thumb/beach.jpg" },
+      expect.any(Blob),
+      { contentType: "image/jpeg" },
+    );
+    // No Firestore write yet — staging only uploads bytes.
+    expect(setDocMock).not.toHaveBeenCalled();
+
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Upload Media" })).not.toBeDisabled();
     });
@@ -368,17 +388,6 @@ describe("UploadTab", () => {
     await waitFor(() => {
       expect(setDocMock).toHaveBeenCalledTimes(1);
     });
-
-    expect(uploadBytesResumableMock).toHaveBeenCalledWith(
-      { path: "images/full/beach.jpg" },
-      expect.any(Blob),
-      { contentType: "image/jpeg" },
-    );
-    expect(uploadBytesResumableMock).toHaveBeenCalledWith(
-      { path: "images/thumb/beach.jpg" },
-      expect.any(Blob),
-      { contentType: "image/jpeg" },
-    );
 
     expect(setDocMock).toHaveBeenCalledWith(
       { collectionName: "images", id: "beach.jpg" },
@@ -435,7 +444,7 @@ describe("UploadTab", () => {
     );
   });
 
-  it("shows fatal upload error when every file fails metadata write", async () => {
+  it("shows fatal upload error when every file fails the commit write", async () => {
     setDocMock.mockRejectedValueOnce(new Error("firestore write failed"));
     render(<UploadTab />);
 
@@ -457,5 +466,70 @@ describe("UploadTab", () => {
     });
     expect(screen.getByText("No files were successfully uploaded")).toBeInTheDocument();
     expect(refreshGalleryMock).not.toHaveBeenCalled();
+  });
+
+  it("discards staged Storage blobs when the user removes a file before clicking Upload", async () => {
+    render(<UploadTab />);
+
+    const fileInput = getFileInput();
+    const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    // Wait until staging finishes (Ready badge appears).
+    await waitFor(() => {
+      expect(screen.getByText("Ready")).toBeInTheDocument();
+    });
+
+    deleteObjectMock.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove file" }));
+
+    await waitFor(() => {
+      expect(deleteObjectMock).toHaveBeenCalledTimes(2);
+    });
+    expect(deleteObjectMock).toHaveBeenCalledWith({ path: "images/full/beach.jpg" });
+    expect(deleteObjectMock).toHaveBeenCalledWith({ path: "images/thumb/beach.jpg" });
+    // No Firestore commit happened, so removing must not have published anything.
+    expect(setDocMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a Failed badge with retry when staging errors", async () => {
+    // First two uploadBytesResumable calls fail (full + thumb of first attempt),
+    // subsequent calls succeed.
+    let callIndex = 0;
+    uploadBytesResumableMock.mockImplementation(() => {
+      const idx = callIndex++;
+      return {
+        cancel: vi.fn(),
+        on: (
+          _event: string,
+          _onNext: (snapshot: { bytesTransferred: number; totalBytes: number }) => void,
+          onError: (err: unknown) => void,
+          onComplete: () => void,
+        ) => {
+          if (idx < 2) {
+            queueMicrotask(() => onError(new Error("network blip")));
+          } else {
+            queueMicrotask(() => onComplete());
+          }
+        },
+      };
+    });
+
+    render(<UploadTab />);
+
+    const fileInput = getFileInput();
+    const file = new File(["image-bytes"], "beach.jpg", { type: "image/jpeg" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Ready")).toBeInTheDocument();
+    });
   });
 });

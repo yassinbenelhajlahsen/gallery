@@ -67,14 +67,19 @@ Use `GalleryGrid` and compose tile data from context + `useFullResLoader`:
 
 ### Upload Media Programmatically
 
-Mirror `UploadTab` behavior:
+`src/services/uploadService.ts` exposes a **two-phase API** so callers can pre-upload bytes while the user is still filling out metadata (Instagram-style staging):
 
-1. Prefer `src/services/uploadService.ts` entrypoints (`uploadImageWithMetadata`, `uploadVideoWithMetadata`) instead of in-component Firebase logic. Both accept an optional `onProgress: (fraction: number) => void` callback that reports combined full+thumb byte progress via `uploadBytesResumable`.
-2. Generate/upload image full + thumb OR video + poster.
-3. Write Firestore metadata doc (`images` or `videos`) with storage paths and app metadata.
-4. Keep metadata in Firestore, not Storage custom metadata.
-5. For batch uploads, run a bounded worker pool (3 concurrent by default — see `useUploadOrchestrator`) rather than a sequential loop.
-6. Call `refreshGallery()` **once** after the whole batch completes — newly uploaded thumbs need the IndexedDB cache sync. Individual uploads don't need a refresh on their own.
+1. **Stage** (`stageImage(file, onProgress?, signal?)` / `stageVideo(...)`) — converts the source, resolves a unique storage name, and uploads bytes to Storage. Returns a `StagedImage` / `StagedVideo` handle. **Does not** write the Firestore "publication" doc. Pass an `AbortSignal` to cancel the in-flight resumable upload (`task.cancel()` is wired to `signal.abort()`).
+2. **Commit** (`commitImage(staged, date, eventName)` / `commitVideo(...)`) — writes the Firestore `images` / `videos` doc that publishes the staged blobs into the gallery. Cheap (single `setDoc`).
+3. **Discard** (`discardStagedImage(staged)` / `discardStagedVideo(staged)`) — best-effort `deleteObject` for both storage paths. Call this when the user removes a file from the draft before committing.
+
+Rules:
+
+- A file is "in the gallery" iff its Firestore doc exists. Bytes in Storage with no doc are orphans (invisible to the app) — fine to leave for occasional sweeps.
+- Keep metadata in Firestore, not Storage custom metadata.
+- Tab-close orphan handling: there is intentionally **no** `beforeunload` cleanup; orphans are accepted as a known cost. Sweep manually via Firebase console or a one-off script if they accumulate.
+- For batch flows in React, use `useUploadStaging(files)` — it owns the per-file staging lifecycle (start on add, abort + discard on remove, retry on error), and exposes `entries` for inline UI plus `commitAll(resolveDate, eventName)` for the Upload click handler.
+- Call `refreshGallery()` **once** after the whole `commitAll` resolves — newly uploaded thumbs need the IndexedDB cache sync. Individual commits don't need a refresh on their own.
 
 ### Delete or Edit Metadata Programmatically
 

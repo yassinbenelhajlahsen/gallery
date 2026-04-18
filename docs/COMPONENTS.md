@@ -233,7 +233,8 @@ Behavior:
 - Logic decomposition:
   - `useEventCreation` — new-event form state + `createTimelineEvent` call
   - `useUploadForm` — file picker, per-file metadata probe, date-source resolution, event selection
-  - `useUploadOrchestrator` — bounded concurrent worker pool (3 in-flight) pulling from a shared queue; per-file progress driven by real byte transfer via `uploadBytesResumable`
+  - `useUploadStaging` — owns the per-file pre-upload lifecycle (stage on add, abort + discard on remove, retry on error)
+  - `useUploadOrchestrator` — on Upload click, runs `staging.commitAll(...)` and surfaces the publish results
 
 Capabilities:
 
@@ -241,14 +242,15 @@ Capabilities:
 - event selection auto-filling date + event title
 - upload images and videos in one flow
 - date inference from first file metadata unless event date is selected
-- per-file progress: "Converting" (2%) → real byte-level "Uploading" (5–98%) → "Done" (100%). Status pills and progress bar use the app's pink/pastel palette (`#F7DEE2`, `#F3CED6`, `#E7F1EC`, `#FBE9D8`) — no emoji icons
+- **Pre-upload (Instagram-style)**: bytes are pushed to Storage as soon as a file is added to the draft, before the user picks date/event/label. Each file chip / table row shows an inline progress bar with `Uploading XX%` → `Ready` → `Failed` (with a `Retry` action). The Upload Media button is disabled until at least one file is `Ready`; clicking it writes the Firestore docs (`commitImage` / `commitVideo`) and is sub-100ms per file when staging already finished.
+- **File removal**: removing a file from the draft aborts the in-flight resumable upload and best-effort deletes any already-staged Storage blobs, so the gallery never sees them.
 - delegates upload/event create operations to `uploadService` helpers
 
-Upload pipeline:
+Upload pipeline (per file):
 
-- images: `convertToJpeg` + `generateThumbnail` -> upload to `images/full` + `images/thumb` (both via `uploadBytesResumable` for progress) -> write Firestore doc
-- videos: `extractVideoPoster` + duration extraction -> upload to `videos/full` + `videos/thumb` (both via `uploadBytesResumable`) -> write Firestore doc
-- combined full+thumb byte transfer is summed to a single 0–1 fraction and reported through the `onProgress` callback on the service entrypoints
+- images: `stageImage` (`convertToJpeg` + `generateThumbnail` + EXIF GPS read + parallel `uploadBytesResumable` of full/thumb) → on Upload click, `commitImage` (single Firestore `setDoc`)
+- videos: `stageVideo` (`extractVideoPoster` + duration + parallel `uploadBytesResumable` of video/poster) → on Upload click, `commitVideo`
+- combined full+thumb byte transfer is summed to a single 0–1 fraction and reported through the staging hook so the inline chip progress bar advances smoothly
 
 ### `DeleteTab`
 

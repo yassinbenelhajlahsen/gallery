@@ -92,16 +92,17 @@ Full-res cache behavior:
 
 ### `uploadService.ts`
 
-Admin upload pipeline logic used by `UploadTab`.
+Admin upload pipeline logic used by `UploadTab`. Exposes a **two-phase API** so callers can pre-upload bytes while the user is still filling out the form.
 
 Main responsibilities:
 
 - timeline event creation (`createTimelineEvent`)
-- image upload pipeline (`uploadImageWithMetadata`)
-- video upload pipeline (`uploadVideoWithMetadata`)
+- image staging + commit (`stageImage`, `commitImage`, `discardStagedImage`)
+- video staging + commit (`stageVideo`, `commitVideo`, `discardStagedVideo`)
 - media preprocessing helpers (image conversion/thumbnail, video poster extraction, duration normalization)
-- EXIF GPS extraction (`readGpsLocation`, via `exifr`) — runs on image upload and writes a validated `location: { lat, lng }` onto the Firestore doc when present
+- EXIF GPS extraction (`readGpsLocation`, via `exifr`) — runs during `stageImage` and is carried on the returned `StagedImage` until `commitImage` writes a validated `location: { lat, lng }` onto the Firestore doc
 - unique-name resolution against both Firestore docs and Storage object existence
+- abortable byte transfer: `stageImage` / `stageVideo` accept an optional `AbortSignal` that wires `signal.abort()` → `uploadBytesResumable` task `cancel()`
 
 ### `deleteService.ts`
 
@@ -240,12 +241,15 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 
 - component owns UI state/progress and delegates Firebase operations to `uploadService`
 - infers date from first selected file metadata (JPEG EXIF or QuickTime/MP4 `mvhd`) unless an event date is explicitly selected
-- images: convert to JPEG + generate 480px thumb, upload both, then write Firestore image doc
-- videos: generate poster + read duration, upload video/poster, then write Firestore video doc
+- **Two-phase upload (Instagram-style staging)**:
+  - **Stage on file add** — as soon as a file enters the draft, `useUploadStaging` kicks off `stageImage` / `stageVideo`, which converts (full + thumb / poster + duration), resolves a unique name, and uploads bytes to Storage. The Firestore "publication" doc is **not** written yet, so staged blobs are invisible to the gallery.
+  - **Commit on Upload click** — `useUploadOrchestrator` calls `staging.commitAll(resolveDate, eventName)`, which awaits any still-in-flight staging promises and writes the Firestore `images` / `videos` docs. For files where staging already finished, this is a single `setDoc` per file (sub-100ms).
+- **File removal lifecycle** — when a file is removed from the draft before commit, `useUploadStaging` aborts the in-flight resumable upload (`task.cancel()`) and best-effort `deleteObject`s any staged blobs. After successful commit, removed/cleared files are flagged `committed` and skip discard.
+- **Tab-close orphans** — intentionally not cleaned up. Bytes pre-uploaded but never committed remain in Storage with no Firestore doc; sweep manually if they accumulate.
+- **Per-file progress UI** — staging progress (0–100% byte transfer) renders inline on each file chip / table row via the `entries` map from `useUploadStaging`. The "Publish Progress" panel only appears during/after the Upload click and reflects commit results (not byte transfer).
+- **Stage failure** — surfaces a `Failed` badge with a `Retry` action on the chip; does not block other staged files from being committed.
 - resolves unique names to avoid collisions
-- **Concurrent uploads**: `useUploadOrchestrator` runs a bounded worker pool (3 concurrent) pulling from a shared queue instead of a sequential `for`-loop
-- **Real byte-level progress**: `uploadImageWithMetadata` / `uploadVideoWithMetadata` accept an `onProgress: (fraction: number) => void` callback and use `uploadBytesResumable`. The orchestrator combines full + thumb byte transfer into a single 0–1 fraction and maps it to a 5–98 % UI range (2 % while converting, 100 % on Firestore write). This replaces the old hardcoded 10 → 20 → 60 → 100 stepping that made the bar appear stuck at 60 %.
-- refreshes gallery once after the batch completes (needed to sync newly uploaded thumbs into IndexedDB)
+- refreshes gallery once after the batch commits (needed to sync newly uploaded thumbs into IndexedDB)
 
 ### Delete / Edit (`DeleteTab`)
 

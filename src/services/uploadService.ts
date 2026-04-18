@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import {
+  deleteObject,
   getDownloadURL,
   getMetadata,
   ref,
@@ -17,21 +18,57 @@ export type GpsLocation = { lat: number; lng: number };
 /** Reports upload progress as a fraction in [0, 1] covering the byte-transfer phase only. */
 export type UploadProgressCallback = (fraction: number) => void;
 
+export type StagedImage = {
+  jpgName: string;
+  fullPath: string;
+  thumbPath: string;
+  location: GpsLocation | null;
+};
+
+export type StagedVideo = {
+  videoId: string;
+  thumbName: string;
+  videoPath: string;
+  thumbPath: string;
+  durationSeconds: number;
+};
+
 function uploadBlobWithProgress(
   storageRef: StorageReference,
   data: Blob | File,
   metadata: UploadMetadata,
   onSnapshot: (transferred: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Upload aborted", "AbortError"));
+      return;
+    }
     const task = uploadBytesResumable(storageRef, data, metadata);
+    const onAbort = () => {
+      task.cancel();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
     task.on(
       "state_changed",
       (snapshot) => onSnapshot(snapshot.bytesTransferred, snapshot.totalBytes),
-      (error) => reject(error),
-      () => resolve(),
+      (error) => {
+        signal?.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+      () => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      },
     );
   });
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new DOMException("Upload aborted", "AbortError");
+  }
 }
 
 async function readGpsLocation(file: File): Promise<GpsLocation | null> {
@@ -321,84 +358,36 @@ export async function createTimelineEvent(
   await addDoc(collection(db, "events"), eventData);
 }
 
-export async function uploadVideoWithMetadata(
+/**
+ * Stage 1 of the two-phase upload: convert + resolve unique name + push bytes
+ * to Storage. The Firestore "publication" doc is NOT written here — call
+ * `commitImage` once the user confirms the upload, or `discardStagedImage` if
+ * the user removes the file from the draft.
+ */
+export async function stageImage(
   file: File,
-  date: string,
-  eventName: string,
   onProgress?: UploadProgressCallback,
-) {
-  const cleanName = file.name.replace(/\.[^.]+$/, "");
-  const ext = getVideoExtension(file);
-  if (!ext) {
-    throw new Error("Unsupported video format (only .mp4 and .mov)");
-  }
-
-  const { posterBlob, durationSeconds } = await extractVideoPoster(file);
-  const { videoId, thumbName } = await resolveUniqueVideoNames(cleanName, ext);
-
-  const fullRef = ref(storage, `videos/full/${videoId}`);
-  const thumbRef = ref(storage, `videos/thumb/${thumbName}`);
-
-  let fullXfer = 0;
-  let fullTotal = file.size;
-  let thumbXfer = 0;
-  let thumbTotal = posterBlob.size;
-  const report = () => {
-    const total = fullTotal + thumbTotal;
-    if (total <= 0) return;
-    onProgress?.(Math.min(1, (fullXfer + thumbXfer) / total));
-  };
-
-  await Promise.all([
-    uploadBlobWithProgress(fullRef, file, { contentType: file.type }, (x, t) => {
-      fullXfer = x;
-      fullTotal = t;
-      report();
-    }),
-    uploadBlobWithProgress(thumbRef, posterBlob, { contentType: "image/jpeg" }, (x, t) => {
-      thumbXfer = x;
-      thumbTotal = t;
-      report();
-    }),
-  ]);
-  onProgress?.(1);
-
-  const payload: Record<string, unknown> = {
-    id: videoId,
-    type: "video",
-    date,
-    videoPath: `videos/full/${videoId}`,
-    thumbPath: `videos/thumb/${thumbName}`,
-    durationSeconds,
-    createdAt: serverTimestamp(),
-  };
-  if (eventName.trim().length > 0) payload.event = eventName.trim();
-
-  await setDoc(doc(db, "videos", videoId), payload, { merge: true });
-  const url = await getDownloadURL(thumbRef).catch(() => "");
-
-  return { videoId, url };
-}
-
-export async function uploadImageWithMetadata(
-  file: File,
-  date: string,
-  eventName: string,
-  onProgress?: UploadProgressCallback,
-) {
+  signal?: AbortSignal,
+): Promise<StagedImage> {
   const cleanName = file.name.replace(/\.[^.]+$/, "");
   const [img, location] = await Promise.all([
     loadImage(file),
     readGpsLocation(file),
   ]);
+  throwIfAborted(signal);
   const [jpegBlob, thumbBlob] = await Promise.all([
     convertToJpeg(img),
     generateThumbnail(img),
   ]);
+  throwIfAborted(signal);
 
   const jpgName = await resolveUniqueImageName(cleanName);
-  const fullRef = ref(storage, `images/full/${jpgName}`);
-  const thumbRef = ref(storage, `images/thumb/${jpgName}`);
+  throwIfAborted(signal);
+
+  const fullPath = `images/full/${jpgName}`;
+  const thumbPath = `images/thumb/${jpgName}`;
+  const fullRef = ref(storage, fullPath);
+  const thumbRef = ref(storage, thumbPath);
 
   let fullXfer = 0;
   let fullTotal = jpegBlob.size;
@@ -411,32 +400,155 @@ export async function uploadImageWithMetadata(
   };
 
   await Promise.all([
-    uploadBlobWithProgress(fullRef, jpegBlob, { contentType: "image/jpeg" }, (x, t) => {
-      fullXfer = x;
-      fullTotal = t;
-      report();
-    }),
-    uploadBlobWithProgress(thumbRef, thumbBlob, { contentType: "image/jpeg" }, (x, t) => {
-      thumbXfer = x;
-      thumbTotal = t;
-      report();
-    }),
+    uploadBlobWithProgress(
+      fullRef,
+      jpegBlob,
+      { contentType: "image/jpeg" },
+      (x, t) => {
+        fullXfer = x;
+        fullTotal = t;
+        report();
+      },
+      signal,
+    ),
+    uploadBlobWithProgress(
+      thumbRef,
+      thumbBlob,
+      { contentType: "image/jpeg" },
+      (x, t) => {
+        thumbXfer = x;
+        thumbTotal = t;
+        report();
+      },
+      signal,
+    ),
   ]);
   onProgress?.(1);
 
+  return { jpgName, fullPath, thumbPath, location };
+}
+
+/**
+ * Stage 2: write the Firestore image doc that "publishes" a staged image into
+ * the gallery. Cheap (single write) — runs when the user clicks Upload.
+ */
+export async function commitImage(
+  staged: StagedImage,
+  date: string,
+  eventName: string,
+): Promise<{ jpgName: string; url: string }> {
   const payload: Record<string, unknown> = {
-    id: jpgName,
+    id: staged.jpgName,
     type: "image",
     date,
-    fullPath: `images/full/${jpgName}`,
-    thumbPath: `images/thumb/${jpgName}`,
+    fullPath: staged.fullPath,
+    thumbPath: staged.thumbPath,
     createdAt: serverTimestamp(),
   };
   if (eventName.trim().length > 0) payload.event = eventName.trim();
-  if (location) payload.location = location;
+  if (staged.location) payload.location = staged.location;
 
-  await setDoc(doc(db, "images", jpgName), payload, { merge: true });
-  const url = await getDownloadURL(fullRef).catch(() => "");
+  await setDoc(doc(db, "images", staged.jpgName), payload, { merge: true });
+  const url = await getDownloadURL(ref(storage, staged.fullPath)).catch(() => "");
+  return { jpgName: staged.jpgName, url };
+}
 
-  return { jpgName, url };
+/** Best-effort: delete staged Storage blobs when the user removes a file before committing. */
+export async function discardStagedImage(
+  staged: Pick<StagedImage, "fullPath" | "thumbPath">,
+): Promise<void> {
+  await Promise.all([
+    deleteObject(ref(storage, staged.fullPath)).catch(() => {}),
+    deleteObject(ref(storage, staged.thumbPath)).catch(() => {}),
+  ]);
+}
+
+export async function stageVideo(
+  file: File,
+  onProgress?: UploadProgressCallback,
+  signal?: AbortSignal,
+): Promise<StagedVideo> {
+  const cleanName = file.name.replace(/\.[^.]+$/, "");
+  const ext = getVideoExtension(file);
+  if (!ext) {
+    throw new Error("Unsupported video format (only .mp4 and .mov)");
+  }
+
+  const { posterBlob, durationSeconds } = await extractVideoPoster(file);
+  throwIfAborted(signal);
+  const { videoId, thumbName } = await resolveUniqueVideoNames(cleanName, ext);
+  throwIfAborted(signal);
+
+  const videoPath = `videos/full/${videoId}`;
+  const thumbPath = `videos/thumb/${thumbName}`;
+  const fullRef = ref(storage, videoPath);
+  const thumbRef = ref(storage, thumbPath);
+
+  let fullXfer = 0;
+  let fullTotal = file.size;
+  let thumbXfer = 0;
+  let thumbTotal = posterBlob.size;
+  const report = () => {
+    const total = fullTotal + thumbTotal;
+    if (total <= 0) return;
+    onProgress?.(Math.min(1, (fullXfer + thumbXfer) / total));
+  };
+
+  await Promise.all([
+    uploadBlobWithProgress(
+      fullRef,
+      file,
+      { contentType: file.type },
+      (x, t) => {
+        fullXfer = x;
+        fullTotal = t;
+        report();
+      },
+      signal,
+    ),
+    uploadBlobWithProgress(
+      thumbRef,
+      posterBlob,
+      { contentType: "image/jpeg" },
+      (x, t) => {
+        thumbXfer = x;
+        thumbTotal = t;
+        report();
+      },
+      signal,
+    ),
+  ]);
+  onProgress?.(1);
+
+  return { videoId, thumbName, videoPath, thumbPath, durationSeconds };
+}
+
+export async function commitVideo(
+  staged: StagedVideo,
+  date: string,
+  eventName: string,
+): Promise<{ videoId: string; url: string }> {
+  const payload: Record<string, unknown> = {
+    id: staged.videoId,
+    type: "video",
+    date,
+    videoPath: staged.videoPath,
+    thumbPath: staged.thumbPath,
+    durationSeconds: staged.durationSeconds,
+    createdAt: serverTimestamp(),
+  };
+  if (eventName.trim().length > 0) payload.event = eventName.trim();
+
+  await setDoc(doc(db, "videos", staged.videoId), payload, { merge: true });
+  const url = await getDownloadURL(ref(storage, staged.thumbPath)).catch(() => "");
+  return { videoId: staged.videoId, url };
+}
+
+export async function discardStagedVideo(
+  staged: Pick<StagedVideo, "videoPath" | "thumbPath">,
+): Promise<void> {
+  await Promise.all([
+    deleteObject(ref(storage, staged.videoPath)).catch(() => {}),
+    deleteObject(ref(storage, staged.thumbPath)).catch(() => {}),
+  ]);
 }
