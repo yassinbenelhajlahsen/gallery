@@ -110,7 +110,7 @@ Admin delete/edit pipeline logic used by `DeleteTab`.
 Main responsibilities:
 
 - metadata search/date normalization helpers used by delete/edit UI
-- media metadata update (`updateMediaMetadata`)
+- media metadata update (`updateMediaMetadata(kind, id, date, event, location?)`) — the optional `location` argument uses a three-state contract (`undefined` leaves unchanged, `null` clears, object sets) so a single `updateDoc` covers the date/event edit **and** the GPS edit in one write
 - timeline event metadata update with linked media propagation (`updateTimelineEventMetadata`)
 - media delete with Storage + Firestore cleanup (`deleteImageWithMetadata`, `deleteVideoWithMetadata`)
 - event delete with linked media `event` cleanup (`deleteEventWithLinkedMediaCleanup`)
@@ -222,6 +222,14 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
   - normalized title matching against media `event` field
 - opens mixed-media modal with `preloadAll: true`
 
+### Map
+
+- pulls `imageMetas` from `GalleryContext` and filters to items with a finite, in-range, non-zero `location`
+- photos-only for now (videos with `location` are ignored)
+- `MapView` wraps each item in a Leaflet marker managed by `leaflet.markercluster`; cluster children are tracked in a local `WeakMap<L.Marker, GpsItem>` so cluster taps can be resolved back to media
+- `maxClusterRadius: 30` keeps only tight groups collapsed; single pins stay visible at typical zooms
+- cluster tap → `openModalWithMedia(clusterItems, { imageId: newestId, preloadAll: true })`, mirroring Timeline's "tap event → modal with all event media" pattern
+
 ## Upload and Delete Flows
 
 ### Upload (`UploadTab`)
@@ -241,6 +249,7 @@ Global modal renderer (`GalleryModalRenderer`) reads modal state from `GalleryCo
 - media delete also removes ids from event `imageIds`
 - event delete clears linked media `event` field and deletes event doc
 - includes search across date/event/id tokens
+- **edit**: image/video rows open `EditMetadataModal`, which now embeds `LocationField` — date/event/location save in a single `updateMediaMetadata` call; the hook (`useMetadataEditor`) JSON-diffs `currentLocation` vs `pendingLocation` so unchanged location is passed as `undefined` and stays out of the write payload
 
 ## Memory and URL Lifecycle
 

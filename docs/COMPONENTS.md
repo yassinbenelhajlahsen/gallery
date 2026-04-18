@@ -90,12 +90,15 @@ Renders two separate structures:
 - **Desktop**: a `<header>` fixed at top. Transparent by default; transitions to a solid `#FAFAF7` background once `window.scrollY > 10px` (passive scroll listener).
 - **Mobile**: a bottom tab `<nav>` fixed at bottom. Always solid `#FAFAF7`.
 
-Current nav items:
+Current nav items (order matches the bottom tab bar):
 
 - `/timeline`
+- `/map`
 - `/photos`
 - `/videos`
 - plus home access (`/`) via brand link (desktop) and explicit mobile item
+
+Each item carries its own pastel active-state color (`#D8ECFF` timeline, `#CFE8E1` map, `#FFE39F` photos, `#F3D0D6` videos).
 
 ### `Footer`
 
@@ -115,6 +118,44 @@ Includes:
 
 - File: `src/components/ui/FloatingInput.tsx`
 - Purpose: reusable floating-label input with optional icons/slots and error display.
+
+### `LocationField`
+
+- File: `src/components/ui/LocationField.tsx`
+- Purpose: GPS picker field embedded inside `EditMetadataModal` for image/video drafts.
+
+Behavior:
+
+- Debounced (400ms, 3-char minimum) address search against Nominatim (`nominatim.openstreetmap.org/search`) — no API key. Results render as a dropdown; click or press Enter on the first to drop a pin.
+- Embeds `LocationPickerMap` (260px) — tap map to place the pin, drag the pin to fine-tune.
+- Shows `Current` (original) vs `Pending` (staged) coordinates below the map.
+- Exposes a `Remove pin` control when a pin exists.
+
+Props: `value`, `originalValue`, `onChange(location | null)`, `disabled`.
+
+### `MapView`
+
+- File: `src/components/map/MapView.tsx`
+- Purpose: map used by `/map` — clusters photo pins and routes cluster taps to the global modal.
+
+Behavior:
+
+- Leaflet `MapContainer` with CartoDB Positron tiles (free, attribution-only, cached by the PWA service worker under `map-tiles-cache`).
+- `leaflet.markercluster` wrapper with `zoomToBoundsOnClick: false` and `maxClusterRadius: 30` — tapping a cluster calls `onClusterSelect(clusterItems, firstNewest)` instead of zooming. Child items are retrieved via a local `WeakMap<L.Marker, GpsItem>`.
+- Cluster items are sorted newest-first for stable modal ordering.
+- `FitBounds` sub-component refits the view when the item set changes (signature-guarded to avoid refit loops).
+- Custom `DivIcon`s — mint dot for photos (`gallery-pin`) and a serif-numbered pill for clusters (`gallery-cluster`); styles live in `components/map/mapStyles.css`.
+
+### `LocationPickerMap`
+
+- File: `src/components/map/LocationPickerMap.tsx`
+- Purpose: single-pin picker used inside `LocationField`.
+
+Behavior:
+
+- Click map → set pin; drag pin → update.
+- Default center: Brooklyn (`40.63128, -73.97335`) at zoom 12 when no initial location; otherwise centers on the provided location.
+- `RecenterOnValue` sub-component pans the map whenever `value` changes from an external source (address search result).
 
 ### `ErrorBoundary` / `RouteErrorPage`
 
@@ -169,6 +210,15 @@ Includes:
 - Links media by union of explicit ids and normalized title matching
 - Opens mixed-media modal (`openModalWithMedia`) with `preloadAll: true`
 
+### `MapPage`
+
+- File: `src/pages/MapPage.tsx`
+- Pulls `imageMetas` from `GalleryContext` and filters to items with a valid `location` (finite lat/lng in range, not `0/0`).
+- Photos-only for now — videos with `location` are ignored; the filter function and scope are centralized for an easy toggle later.
+- Renders `MapView`; cluster/pin taps call `openModalWithMedia(items, { imageId, preloadAll: true })` (same pattern as Timeline event taps).
+- Empty state points users at EXIF upload or the `npm run backfill:gps` script.
+- Map container height scales to viewport with `svh`/`vh` and grows further in PWA standalone mode (`[@media(display-mode:standalone)]:h-[calc(100svh-180px)]`) so it feels full-screen when installed.
+
 ### `AdminPage`
 
 - File: `src/pages/AdminPage.tsx`
@@ -211,7 +261,7 @@ Upload pipeline:
 Capabilities:
 
 - search across images, videos, events
-- metadata editing via `EditMetadataModal`
+- metadata editing via `EditMetadataModal` — for image/video rows the modal includes `LocationField`, so date, event, and GPS location all save in one `updateMediaMetadata` call
 - confirmation modal delete flow (`Delete` -> modal `Confirm Delete`) via `src/components/ui/DeleteConfirmModal.tsx`
 - media delete removes Storage + Firestore metadata + event id references
 - event delete clears linked media `event` field and removes event doc

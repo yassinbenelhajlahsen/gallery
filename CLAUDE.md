@@ -15,8 +15,8 @@ CI trigger-ignores `docs/**` and `**/*.md`.
 
 ## Project Structure
 
-- `src/pages/` — route components (Login, Loading, Home, Photos, Videos, Timeline, Admin, NotFound)
-- `src/components/{admin,gallery,layout,timeline,ui}/`
+- `src/pages/` — route components (Login, Loading, Home, Photos, Videos, Timeline, Map, Admin, NotFound)
+- `src/components/{admin,gallery,layout,map,timeline,ui}/`
 - `src/context/` — `AuthContext`, `GalleryContext`, `ToastContext`
 - `src/services/` — Firebase wrappers: `authService`, `storageService`, `eventsService`, `mediaCacheService`, `uploadService`, `deleteService`
 - `src/hooks/`, `src/utils/`, `src/types/`, `src/config.ts`
@@ -29,6 +29,8 @@ CI trigger-ignores `docs/**` and `**/*.md`.
 - **IMPORTANT:** Local date parsing in `storageService`, pages, and `deleteService` is intentional. Do not "fix" it to UTC — it prevents timezone drift.
 - User-facing strings come from `src/config.ts` / `VITE_*` env vars. No hardcoded personal text.
 - Video uploads are extension-restricted to `.mp4` / `.mov` (`src/utils/uploadMediaUtils.ts`).
+- Mapping stack is Leaflet + `react-leaflet` + `leaflet.markercluster` with **no API keys**: CartoDB Positron for tiles and Nominatim for geocoding. Respect Nominatim's 1 req/sec fair-use cap (debounce ≥400ms, abort stale requests).
+- When rendering dropdowns/popovers next to a Leaflet map, wrap the map in an explicit stacking context (e.g. `z-0`). Leaflet's internal panes use z-indexes up to ~700 and will otherwise bleed over overlay UI.
 
 ## Reference Docs
 

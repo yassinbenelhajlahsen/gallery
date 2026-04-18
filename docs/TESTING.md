@@ -66,7 +66,9 @@ Global setup file: `src/test/setup.ts`
 - event delete path including linked media field cleanup
 - object-not-found tolerance for storage deletes
 - search filtering behavior
+- edit flow covers the (now location-aware) `EditMetadataModal` path
 - covers `DeleteTab` integration with `src/services/deleteService.ts`
+- mocks `components/ui/LocationField` to a no-op so Leaflet stays out of jsdom
 
 ### `src/test/components/gallery/mediaModalViewer.test.tsx`
 
@@ -152,6 +154,15 @@ Global setup file: `src/test/setup.ts`
 
 - mixed-media union/dedupe behavior for timeline events
 - modal open with `preloadAll` flow
+
+### `src/test/pages/MapPage.test.tsx`
+
+- renders only images with valid `location` (videos excluded)
+- rejects invalid GPS (0/0, out-of-range, NaN)
+- cluster tap opens modal with all cluster items + tapped id + `preloadAll: true`
+- single-pin tap opens modal with just that item
+- empty state when no photos have a location
+- `components/map/MapView` is mocked to a stub with buttons per item (Leaflet doesn't run in jsdom)
 
 ### `src/test/pages/VideosPage.test.tsx`
 

@@ -79,7 +79,7 @@ Mirror `UploadTab` behavior:
 
 Mirror `DeleteTab` behavior via `src/services/deleteService.ts`:
 
-1. For media metadata edits, use `updateMediaMetadata(...)`.
+1. For media metadata edits, use `updateMediaMetadata(kind, id, date, event, location?)`. The optional `location` argument follows a three-state contract: `undefined` leaves the field alone, `null` clears it, an object sets it. Diff against the original on the caller side (see `useMetadataEditor.saveEdit`) so untouched edits don't cause spurious writes.
 2. For timeline event edits, use `updateTimelineEventMetadata(...)` so linked media is updated on title changes.
 3. For destructive operations, use `deleteImageWithMetadata(...)`, `deleteVideoWithMetadata(...)`, or `deleteEventWithLinkedMediaCleanup(...)`.
 4. Refresh gallery/events after successful mutations (`refreshGallery`, `refreshEvents`).
@@ -133,3 +133,9 @@ Any `URL.createObjectURL` must be paired with revoke logic.
 ### Hardcoded personal strings
 
 Put user-visible strings behind `src/config.ts` / `VITE_*`.
+
+### Map & Geocoding
+
+- Map tiles come from CartoDB Positron (`https://{s}.basemaps.cartocdn.com/light_all/...`) — free, attribution-only, no API key. They are runtime-cached by the service worker under `map-tiles-cache` (see `vite.config.ts`).
+- Address search uses Nominatim (`nominatim.openstreetmap.org/search`) — no key, 1 req/sec fair-use cap. Always debounce (≥400ms) and abort stale requests with `AbortController`. If usage ever scales beyond a single admin, swap to a paid geocoder (Mapbox free tier) or self-host Nominatim.
+- Leaflet creates its own stacking context with panes in the 400–700 z-index range. When rendering overlays (popover menus, dropdowns) next to a map, wrap the map container in an element with an explicit `z-index` (e.g. `z-0`) so its panes can't beat sibling overlay content.

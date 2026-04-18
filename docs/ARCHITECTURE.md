@@ -10,7 +10,8 @@
 | Routing | `react-router-dom` v7 (`createBrowserRouter`) |
 | Styling | Tailwind CSS v4 (PostCSS plugin) |
 | Backend | Firebase Auth + Firestore + Storage |
-| Caching | IndexedDB via `mediaCacheService` |
+| Caching | IndexedDB via `mediaCacheService`; CartoDB map tiles via Workbox runtime cache |
+| Mapping | Leaflet + `react-leaflet` + `leaflet.markercluster` (CartoDB Positron tiles, Nominatim geocoding — no API keys) |
 | Build | Vite + TypeScript project references (`tsc -b`) |
 | Test | Vitest + Testing Library + jsdom |
 
@@ -35,13 +36,18 @@ src/
 │   │   ├── Navbar.tsx
 │   │   ├── Footer.tsx
 │   │   └── ScrollToTop.tsx
+│   ├── map/
+│   │   ├── MapView.tsx                   # Map tab — clustered pins + modal launch
+│   │   ├── LocationPickerMap.tsx         # single-pin picker (tap/drag) for EditMetadataModal
+│   │   └── mapStyles.css                 # Leaflet + markercluster imports + pin/cluster overrides
 │   ├── timeline/
 │   │   └── TimelineEventItem.tsx
 │   └── ui/
 │       ├── FloatingInput.tsx
 │       ├── DeleteConfirmModal.tsx
-│       ├── EditMetadataModal.tsx
-│       └── ErrorBoundary.tsx            # class ErrorBoundary + RouteErrorPage
+│       ├── EditMetadataModal.tsx         # hosts LocationField for image/video edits
+│       ├── LocationField.tsx             # search (Nominatim) + map picker + current/pending coords
+│       └── ErrorBoundary.tsx             # class ErrorBoundary + RouteErrorPage
 │
 ├── context/
 │   ├── AuthContext.tsx
@@ -79,6 +85,7 @@ src/
 │   ├── LoadingScreen.tsx
 │   ├── HomePage.tsx
 │   ├── TimelinePage.tsx
+│   ├── MapPage.tsx
 │   ├── PhotosPage.tsx
 │   ├── VideosPage.tsx
 │   ├── AdminPage.tsx
@@ -107,7 +114,7 @@ src/
     └── runtime.ts
 ```
 
-One-off admin/maintenance scripts live at the repo root under `scripts/` (e.g. `scripts/backfillGpsFromTakeout.ts`) and are not part of the Vite bundle.
+One-off admin/maintenance scripts live at the repo root under `scripts/` (e.g. `scripts/backfillGps.ts`) and are not part of the Vite bundle.
 
 ## Provider and Route Shell Hierarchy
 
@@ -153,6 +160,7 @@ Router is defined in `src/App.tsx`.
 | `/` | `RequireGalleryLoaded` + `MainLayout` | `HomePage` | Main landing page |
 | `/home` | `RequireGalleryLoaded` + `MainLayout` | `Navigate` -> `/` | Backward-compatible home alias |
 | `/timeline` | same as above | `TimelinePage` | Firestore events + mixed-media modal launch |
+| `/map` | same as above | `MapPage` | Clustered pins for photos with GPS; tap cluster opens modal with those items |
 | `/photos` | same as above | `PhotosPage` | Photos grouped by year/month |
 | `/videos` | same as above | `VideosPage` | Videos grouped by year/month |
 | `/admin` | same as above | `AdminPage` | Tab via query string (`?tab=upload|delete`) |
@@ -193,7 +201,9 @@ Admin UI and data operations are split across components and services:
 - `src/services/uploadService.ts`: media conversion/extraction helpers, Storage uploads, Firestore writes, and unique-name resolution.
 - `src/components/admin/DeleteTab.tsx`: search/filter UI and delete/edit orchestration.
 - `src/components/ui/DeleteConfirmModal.tsx`: reusable admin delete confirmation modal UI.
-- `src/services/deleteService.ts`: metadata update helpers, Storage deletes, Firestore deletes, and linked event/media cleanup.
+- `src/components/ui/EditMetadataModal.tsx`: unified edit flow for date/event/title/emoji; for image/video drafts it embeds `LocationField` so the GPS pin is edited alongside the other metadata in one save.
+- `src/components/ui/LocationField.tsx`: search (Nominatim) + inline picker map + current/pending coord display + remove-pin control. Imports `LocationPickerMap` from `components/map/`.
+- `src/services/deleteService.ts`: metadata update helpers (`updateMediaMetadata` takes an optional `location` arg — `undefined` = leave alone, `null` = clear, object = set), Storage deletes, Firestore deletes, and linked event/media cleanup.
 
 ## Environment Configuration
 
@@ -245,7 +255,7 @@ videos/thumb/<basename>.jpg
 - `type: "image"`
 - `date` (normalized to date-like string)
 - `event?`, `caption?`
-- `location?: { lat: number; lng: number }` (EXIF GPS, extracted on upload; see `uploadService.readGpsLocation`)
+- `location?: { lat: number; lng: number }` (EXIF GPS, extracted on upload via `uploadService.readGpsLocation`; also editable in the admin edit modal via `LocationField`)
 - `fullPath`, `thumbPath`
 - `createdAt`
 
@@ -255,7 +265,7 @@ videos/thumb/<basename>.jpg
 - `type: "video"`
 - `date`
 - `event?`, `caption?`
-- `location?: { lat: number; lng: number }` (populated by `scripts/backfillGpsFromTakeout.ts`; not extracted on upload)
+- `location?: { lat: number; lng: number }` (populated via admin edit or `scripts/backfillGps.ts`; not extracted on video upload — MP4/MOV GPS sits in container atoms that `exifr` cannot read, so the script shells out to `exiftool`)
 - `videoPath`, `thumbPath`
 - `durationSeconds?`
 - `createdAt`
