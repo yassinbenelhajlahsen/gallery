@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { ImageMeta, PreloadedImage } from "../services/storageService";
@@ -163,23 +164,30 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
   const [modalPreloadAll, setModalPreloadAll] = useState(false);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
 
+  // Keep refs in sync so the unmount-only cleanup below sees the latest state.
+  // The cleanup must NOT be tied to these state values as deps — otherwise React
+  // would revoke every blob URL on each change, including ones the next render
+  // still references (breaks all tiles after a single delete).
+  const preloadedImagesRef = useRef(preloadedImages);
+  const videoThumbUrlsRef = useRef(videoThumbUrls);
+  const fullResBlobUrlsRef = useRef(fullResBlobUrls);
   useEffect(() => {
-    return () => {
-      releasePreloadedUrls(preloadedImages);
-    };
+    preloadedImagesRef.current = preloadedImages;
   }, [preloadedImages]);
-
   useEffect(() => {
-    return () => {
-      releaseCachedUrlMap(videoThumbUrls);
-    };
+    videoThumbUrlsRef.current = videoThumbUrls;
   }, [videoThumbUrls]);
+  useEffect(() => {
+    fullResBlobUrlsRef.current = fullResBlobUrls;
+  }, [fullResBlobUrls]);
 
   useEffect(() => {
     return () => {
-      releaseCachedUrlMap(fullResBlobUrls);
+      releasePreloadedUrls(preloadedImagesRef.current);
+      releaseCachedUrlMap(videoThumbUrlsRef.current);
+      releaseCachedUrlMap(fullResBlobUrlsRef.current);
     };
-  }, [fullResBlobUrls]);
+  }, []);
 
   const warmFullResCache = useCallback(
     async (
