@@ -40,7 +40,8 @@ src/
 │   └── ui/
 │       ├── FloatingInput.tsx
 │       ├── DeleteConfirmModal.tsx
-│       └── EditMetadataModal.tsx
+│       ├── EditMetadataModal.tsx
+│       └── ErrorBoundary.tsx            # class ErrorBoundary + RouteErrorPage
 │
 ├── context/
 │   ├── AuthContext.tsx
@@ -106,6 +107,8 @@ src/
     └── runtime.ts
 ```
 
+One-off admin/maintenance scripts live at the repo root under `scripts/` (e.g. `scripts/backfillGpsFromTakeout.ts`) and are not part of the Vite bundle.
+
 ## Provider and Route Shell Hierarchy
 
 `App.tsx` mounts only global app wrappers:
@@ -114,7 +117,9 @@ src/
 <AuthProvider>
   <ToastProvider>
     <AppBackdrop>
-      <RouterProvider />
+      <ErrorBoundary>
+        <RouterProvider />
+      </ErrorBoundary>
     </AppBackdrop>
   </ToastProvider>
 </AuthProvider>
@@ -240,6 +245,7 @@ videos/thumb/<basename>.jpg
 - `type: "image"`
 - `date` (normalized to date-like string)
 - `event?`, `caption?`
+- `location?: { lat: number; lng: number }` (EXIF GPS, extracted on upload; see `uploadService.readGpsLocation`)
 - `fullPath`, `thumbPath`
 - `createdAt`
 
@@ -249,6 +255,7 @@ videos/thumb/<basename>.jpg
 - `type: "video"`
 - `date`
 - `event?`, `caption?`
+- `location?: { lat: number; lng: number }` (populated by `scripts/backfillGpsFromTakeout.ts`; not extracted on upload)
 - `videoPath`, `thumbPath`
 - `durationSeconds?`
 - `createdAt`

@@ -100,6 +100,7 @@ Main responsibilities:
 - image upload pipeline (`uploadImageWithMetadata`)
 - video upload pipeline (`uploadVideoWithMetadata`)
 - media preprocessing helpers (image conversion/thumbnail, video poster extraction, duration normalization)
+- EXIF GPS extraction (`readGpsLocation`, via `exifr`) — runs on image upload and writes a validated `location: { lat, lng }` onto the Firestore doc when present
 - unique-name resolution against both Firestore docs and Storage object existence
 
 ### `deleteService.ts`

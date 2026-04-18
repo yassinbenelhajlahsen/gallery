@@ -116,6 +116,12 @@ Includes:
 - File: `src/components/ui/FloatingInput.tsx`
 - Purpose: reusable floating-label input with optional icons/slots and error display.
 
+### `ErrorBoundary` / `RouteErrorPage`
+
+- File: `src/components/ui/ErrorBoundary.tsx`
+- `ErrorBoundary`: React class boundary catching render/runtime errors. Mounted once in `src/App.tsx` wrapping `<RouterProvider>` so it catches failures outside React Router's own error flow.
+- `RouteErrorPage`: functional component wired as `errorElement` on the authenticated shell route in `src/App.tsx`. Reads `useRouteError()` and renders a recoverable fallback for loader/action errors.
+
 ## Pages
 
 ### `LoginPage`
