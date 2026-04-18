@@ -28,6 +28,25 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: "Map",
+    to: "/map",
+    activeClass: "bg-[#CFE8E1]",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        className="w-5 h-5"
+      >
+        <path d="M12 3c-3.3 0-6 2.6-6 5.8 0 4.3 6 12.2 6 12.2s6-7.9 6-12.2C18 5.6 15.3 3 12 3z" />
+        <circle cx="12" cy="9" r="2.2" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
     label: "Photos",
     to: "/photos",
     activeClass: "bg-[#FFE39F]",

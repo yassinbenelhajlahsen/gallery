@@ -1,12 +1,15 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { FloatingInput } from "./FloatingInput";
+import LocationField from "./LocationField";
 
 export type MediaEditDraft = {
   kind: "image" | "video";
   id: string;
   date: string;
   event: string;
+  currentLocation: { lat: number; lng: number } | null;
+  pendingLocation: { lat: number; lng: number } | null;
   caption?: string;
 };
 
@@ -90,14 +93,14 @@ export default function EditMetadataModal({
           role="dialog"
           aria-modal="true"
           aria-label="Edit metadata"
-          className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#f1d8df] bg-white shadow-[0_35px_90px_rgba(53,18,34,0.34)]"
+          className="relative flex max-h-[92svh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[#f1d8df] bg-white shadow-[0_35px_90px_rgba(53,18,34,0.34)]"
           style={{
             animation:
               "modalCardReveal 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) forwards",
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="border-b border-[#f5e1e7] bg-linear-to-r from-[#fff6f9] via-[#fffefe] to-[#fff2f6] px-5 py-4 sm:px-6">
+          <div className="shrink-0 border-b border-[#f5e1e7] bg-linear-to-r from-[#fff6f9] via-[#fffefe] to-[#fff2f6] px-5 py-4 sm:px-6">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <span className="inline-flex items-center rounded-full bg-[#F7DEE2] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7b4658]">
@@ -111,7 +114,7 @@ export default function EditMetadataModal({
             </div>
           </div>
 
-          <div className="space-y-3 px-5 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
             <FloatingInput
               id="edit-meta-date"
               type="date"
@@ -168,11 +171,17 @@ export default function EditMetadataModal({
                   borderColor={PINK_BORDER}
                   labelColor={PINK_LABEL}
                 />
+                <LocationField
+                  value={draft.pendingLocation}
+                  originalValue={draft.currentLocation}
+                  onChange={(loc) => onChange({ ...draft, pendingLocation: loc })}
+                  disabled={isSaving}
+                />
               </>
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-[#f5e1e7] bg-[#fffbfc] px-5 py-4 sm:px-6">
+          <div className="shrink-0 flex items-center justify-end gap-2 border-t border-[#f5e1e7] bg-[#fffbfc] px-5 py-4 sm:px-6">
             <button
               type="button"
               disabled={isSaving}

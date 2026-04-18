@@ -14,13 +14,45 @@ export function useMetadataEditor() {
   const { refreshGallery, refreshEvents } = useGallery();
   const { toast } = useToast();
 
-  const openImageEditor = useCallback((id: string, date: string, event?: string) => {
-    setEditDraft({ kind: "image", id, date: toDateInputValue(date), event: event ?? "" });
-  }, []);
+  const openImageEditor = useCallback(
+    (
+      id: string,
+      date: string,
+      event?: string,
+      location?: { lat: number; lng: number } | null,
+    ) => {
+      const current = location ?? null;
+      setEditDraft({
+        kind: "image",
+        id,
+        date: toDateInputValue(date),
+        event: event ?? "",
+        currentLocation: current,
+        pendingLocation: current,
+      });
+    },
+    [],
+  );
 
-  const openVideoEditor = useCallback((id: string, date: string, event?: string) => {
-    setEditDraft({ kind: "video", id, date: toDateInputValue(date), event: event ?? "" });
-  }, []);
+  const openVideoEditor = useCallback(
+    (
+      id: string,
+      date: string,
+      event?: string,
+      location?: { lat: number; lng: number } | null,
+    ) => {
+      const current = location ?? null;
+      setEditDraft({
+        kind: "video",
+        id,
+        date: toDateInputValue(date),
+        event: event ?? "",
+        currentLocation: current,
+        pendingLocation: current,
+      });
+    },
+    [],
+  );
 
   const openEventEditor = useCallback(
     (id: string, date: string, title: string, emojiOrDot?: string, mediaIds?: string[]) => {
@@ -67,7 +99,16 @@ export function useMetadataEditor() {
           mediaIds: draft.mediaIds,
         });
       } else {
-        await updateMediaMetadata(draft.kind, draft.id, draft.date, draft.event);
+        const locationChanged =
+          JSON.stringify(draft.currentLocation) !==
+          JSON.stringify(draft.pendingLocation);
+        await updateMediaMetadata(
+          draft.kind,
+          draft.id,
+          draft.date,
+          draft.event,
+          locationChanged ? draft.pendingLocation : undefined,
+        );
       }
 
       await refreshGallery();

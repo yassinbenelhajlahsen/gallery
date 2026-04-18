@@ -1,0 +1,126 @@
+@import "leaflet/dist/leaflet.css";
+@import "leaflet.markercluster/dist/MarkerCluster.css";
+
+.gallery-map-container {
+  background: #f1ece3;
+  font-family: inherit;
+}
+
+.gallery-map-container .leaflet-control-attribution {
+  background: rgba(250, 250, 247, 0.78);
+  font-size: 10px;
+  color: #666;
+  padding: 2px 6px;
+  font-family: inherit;
+}
+
+.gallery-map-container .leaflet-control-attribution a {
+  color: #222;
+}
+
+.gallery-map-container .leaflet-control-zoom {
+  border: none;
+  box-shadow: 0 1px 2px rgba(34, 34, 34, 0.12);
+}
+
+.gallery-map-container .leaflet-control-zoom a {
+  background: #fafaf7;
+  color: #222;
+  border-color: #e4ded1;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.gallery-map-container .leaflet-control-zoom a:hover {
+  background: #cfe8e1;
+}
+
+/* Custom single-media pin */
+.gallery-pin {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.gallery-pin__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #FBDCE7;
+  border: 2px solid #222;
+  box-shadow: 0 2px 6px rgba(34, 34, 34, 0.18);
+  transition: transform 160ms ease-out;
+}
+
+.gallery-pin:hover .gallery-pin__dot,
+.gallery-pin:focus-visible .gallery-pin__dot {
+  transform: scale(1.15);
+}
+
+.gallery-pin--video .gallery-pin__dot {
+  background: #f3d0d6;
+}
+
+/* Cluster bubble */
+.gallery-cluster {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.gallery-cluster__bubble {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #FBDCE7;
+  border: 2px solid #222;
+  color: #222;
+  font-family: "Instrument Serif", serif;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(34, 34, 34, 0.2);
+  transition: transform 160ms ease-out;
+}
+
+.gallery-cluster:hover .gallery-cluster__bubble,
+.gallery-cluster:focus-visible .gallery-cluster__bubble {
+  transform: scale(1.08);
+}
+
+.gallery-cluster--lg .gallery-cluster__bubble {
+  min-width: 48px;
+  height: 46px;
+  font-size: 24px;
+}
+
+/* Popup card used when a single marker is tapped so the modal context can
+   default to "just this item". Not currently used — we go straight to modal. */
+.gallery-map-container .leaflet-popup-content-wrapper {
+  border-radius: 6px;
+  border: 1px solid #222;
+  background: #fafaf7;
+  box-shadow: 0 10px 30px rgba(34, 34, 34, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-pin__dot,
+  .gallery-cluster__bubble {
+    transition: none;
+  }
+}

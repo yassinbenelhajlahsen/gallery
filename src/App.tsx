@@ -12,6 +12,7 @@ import LoadingScreen from "./pages/LoadingScreen";
 import HomePage from "./pages/HomePage";
 import TimelinePage from "./pages/TimelinePage";
 import PhotosPage from "./pages/PhotosPage";
+import MapPage from "./pages/MapPage";
 import VideosPage from "./pages/VideosPage";
 import AdminPage from "./pages/AdminPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -172,6 +173,7 @@ const router = createBrowserRouter([
           { index: true, element: <HomePage /> },
           { path: "home", element: <Navigate to="/" replace /> },
           { path: "timeline", element: <TimelinePage /> },
+          { path: "map", element: <MapPage /> },
           { path: "photos", element: <PhotosPage /> },
           { path: "admin", element: <AdminPage />, },
           { path: "videos", element: <VideosPage /> },

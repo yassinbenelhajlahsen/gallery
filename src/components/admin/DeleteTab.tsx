@@ -93,7 +93,14 @@ export default function DeleteTab() {
                     <button
                       type="button"
                       disabled={Boolean(deleteOps.busyKey) || metaEditor.isSavingEdit}
-                      onClick={() => metaEditor.openImageEditor(meta.id, meta.date, meta.event)}
+                      onClick={() =>
+                        metaEditor.openImageEditor(
+                          meta.id,
+                          meta.date,
+                          meta.event,
+                          meta.location,
+                        )
+                      }
                       className="w-full cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       Edit
@@ -168,7 +175,14 @@ export default function DeleteTab() {
                     <button
                       type="button"
                       disabled={Boolean(deleteOps.busyKey) || metaEditor.isSavingEdit}
-                      onClick={() => metaEditor.openVideoEditor(meta.id, meta.date, meta.event)}
+                      onClick={() =>
+                        metaEditor.openVideoEditor(
+                          meta.id,
+                          meta.date,
+                          meta.event,
+                          meta.location,
+                        )
+                      }
                       className="w-full cursor-pointer rounded-full bg-[#ececec] px-3 py-1.5 text-xs font-semibold text-[#4f4f4f] transition hover:bg-[#e0e0e0] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                       Edit

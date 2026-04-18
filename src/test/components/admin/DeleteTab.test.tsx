@@ -91,6 +91,13 @@ vi.mock("../../../context/ToastContext", () => ({
   useToast: () => ({ toast: toastMock }),
 }));
 
+// Leaflet doesn't run in jsdom — replace LocationField (inside the edit
+// modal for images/videos) with a no-op stub.
+vi.mock("../../../components/ui/LocationField", () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 vi.mock("../../../context/GalleryContext", () => ({
   useGallery: () => ({
     imageMetas: galleryState.imageMetas,

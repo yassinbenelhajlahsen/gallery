@@ -49,6 +49,17 @@ export default defineConfig(({ mode }) => {
               },
             },
           },
+          {
+            urlPattern: /^https:\/\/[a-z]\.basemaps\.cartocdn\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "map-tiles-cache",
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
         ],
       },
     }),

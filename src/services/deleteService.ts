@@ -217,13 +217,21 @@ export const updateMediaMetadata = async (
   id: string,
   date: string,
   event: string,
+  // undefined = leave the field unchanged; null = clear it; object = set it.
+  location?: { lat: number; lng: number } | null,
 ) => {
   const collectionName = mediaKind === "image" ? "images" : "videos";
   const eventValue = event.trim();
-  await updateDoc(doc(db, collectionName, id), {
+  const update: Record<string, unknown> = {
     date,
     event: eventValue.length > 0 ? eventValue : null,
-  });
+  };
+  if (location !== undefined) {
+    update.location = location
+      ? { lat: location.lat, lng: location.lng }
+      : null;
+  }
+  await updateDoc(doc(db, collectionName, id), update);
 };
 
 export const updateTimelineEventMetadata = async ({
