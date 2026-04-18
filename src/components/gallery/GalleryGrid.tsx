@@ -97,24 +97,9 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
       ? formatDurationSeconds(tile.durationSeconds)
       : null;
 
-  // Wait for decode() before revealing the image. `onLoad` fires when bytes
-  // are fetched but the pixels may not be rasterized yet — opacity fading
-  // from 0→100 during that gap leaves a blank/white frame, most visible on
-  // full-res JPEGs which decode slower than thumbnails.
-  const awaitDecode = (
-    img: HTMLImageElement,
-    setLoaded: (v: boolean) => void,
-  ) => {
-    img
-      .decode()
-      .then(() => setLoaded(true))
-      .catch(() => setLoaded(true));
-  };
-
   const thumbRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0)
-        awaitDecode(img, setThumbLoaded);
+      if (img && img.complete && img.naturalWidth > 0) setThumbLoaded(true);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tile.url],
@@ -122,8 +107,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
   const fullRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0)
-        awaitDecode(img, setFullLoaded);
+      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tile.fullUrl],
@@ -154,7 +138,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             }`}
             decoding="async"
             loading="lazy"
-            onLoad={(e) => awaitDecode(e.currentTarget, setThumbLoaded)}
+            onLoad={() => setThumbLoaded(true)}
             onError={() => setHasError(true)}
           />
         )}
@@ -169,7 +153,7 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             } transition-opacity duration-200`}
             decoding="async"
             loading="lazy"
-            onLoad={(e) => awaitDecode(e.currentTarget, setFullLoaded)}
+            onLoad={() => setFullLoaded(true)}
             onError={skipThumb ? () => setHasError(true) : undefined}
           />
         )}

@@ -442,23 +442,9 @@ const ModalImage: React.FC<{
     setFullLoaded(false);
   }, [currentFullSrc]);
 
-  // Wait for decode() before revealing — opacity fading from 0→100 before
-  // the pixels are rasterized leaves a blank/white frame, most visible on
-  // full-res JPEGs which decode slower than thumbnails.
-  const awaitDecode = (
-    img: HTMLImageElement,
-    setLoaded: (v: boolean) => void,
-  ) => {
-    img
-      .decode()
-      .then(() => setLoaded(true))
-      .catch(() => setLoaded(true));
-  };
-
   const thumbImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0)
-        awaitDecode(img, setThumbLoaded);
+      if (img && img.complete && img.naturalWidth > 0) setThumbLoaded(true);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [thumbSrc],
@@ -466,8 +452,7 @@ const ModalImage: React.FC<{
 
   const fullImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0)
-        awaitDecode(img, setFullLoaded);
+      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentFullSrc],
@@ -502,7 +487,7 @@ const ModalImage: React.FC<{
           className={`max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${thumbLoaded ? "opacity-100" : "opacity-0"}`}
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
-          onLoad={(e) => awaitDecode(e.currentTarget, setThumbLoaded)}
+          onLoad={() => setThumbLoaded(true)}
         />
       )}
       {isFullRes && currentFullSrc && (
@@ -513,7 +498,7 @@ const ModalImage: React.FC<{
           className={`${skipThumb ? "" : "absolute inset-0"} max-h-[60vh] w-full rounded-[28px] object-contain ${isActive ? "kenburns-active" : ""} ${fullLoaded ? "opacity-100" : "opacity-0"} transition-opacity duration-200`}
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
-          onLoad={(e) => awaitDecode(e.currentTarget, setFullLoaded)}
+          onLoad={() => setFullLoaded(true)}
         />
       )}
     </div>
