@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "npm run lint && npm run test && npm run build",
-    "backfill:gps": "tsx scripts/backfillGpsFromTakeout.ts"
+    "backfill:gps": "tsx scripts/backfillGps.ts"
   },
   "dependencies": {
     "exifr": "^7.1.3",
