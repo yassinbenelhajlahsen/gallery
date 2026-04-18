@@ -432,14 +432,20 @@ const ModalImage: React.FC<{
 
   const [thumbLoaded, setThumbLoaded] = React.useState(false);
   const [fullLoaded, setFullLoaded] = React.useState(false);
+  // Mirror of the grid tile: keep the spinner up until the full-res opacity
+  // transition actually completes, so the semi-opaque fade doesn't reveal the
+  // dark modal backdrop mid-transition.
+  const [fullRevealed, setFullRevealed] = React.useState(false);
 
   React.useEffect(() => {
     setThumbLoaded(false);
     setFullLoaded(false);
+    setFullRevealed(false);
   }, [thumbSrc]);
 
   React.useEffect(() => {
     setFullLoaded(false);
+    setFullRevealed(false);
   }, [currentFullSrc]);
 
   const thumbImgRef = React.useCallback(
@@ -452,13 +458,16 @@ const ModalImage: React.FC<{
 
   const fullImgRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0) {
+        setFullLoaded(true);
+        setFullRevealed(true);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentFullSrc],
   );
 
-  const showSpinner = skipThumb ? !fullLoaded : !thumbLoaded;
+  const showSpinner = skipThumb ? !fullRevealed : !thumbLoaded;
   const actualThumbSrc = skipThumb ? undefined : (thumbSrc ?? (isFullRes ? undefined : src));
   return (
     <div className="relative flex w-full items-center justify-center">
@@ -499,6 +508,11 @@ const ModalImage: React.FC<{
           loading={isActive ? "eager" : "lazy"}
           decoding="async"
           onLoad={() => setFullLoaded(true)}
+          onTransitionEnd={(e) => {
+            if (e.propertyName === "opacity" && fullLoaded) {
+              setFullRevealed(true);
+            }
+          }}
         />
       )}
     </div>

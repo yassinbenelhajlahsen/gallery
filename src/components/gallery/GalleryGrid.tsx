@@ -89,6 +89,11 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
   const [thumbLoaded, setThumbLoaded] = React.useState(false);
   const [fullLoaded, setFullLoaded] = React.useState(false);
+  // Track when the fade-in opacity transition has completed — we keep the
+  // skeleton painted beneath until then so the half-opaque img never reveals
+  // the button's bg-white/80 as a white flash during the 200ms fade.
+  const [thumbRevealed, setThumbRevealed] = React.useState(false);
+  const [fullRevealed, setFullRevealed] = React.useState(false);
   const [hasError, setHasError] = React.useState(false);
 
   const isVideo = tile.mediaType === "video";
@@ -99,7 +104,12 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
   const thumbRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setThumbLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0) {
+        setThumbLoaded(true);
+        // Already-cached images render at opacity-100 on first paint, so
+        // transitionend never fires — mark revealed synchronously.
+        setThumbRevealed(true);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tile.url],
@@ -107,13 +117,16 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
 
   const fullRef = React.useCallback(
     (img: HTMLImageElement | null) => {
-      if (img && img.complete && img.naturalWidth > 0) setFullLoaded(true);
+      if (img && img.complete && img.naturalWidth > 0) {
+        setFullLoaded(true);
+        setFullRevealed(true);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tile.fullUrl],
   );
 
-  const showSkeleton = skipThumb ? !fullLoaded : !thumbLoaded;
+  const showSkeleton = skipThumb ? !fullRevealed : !thumbRevealed;
 
   return (
     <button
@@ -139,6 +152,11 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             decoding="async"
             loading="lazy"
             onLoad={() => setThumbLoaded(true)}
+            onTransitionEnd={(e) => {
+              if (e.propertyName === "opacity" && thumbLoaded) {
+                setThumbRevealed(true);
+              }
+            }}
             onError={() => setHasError(true)}
           />
         )}
@@ -154,6 +172,11 @@ const TileItem: React.FC<{ tile: GalleryGridTile }> = ({ tile }) => {
             decoding="async"
             loading="lazy"
             onLoad={() => setFullLoaded(true)}
+            onTransitionEnd={(e) => {
+              if (e.propertyName === "opacity" && fullLoaded) {
+                setFullRevealed(true);
+              }
+            }}
             onError={skipThumb ? () => setHasError(true) : undefined}
           />
         )}
