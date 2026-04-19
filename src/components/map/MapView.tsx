@@ -12,8 +12,6 @@ type Props = {
 };
 
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &middot; &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 const buildPinIcon = (): L.DivIcon =>
   L.divIcon({
@@ -132,13 +130,12 @@ const MapView: React.FC<Props> = ({ items, onClusterSelect }) => {
       maxZoom={18}
       scrollWheelZoom
       zoomControl
-      attributionControl
+      attributionControl={false}
       worldCopyJump
       className="gallery-map-container h-full w-full"
     >
       <TileLayer
         url={TILE_URL}
-        attribution={TILE_ATTRIBUTION}
         subdomains={["a", "b", "c", "d"]}
         crossOrigin="anonymous"
       />
