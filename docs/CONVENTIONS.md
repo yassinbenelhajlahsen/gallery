@@ -144,4 +144,5 @@ Put user-visible strings behind `src/config.ts` / `VITE_*`.
 
 - Map tiles come from CartoDB Positron (`https://{s}.basemaps.cartocdn.com/light_all/...`) — free, attribution-only, no API key. They are runtime-cached by the service worker under `map-tiles-cache` (see `vite.config.ts`).
 - Address search uses Nominatim (`nominatim.openstreetmap.org/search`) — no key, 1 req/sec fair-use cap. Always debounce (≥400ms) and abort stale requests with `AbortController`. If usage ever scales beyond a single admin, swap to a paid geocoder (Mapbox free tier) or self-host Nominatim.
+- Reverse-geocode results from `useReverseGeocode` are persisted in the `geocodes` object store of `gallery-cache` (30-day TTL). On boot, `GalleryContext` fires `warmGeocodeCache` for every geo-tagged image + video so the modal renders place names synchronously on first open after a reload.
 - Leaflet creates its own stacking context with panes in the 400–700 z-index range. When rendering overlays (popover menus, dropdowns) next to a map, wrap the map container in an element with an explicit `z-index` (e.g. `z-0`) so its panes can't beat sibling overlay content.

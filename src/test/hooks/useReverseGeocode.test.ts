@@ -1,7 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { __testing, useReverseGeocode } from "../../hooks/useReverseGeocode";
+import {
+  __testing,
+  useReverseGeocode,
+  warmGeocodeCache,
+} from "../../hooks/useReverseGeocode";
 
 const jsonResponse = (data: unknown, ok = true) =>
   ({
@@ -193,6 +197,52 @@ describe("useReverseGeocode", () => {
       useReverseGeocode({ lat: 40.7163, lng: -74.0086 }, true),
     );
     expect(revisit.result.current.placeName).toBe("TriBeCa, Manhattan");
+  });
+
+  describe("warmGeocodeCache", () => {
+    it("fetches uncached coords and dedupes identical keys", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse({
+          address: { neighbourhood: "DUMBO", borough: "Brooklyn" },
+        }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const warmPromise = warmGeocodeCache([
+        { lat: 40.7033, lng: -73.9881 },
+        { lat: 40.70332, lng: -73.98812 },
+      ]);
+
+      await flushQueueAndFetch();
+      await warmPromise;
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      const { result } = renderHook(() =>
+        useReverseGeocode({ lat: 40.7033, lng: -73.9881 }, true),
+      );
+      expect(result.current.placeName).toBe("DUMBO, Brooklyn");
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it("aborts iteration when isCancelled returns true", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse({
+          address: { neighbourhood: "DUMBO", borough: "Brooklyn" },
+        }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      await warmGeocodeCache(
+        [
+          { lat: 1, lng: 2 },
+          { lat: 3, lng: 4 },
+        ],
+        { isCancelled: () => true },
+      );
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   it("dedupes concurrent requests for the same coord", async () => {

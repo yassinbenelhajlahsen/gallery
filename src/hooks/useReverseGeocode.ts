@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import {
+  loadAllGeocodes,
+  saveGeocode,
+} from "../services/mediaCacheService";
 
 type Location = { lat: number; lng: number };
 
@@ -38,6 +42,14 @@ const REQUEST_SPACING_MS = 1000;
 const cache = new Map<string, string | null>();
 const inflight = new Map<string, Promise<string | null>>();
 let queueTail: Promise<void> = Promise.resolve();
+
+let hydrated: Promise<void> = loadAllGeocodes()
+  .then((records) => {
+    for (const [key, record] of records) {
+      if (!cache.has(key)) cache.set(key, record.placeName);
+    }
+  })
+  .catch(() => undefined);
 
 const keyFor = (loc: Location) => `${loc.lat.toFixed(4)}|${loc.lng.toFixed(4)}`;
 
@@ -93,6 +105,7 @@ function ensurePlaceName(loc: Location): Promise<string | null> {
       const data = (await res.json()) as NominatimReverseResult;
       const placeName = formatPlace(data);
       cache.set(key, placeName);
+      void saveGeocode(key, placeName);
       return placeName;
     } catch {
       cache.set(key, null);
@@ -116,9 +129,35 @@ export const __testing = {
     cache.clear();
     inflight.clear();
     queueTail = Promise.resolve();
+    hydrated = Promise.resolve();
   },
   formatPlace,
 };
+
+/**
+ * Pre-fetch and persist geocode results for a batch of coords. Fire-and-forget
+ * from callers (e.g. GalleryContext on boot). Respects Nominatim's 1 req/sec
+ * cap via the shared queueTail, and skips coords already in the cache.
+ */
+export async function warmGeocodeCache(
+  locations: Array<Location>,
+  options?: { isCancelled?: () => boolean },
+): Promise<void> {
+  await hydrated;
+  const seen = new Set<string>();
+  for (const loc of locations) {
+    if (options?.isCancelled?.()) return;
+    const key = keyFor(loc);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (cache.has(key)) continue;
+    try {
+      await ensurePlaceName(loc);
+    } catch {
+      // swallow — ensurePlaceName already caches null on failure
+    }
+  }
+}
 
 export function useReverseGeocode(
   location: Location | null | undefined,
@@ -135,13 +174,18 @@ export function useReverseGeocode(
 
   useEffect(() => {
     if (!key || lat === undefined || lng === undefined) return;
-    if (cache.has(key)) return;
 
     let cancelled = false;
-    ensurePlaceName({ lat, lng }).then(() => {
+
+    // Kick off the fetch regardless of component unmount — the result is
+    // cached globally and benefits future renders. Only the state update is
+    // gated by `cancelled`.
+    (async () => {
+      if (!cache.has(key)) await hydrated;
+      if (!cache.has(key)) await ensurePlaceName({ lat, lng });
       if (cancelled) return;
       bumpCacheVersion((n) => n + 1);
-    });
+    })();
 
     return () => {
       cancelled = true;

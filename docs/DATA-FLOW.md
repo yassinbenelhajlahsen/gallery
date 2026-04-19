@@ -72,6 +72,7 @@ Stores:
 - `image-blobs`: image thumb blobs keyed by image id, and video thumb blobs keyed by `video:<id>`
 - `meta`: manifest under key `manifest` (`ImageMeta[]`)
 - `fullres-blobs`: full-resolution image blobs keyed by image id, capped at 500 MB (see below)
+- `geocodes`: reverse-geocode results keyed by `"lat|lng"` (4-decimal), values `{ placeName, cachedAt }`, 30-day TTL
 
 Main APIs:
 
@@ -81,7 +82,8 @@ Main APIs:
 - `loadVideoThumbUrlsFromCache(videoMetas)` -> object URL map for cached video posters
 - `syncFullResCache(freshMetas, options?)` -> warm full-res blobs newest-first within `FULLRES_BUDGET_BYTES` (500 MB), evicting entries that are stale or fall outside the budget
 - `loadFullResUrlsFromCache(metas)` -> object URL map for cached full-res blobs (only ids with a cached blob appear)
-- `clearCache()` -> wipe all three object stores
+- `loadGeocode(key)` / `saveGeocode(key, placeName)` / `loadAllGeocodes()` -> reverse-geocode persistence (30-day TTL via `GEOCODE_TTL_MS`); used by `useReverseGeocode` to hydrate in-memory cache on module load and persist Nominatim results across reloads
+- `clearCache()` -> wipe all four object stores
 
 Full-res cache behavior:
 
@@ -173,6 +175,7 @@ Helpers:
 8. Load cached video poster URLs.
 9. Sync video thumb cache, then rehydrate poster URL map.
 10. Mark loading complete.
+11. Fire-and-forget `warmGeocodeCache` with every image + video coord so reverse-geocode results are persisted to IndexedDB before the modal is opened (respects Nominatim's 1 req/sec cap via the shared queue).
 
 If gallery fetch fails, `loadError` is set and the loading gate is still released to avoid lockup.
 

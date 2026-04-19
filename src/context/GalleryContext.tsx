@@ -28,6 +28,7 @@ import {
   syncFullResCache,
   loadFullResUrlsFromCache,
 } from "../services/mediaCacheService";
+import { warmGeocodeCache } from "../hooks/useReverseGeocode";
 import { useAuth } from "./AuthContext";
 
 type OpenModalOptions = {
@@ -357,8 +358,10 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         }
 
         // ── Phase 4: Await video metadata (already in-flight since Phase 2) ──
+        let videoMetasForWarming: VideoMeta[] = [];
         try {
           const freshVideoMetas = await videoMetasFetch;
+          videoMetasForWarming = freshVideoMetas;
           if (cancelled) return;
           setVideoMetas(freshVideoMetas);
           setIsVideoMetadataReady(true);
@@ -407,6 +410,17 @@ export const GalleryProvider = ({ children }: PropsWithChildren) => {
         await waitForReadinessGates(coldPathThumbUrls);
         if (cancelled) return;
         setHasGalleryLoadedOnce(true);
+
+        // Warm reverse-geocode cache in the background so the media modal
+        // can render place names synchronously on first open. Fire-and-forget.
+        const geocodeTargets = [...freshMetas, ...videoMetasForWarming]
+          .map((m) => m.location)
+          .filter((l): l is { lat: number; lng: number } => !!l);
+        if (geocodeTargets.length) {
+          void warmGeocodeCache(geocodeTargets, {
+            isCancelled: () => cancelled,
+          });
+        }
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load gallery", error);

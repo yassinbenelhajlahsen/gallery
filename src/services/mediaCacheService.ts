@@ -25,14 +25,18 @@ import type { ImageMeta, PreloadedImage } from "./storageService";
 import type { VideoMeta } from "../types/mediaTypes";
 
 const DB_NAME = "gallery-cache";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const BLOB_STORE = "image-blobs";
 const META_STORE = "meta";
 const FULLRES_STORE = "fullres-blobs";
+const GEOCODE_STORE = "geocodes";
 const MANIFEST_KEY = "manifest";
 const VIDEO_MANIFEST_KEY = "video-manifest";
 
 export const FULLRES_BUDGET_BYTES = 500 * 1024 * 1024;
+export const GEOCODE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export type GeocodeRecord = { placeName: string | null; cachedAt: number };
 
 const videoKey = (id: string) => `video:${id}`;
 
@@ -52,6 +56,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(FULLRES_STORE)) {
         db.createObjectStore(FULLRES_STORE); // keyed by ImageMeta.id
+      }
+      if (!db.objectStoreNames.contains(GEOCODE_STORE)) {
+        db.createObjectStore(GEOCODE_STORE); // keyed by "lat|lng" coord key
       }
     };
 
@@ -282,6 +289,7 @@ export async function clearCache(): Promise<void> {
     await clearStore(BLOB_STORE);
     await clearStore(META_STORE);
     await clearStore(FULLRES_STORE);
+    await clearStore(GEOCODE_STORE);
 
     db.close();
   } catch (err) {
@@ -387,6 +395,85 @@ export async function loadVideoThumbUrlsFromCache(
     videoMetas.map((meta) => ({ id: meta.id, key: videoKey(meta.id) })),
     BLOB_STORE,
   );
+}
+
+/* ─── reverse-geocode cache ────────────────────────────── */
+
+/**
+ * Load a single geocode record. Returns null for missing entries OR entries
+ * older than GEOCODE_TTL_MS (the caller should re-fetch in that case).
+ */
+export async function loadGeocode(
+  key: string,
+): Promise<GeocodeRecord | null> {
+  try {
+    const db = await openDB();
+    const record = await idbGet<GeocodeRecord>(db, GEOCODE_STORE, key);
+    db.close();
+    if (!record) return null;
+    if (Date.now() - record.cachedAt > GEOCODE_TTL_MS) return null;
+    return record;
+  } catch (err) {
+    console.warn("[GeocodeCache] Failed to load entry:", err);
+    return null;
+  }
+}
+
+/**
+ * Persist a geocode result. Null placeName is valid — it means Nominatim
+ * returned nothing useful for that coord; cache it so we don't retry.
+ */
+export async function saveGeocode(
+  key: string,
+  placeName: string | null,
+): Promise<void> {
+  try {
+    const db = await openDB();
+    await idbPut(db, GEOCODE_STORE, key, {
+      placeName,
+      cachedAt: Date.now(),
+    } satisfies GeocodeRecord);
+    db.close();
+  } catch (err) {
+    console.warn("[GeocodeCache] Failed to save entry:", err);
+  }
+}
+
+/**
+ * Bulk-load every non-expired geocode record. Used once on boot to hydrate
+ * the in-memory cache in useReverseGeocode.
+ */
+export async function loadAllGeocodes(): Promise<Map<string, GeocodeRecord>> {
+  const out = new Map<string, GeocodeRecord>();
+  try {
+    const db = await openDB();
+    const records = await new Promise<Map<string, GeocodeRecord>>(
+      (resolve, reject) => {
+        const tx = db.transaction(GEOCODE_STORE, "readonly");
+        const req = tx.objectStore(GEOCODE_STORE).openCursor();
+        const acc = new Map<string, GeocodeRecord>();
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (cursor) {
+            acc.set(String(cursor.key), cursor.value as GeocodeRecord);
+            cursor.continue();
+          } else {
+            resolve(acc);
+          }
+        };
+        req.onerror = () => reject(req.error);
+      },
+    );
+    db.close();
+
+    const now = Date.now();
+    for (const [key, record] of records) {
+      if (now - record.cachedAt <= GEOCODE_TTL_MS) out.set(key, record);
+    }
+  } catch (err) {
+    console.warn("[GeocodeCache] Failed to load all entries:", err);
+  }
+  return out;
 }
 
 /* ─── full-resolution cache ────────────────────────────── */

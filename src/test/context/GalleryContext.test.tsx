@@ -56,6 +56,9 @@ vi.mock("../../services/mediaCacheService", () => ({
   loadVideoThumbUrlsFromCache: loadVideoThumbUrlsFromCacheMock,
   syncFullResCache: syncFullResCacheMock,
   loadFullResUrlsFromCache: loadFullResUrlsFromCacheMock,
+  loadAllGeocodes: vi.fn().mockResolvedValue(new Map()),
+  saveGeocode: vi.fn().mockResolvedValue(undefined),
+  loadGeocode: vi.fn().mockResolvedValue(null),
 }));
 
 import { GalleryProvider, useGallery } from "../../context/GalleryContext";
