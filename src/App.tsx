@@ -49,7 +49,7 @@ const MainLayout = () => {
       <ScrollToTop />
       <Navbar />
       <main
-        className="relative z-10 flex-1 px-4 pb-24 sm:pt-5 sm:pb-10"
+        className="relative z-10 flex-1 px-4 pb-20 sm:pt-5 sm:pb-10"
         style={{
           paddingTop: "max(0.75rem, calc(0.25rem + env(safe-area-inset-top)))",
         }}
